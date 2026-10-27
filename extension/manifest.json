@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Questionize",
+  "version": "0.1.0",
+  "description": "Turn the article you're reading into verified GMAT/LSAT-style reasoning questions.",
+  "action": {
+    "default_title": "Questionize this page",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["sidePanel", "scripting", "storage", "contextMenus", "activeTab"],
+  "host_permissions": ["<all_urls>"]
+}
