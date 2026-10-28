@@ -3,6 +3,8 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 
 vi.mock("../api", () => ({
+  api: { getConfig: async () => ({ facebook_app_id: null }) },
+  useToken: () => undefined,
   withDevice: async (call: (api: unknown) => unknown) =>
     call({
       getMe: async () => ({

@@ -24,7 +24,7 @@ This document defines that model. `ARCHITECTURE.md` covers the services that run
 2. **Hypotheses until evidenced.** Anything inferred by a model starts as a hypothesis with a confidence. It advances only through independent corroboration, expert review, or learner evidence (§5). The model is allowed to be wrong; it is not allowed to hide how sure it is.
 3. **A neutral core with crosswalks at the edge.** Competencies sit on one developmental level scale. National curricula, grade systems, language frameworks and exams map onto that scale; none of them is the scale.
 4. **Cognition, not just content.** Every misconception names its mechanism: a gap in knowledge, an over-generalized rule, a salience bias, working-memory overload. The same mechanism shows up across subjects, and naming it is what makes teaching transferable.
-5. **Versioned, attributed, open.** Every node is versioned, every change has an author (human or agent), and the published model is licensed CC BY-SA 4.0. Numeric data derived from it (aggregate evidence, judge measurements) is released under CC0 so other open datasets can absorb it.
+5. **Versioned, attributed, open to learn from.** Every node is versioned, every change has an author (human or agent), and the published model's descriptive content is licensed CC BY-NC-SA 4.0 (CC BY-SA 4.0 for content published before 2026-10-29). Numeric data derived from it (aggregate evidence, calibration, judge measurements) is not openly licensed.
 6. **Multilingual by design.** Canonical text is stored per language. Nodes that only exist in one language (a Korean particle rule, an English article rule) are tagged with that language; cross-language transfer errors are first-class misconceptions.
 
 ## 2. Level scale
@@ -238,7 +238,7 @@ For any source, including a scanned page:
 |---|---|---|
 | Purpose | Accumulate and validate what is worth learning and how to teach and assess it | Diagnose and grow each learner |
 | Holds | Competencies, misconceptions, trap patterns, blueprints, strategies, evidence | Attempts, ratings, trap profiles, roadmaps, rankings, games |
-| Data | Shared asset: descriptive content CC BY-SA, numeric data CC0 | Personal, private |
+| Data | Shared asset: descriptive content CC BY-NC-SA; numeric data not openly licensed | Personal, private |
 | Receives | Anonymous, aggregated evidence only | Blueprints and items |
 
 The knowledge domain never sees an individual learner. Evidence crosses the boundary only as aggregates over enough learners that no one can be singled out. In Rails the two live in separate namespaces (`Knowledge::`, `Learning::`) and talk through that interface, so the knowledge domain can later be published or hosted on its own.

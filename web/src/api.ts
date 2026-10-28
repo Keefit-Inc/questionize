@@ -45,3 +45,15 @@ export async function withDevice<T>(call: (client: ApiClient) => Promise<T>): Pr
     return call(await ensureDevice());
   }
 }
+
+/** Use another account's token from now on (after signing in), or forget it (sign out). */
+export function useToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+  registering = null;
+  if (token) api.setToken(token);
+}

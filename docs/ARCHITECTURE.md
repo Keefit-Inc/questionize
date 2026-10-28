@@ -235,6 +235,16 @@ A review produces a new `ItemVersion`. Attempts stay linked to the version they 
 
 `GET /q/:publicId` is rendered by Rails with Open Graph / Twitter card tags (stem preview, family, "x % answered correctly"), then mounts the Vue question component. The card image is rendered from an SVG template by `RenderShareImageJob` (ruby-vips) and cached in object storage.
 
+### 5.7 Sign-in
+
+Every client starts as an anonymous device user (`POST /api/v1/devices`). Facebook Login links a Facebook account to that user so review lists, analyses and ratings follow the learner across devices:
+
+1. The web app reads the public app id from `GET /api/v1/config` and opens the Facebook Login dialog (JavaScript SDK, `public_profile,email`).
+2. `POST /api/v1/auth/facebook {access_token}`: Rails checks the token with the Graph API (`debug_token` with the app token: valid and issued to our app; `/me` with `appsecret_proof`), then links the identity to the current user, or, if the Facebook account already belongs to another user, returns that user's token and moves the device's snapped questions and review list over. Only the Facebook user id, name and email are kept; never the access token.
+3. Facebook's data deletion callback (`POST /api/v1/auth/facebook/data_deletion`, a signed request verified with the app secret) and `DELETE /api/v1/me` delete the user and everything personal in it. Shared bank items and anonymous tally counts remain.
+
+The words of snapped questions stay on the device that snapped them (KNOWLEDGE_MODEL §9); signing in syncs everything else.
+
 ## 6. Data model
 
 The tables below cover users, items and activity. Knowledge-model tables are listed in [`KNOWLEDGE_MODEL.md` §7](KNOWLEDGE_MODEL.md#7-storage-postgresql-owned-by-rails).
@@ -277,7 +287,7 @@ erDiagram
 - Uploaded images are never stored or published (5.5).
 - Recalled or leaked live-exam content is not accepted.
 - **Availability:** the service launches in the United States. Users confirm their country and age (13+) on first run, checked against an IP-based estimate. Uploads and knowledge extraction are US-only; public item pages and share links stay viewable everywhere.
-- **Licenses:** code under MIT; the knowledge model and items (descriptive content) under **CC BY-SA 4.0**; numeric data (aggregate statistics, judge measurements, calibration results) under **CC0**, so it can be combined freely with other open datasets.
+- **Licenses:** code under MIT; the knowledge model and items (descriptive content) under **CC BY-NC-SA 4.0** from 2026-10-29 (earlier content stays CC BY-SA 4.0), with commercial licenses from Keefit, Inc.; numeric data (answer statistics, calibration, judge measurements, learner analytics) is not openly licensed. Learner contributions (votes, reports, corrections) are licensed to Keefit under the terms of use.
 
 ## 8. Deployment (Kamal 2)
 

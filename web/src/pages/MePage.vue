@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import { FAMILY_LABELS, TRAP_LABELS, subtypeLabel, type ErrorLogPage, type Me, type QuestionType, type TrapType } from "@questionize/shared";
 import { withDevice } from "../api";
 import InstallCard from "../components/InstallCard.vue";
+import AccountCard from "../components/AccountCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -53,18 +54,20 @@ const goals = computed(() => {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([g]) => g);
 });
 
-onMounted(async () => {
+async function load() {
   try {
     [me.value, log.value] = await Promise.all([withDevice((api) => api.getMe()), withDevice((api) => api.listErrorLog())]);
   } catch {
     error.value = "Couldn't load your profile.";
   }
-});
+}
+onMounted(load);
 </script>
 
 <template>
   <h1 class="page-title">Me</h1>
   <InstallCard />
+  <AccountCard v-if="me" :me="me" @changed="load" />
   <p v-if="me" class="muted">{{ me.handle }} · {{ me.xp }} XP</p>
   <div class="seg" role="tablist" aria-label="Profile views">
     <button role="tab" :aria-selected="view === 'analysis'" :class="{ on: view === 'analysis' }" @click="show('analysis')">Analysis</button>
@@ -119,9 +122,11 @@ onMounted(async () => {
       </tbody>
     </table>
   </template>
+  <p class="operator">Questionize is operated by Keefit, Inc.</p>
 </template>
 
 <style scoped>
+.operator { margin: 24px 0 0; text-align: center; font-size: 12px; color: var(--muted); }
 section { margin-top: 12px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
 h2 { margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .muted { opacity: 0.7; font-size: 13px; margin: 0 0 12px; }

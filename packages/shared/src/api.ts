@@ -79,6 +79,8 @@ export interface Me {
   handle: string;
   anonymous: boolean;
   xp: number;
+  /** The sign-in account linked to this learner, if any. */
+  account?: { provider: "facebook"; name: string | null } | null;
   ratings: { skill: string; rating: number; attempts: number; correct: number; provisional: boolean }[];
 }
 

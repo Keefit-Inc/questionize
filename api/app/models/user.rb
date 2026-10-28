@@ -4,6 +4,10 @@ class User < ApplicationRecord
   has_many :attempts, class_name: "Learning::Attempt", dependent: :destroy
   has_many :error_log_entries, class_name: "Learning::ErrorLogEntry", dependent: :destroy
   has_many :saved_items, class_name: "Learning::SavedItem", dependent: :destroy
+  has_many :identities, class_name: "UserIdentity", dependent: :destroy
+  has_many :feedbacks, dependent: :destroy
+  has_many :challenge_answers, class_name: "Learning::ChallengeAnswer", dependent: :destroy
+  has_many :generation_runs, dependent: :destroy
 
   # Countries where photo capture (the error log) is available at launch.
   ERROR_LOG_COUNTRIES = %w[US].freeze

@@ -40,6 +40,8 @@ export SECRET_KEY_BASE=...                # bin/rails secret
 export QUESTIONIZE_DATABASE_PASSWORD=...  # openssl rand -hex 24
 export AI_INTERNAL_TOKEN=...              # openssl rand -hex 32
 export MODEL_API_KEY=...                  # Meta Model API
+export FACEBOOK_APP_ID=...                # Facebook Login (optional until the Meta app exists)
+export FACEBOOK_APP_SECRET=...
 export BASETEN_API_KEY=                   # optional
 export ANTHROPIC_API_KEY=                 # optional, development provider
 ```

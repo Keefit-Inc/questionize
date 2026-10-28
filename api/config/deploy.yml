@@ -33,6 +33,8 @@ env:
     - SECRET_KEY_BASE
     - QUESTIONIZE_DATABASE_PASSWORD
     - AI_INTERNAL_TOKEN
+    - FACEBOOK_APP_ID
+    - FACEBOOK_APP_SECRET
   clear:
     DB_HOST: questionize-db
     AI_SERVICE_URL: http://questionize-ai:8000

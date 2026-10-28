@@ -123,6 +123,19 @@ export class ApiClient {
     return this.request("DELETE", `/api/v1/items/${encodeURIComponent(id)}/save`);
   }
 
+  getConfig(): Promise<{ facebook_app_id: string | null }> {
+    return this.request("GET", "/api/v1/config");
+  }
+
+  /** Signs in with a Facebook Login access token; use the returned token from then on. */
+  facebookLogin(accessToken: string): Promise<{ token: string; switched: boolean; user: { handle: string; xp: number } }> {
+    return this.request("POST", "/api/v1/auth/facebook", { access_token: accessToken });
+  }
+
+  deleteAccount(): Promise<void> {
+    return this.request("DELETE", "/api/v1/me");
+  }
+
   getItem(id: string): Promise<Item> {
     return this.request("GET", `/api/v1/items/${encodeURIComponent(id)}`);
   }

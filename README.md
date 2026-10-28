@@ -133,4 +133,9 @@ See [`ai/.env.example`](ai/.env.example). Key settings:
 
 ## License
 
-Code is MIT. The knowledge model and question bank are CC BY-SA 4.0; numeric data (aggregate statistics, judge measurements) is CC0. Mozilla Readability is included under Apache-2.0 (`extension/public/vendor/Readability.LICENSE.md`).
+- **Code:** MIT (`LICENSE`).
+- **Questions and the knowledge model's descriptive content:** CC BY-NC-SA 4.0 from October 29, 2026, to the extent they are protected; free to share and adapt for non-commercial use with attribution. Content published earlier remains under CC BY-SA 4.0. Commercial licenses are available from Keefit, Inc.
+- **Data:** answer statistics, difficulty calibration, Argument Judge measurements and learner analytics are not openly licensed.
+- Mozilla Readability is included under Apache-2.0 (`extension/public/vendor/Readability.LICENSE.md`).
+
+The service at questionize.org is operated by Keefit, Inc. ([Terms](https://questionize.org/terms), [Privacy](https://questionize.org/privacy)).

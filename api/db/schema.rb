@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_000007) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_000008) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -354,6 +354,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000007) do
     t.index ["key"], name: "index_trap_patterns_on_key", unique: true
   end
 
+  create_table "user_identities", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "provider", null: false
+    t.string "uid", null: false
+    t.string "name"
+    t.string "email"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider", "uid"], name: "index_user_identities_on_provider_and_uid", unique: true
+    t.index ["user_id"], name: "index_user_identities_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "handle", null: false
     t.string "email"
@@ -404,4 +416,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000007) do
   add_foreign_key "skill_ratings", "users"
   add_foreign_key "trap_pattern_targets", "misconceptions"
   add_foreign_key "trap_pattern_targets", "trap_patterns"
+  add_foreign_key "user_identities", "users"
 end
