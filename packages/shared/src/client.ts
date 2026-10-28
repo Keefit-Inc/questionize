@@ -16,6 +16,7 @@ import type {
   FeedbackResponse,
   FlagReason,
   MapResponse,
+  ReviewCard,
 } from "./api";
 import type { Difficulty, QuestionType } from "./types";
 
@@ -102,6 +103,24 @@ export class ApiClient {
 
   captureErrorLog(body: ErrorLogCapture): Promise<{ status: "queued"; run_id: number }> {
     return this.request("POST", "/api/v1/error_log", body);
+  }
+
+  /** My misses (or, with archived, the archive): snapped questions plus missed or saved bank items. */
+  listReview(archived = false): Promise<{ cards: ReviewCard[] }> {
+    return this.request("GET", `/api/v1/review${archived ? "?archived=true" : ""}`);
+  }
+
+  archiveEntry(id: number, archived: boolean): Promise<ErrorLogEntry> {
+    return this.request("PATCH", `/api/v1/error_log/${id}`, { archived });
+  }
+
+  /** Puts a bank item on My misses (or archives / restores it). */
+  saveItem(id: string, archived = false): Promise<{ reason: "missed" | "saved"; archived: boolean }> {
+    return this.request("PUT", `/api/v1/items/${encodeURIComponent(id)}/save`, { archived });
+  }
+
+  unsaveItem(id: string): Promise<void> {
+    return this.request("DELETE", `/api/v1/items/${encodeURIComponent(id)}/save`);
   }
 
   getItem(id: string): Promise<Item> {

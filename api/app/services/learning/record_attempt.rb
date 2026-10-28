@@ -1,6 +1,7 @@
 module Learning
   # Records an answer (docs/ARCHITECTURE.md §5.2). Every attempt counts toward the crowd
-  # tally; only a learner's first attempt on an item moves ratings and earns XP.
+  # tally; only a learner's first attempt on an item moves ratings and earns XP, and a first
+  # attempt that misses puts the item on the learner's review list.
   class RecordAttempt
     XP_FOR_ANSWERING = 5
     XP_FOR_CORRECT = 5
@@ -73,6 +74,7 @@ module Learning
         user_rating_before: user_before, user_rating_after: changes.dig(specific.skill, :after),
         item_rating_before: item_before, item_rating_after: item_after
       ))
+      SavedItem.keep!(user: @user, item: @item, reason: "missed") unless correct
       Result.new(attempt: attempt, rating_changes: changes, xp_awarded: xp)
     end
 

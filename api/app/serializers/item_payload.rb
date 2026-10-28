@@ -1,14 +1,15 @@
 # JSON for an item. The key, explanations, trap tags and tallies stay hidden until the
 # requesting user has attempted the item (CLAUDE.md rules).
 class ItemPayload
-  def initialize(item, revealed:)
+  def self.for(item, user:)
+    new(item, revealed: user.present? && Learning::Attempt.exists?(user: user, item: item), user: user)
+  end
+
+  def initialize(item, revealed:, user: nil)
     @item = item
     @version = item.current_version
     @revealed = revealed
-  end
-
-  def self.for(item, user:)
-    new(item, revealed: user.present? && Learning::Attempt.exists?(user: user, item: item))
+    @user = user
   end
 
   def as_json(*)
@@ -25,7 +26,9 @@ class ItemPayload
       skill: @version.skill,
       attempts_count: @item.attempts_count,
       source: source_json,
-      revealed: @revealed
+      revealed: @revealed,
+      origin: @item.origin,
+      saved: saved_json
     }
     @revealed ? base.merge(reveal) : base
   end
@@ -41,8 +44,24 @@ class ItemPayload
       tally: @version.tally,
       correct_rate: @item.attempts_count.zero? ? nil : (@item.correct_count.to_f / @item.attempts_count).round(3),
       verification: @version.verification.except("judge"),
-      judge: judge_json
+      judge: judge_json,
+      votes: votes_json
     }
+  end
+
+  # Whether the item is on this learner's review list, and why.
+  def saved_json
+    return nil unless @user
+
+    saved = Learning::SavedItem.find_by(user: @user, item: @item)
+    saved && { reason: saved.reason, archived: saved.archived_at.present? }
+  end
+
+  # Learners rate a question once they've answered it.
+  def votes_json
+    counts = @version.feedbacks.where(kind: %w[up down]).group(:kind).count
+    mine = @user && @version.feedbacks.where(user: @user, kind: %w[up down]).order(:updated_at).last&.kind
+    { up: counts.fetch("up", 0), down: counts.fetch("down", 0), mine: mine }
   end
 
   # Argument Judge measurements per option, shown with the explanation.

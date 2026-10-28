@@ -8,6 +8,9 @@ module Learning
     validates :diagnosis, presence: true
     validates :book, :page, :number, length: { maximum: 200 }
 
+    scope :active, -> { where(archived_at: nil) }
+    scope :archived, -> { where.not(archived_at: nil) }
+
     def practice_items
       generation_run.items.includes(:current_version, :source)
     end

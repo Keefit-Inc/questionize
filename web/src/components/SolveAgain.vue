@@ -54,24 +54,24 @@ function reset() {
 </template>
 
 <style scoped>
-.solve { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid rgba(127, 127, 127, 0.25); }
-.passage { margin: 0; white-space: pre-wrap; line-height: 1.55; }
-.stem { margin: 0; font-weight: 600; }
+.solve { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+.passage { margin: 0; white-space: pre-wrap; font-family: var(--serif); font-size: 16.5px; line-height: 1.6; }
+.stem { margin: 0; font-weight: 700; line-height: 1.45; }
 .choices { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 10px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.3); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; line-height: 1.4; color: inherit; font: inherit; cursor: pointer; }
 .choices button:disabled { cursor: default; }
-.choices button.selected { border-color: #3b6fd0; box-shadow: 0 0 0 1px #3b6fd0; }
-.choices button.correct { border-color: #2e9d5b; background: rgba(46, 157, 91, 0.1); }
-.choices button.wrong { border-color: #d0563b; background: rgba(208, 86, 59, 0.1); }
+.choices button.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.choices button.correct { border-color: var(--good); background: var(--good-soft); }
+.choices button.wrong { border-color: var(--bad); background: var(--bad-soft); }
 .lbl { font-weight: 700; }
 .why { margin: 4px 0 2px 28px; font-size: 13px; opacity: 0.85; }
 .tag { font-style: normal; font-size: 11px; padding: 0 6px; margin-right: 4px; border-radius: 8px; border: 1px solid currentColor; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.primary { padding: 10px 16px; border-radius: 8px; border: 0; background: #3b6fd0; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.primary { padding: 11px 18px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .primary:disabled { opacity: 0.45; cursor: default; }
-.ghost { padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.verdict { margin: 0; font-weight: 700; }
-.verdict.good { color: #2e9d5b; }
-.verdict.bad { color: #d0563b; }
+.ghost { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.verdict { margin: 0; font-weight: 800; font-size: 17px; }
+.verdict.good { color: var(--good); }
+.verdict.bad { color: var(--bad); }
 .note { margin: 0; font-size: 12px; opacity: 0.65; }
 </style>

@@ -1,31 +1,31 @@
 <script setup lang="ts">
-// Questions tab: the learner's own missed questions first, the shared bank one tap away.
+// Questions tab: what to review (My misses), the shared bank, and what's been archived.
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import MissesList from "../components/MissesList.vue";
+import ReviewList from "../components/ReviewList.vue";
 import BankList from "../components/BankList.vue";
 import InstallCard from "../components/InstallCard.vue";
 
+const VIEWS = [
+  { key: "misses", label: "My misses" },
+  { key: "bank", label: "Bank" },
+  { key: "archived", label: "Archived" },
+] as const;
+type View = (typeof VIEWS)[number]["key"];
+
 const route = useRoute();
 const router = useRouter();
-const view = computed(() => (route.query.view === "shared" ? "shared" : "mine"));
-const show = (v: "mine" | "shared") => router.replace({ query: v === "shared" ? { view: "shared" } : {} });
+const view = computed<View>(() => (route.query.view === "bank" || route.query.view === "shared" ? "bank" : route.query.view === "archived" ? "archived" : "misses"));
+const show = (v: View) => router.replace({ query: v === "misses" ? {} : { view: v } });
 </script>
 
 <template>
-  <h1>Questions</h1>
+  <h1 class="page-title">Questions</h1>
   <InstallCard />
   <div class="seg" role="tablist" aria-label="Which questions">
-    <button role="tab" :aria-selected="view === 'mine'" :class="{ on: view === 'mine' }" @click="show('mine')">My misses</button>
-    <button role="tab" :aria-selected="view === 'shared'" :class="{ on: view === 'shared' }" @click="show('shared')">Shared</button>
+    <button v-for="v in VIEWS" :key="v.key" role="tab" :aria-selected="view === v.key" :class="{ on: view === v.key }" @click="show(v.key)">{{ v.label }}</button>
   </div>
-  <MissesList v-if="view === 'mine'" />
-  <BankList v-else />
+  <ReviewList v-if="view === 'misses'" key="misses" list="misses" />
+  <BankList v-else-if="view === 'bank'" />
+  <ReviewList v-else key="archived" list="archived" />
 </template>
-
-<style scoped>
-h1 { margin: 4px 0 12px; font-size: 24px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin-bottom: 14px; border-radius: 10px; background: rgba(127, 127, 127, 0.14); }
-.seg button { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 600; opacity: 0.65; cursor: pointer; }
-.seg button.on { background: Canvas; opacity: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
-</style>

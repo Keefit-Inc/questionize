@@ -16,6 +16,7 @@ const LABELS: Label[] = ["A", "B", "C", "D", "E"];
 const eligible = ref<boolean | null>(null);
 const gate = reactive({ country: "US", age: false });
 const camera = ref<"starting" | "live" | "denied" | "unavailable">("starting");
+const cameraNote = ref("");
 const video = ref<HTMLVideoElement | null>(null);
 let stream: MediaStream | null = null;
 
@@ -46,36 +47,76 @@ const photoInfo = computed(() => {
   return `${parts.value.length > 1 ? `${parts.value.length} parts · ` : ""}${first.width}×${first.height} · ${kb} KB`;
 });
 
-async function startCamera() {
-  stopCamera();
-  if (!navigator.mediaDevices?.getUserMedia) {
-    camera.value = "unavailable";
-    return;
-  }
-  camera.value = "starting";
+// Only the most recent start may change the camera state: a visibility change (the permission
+// prompt can cause one) used to start a second camera that stopped the first, which then reported
+// "no camera" even though the second one worked.
+let attempt = 0;
+
+async function openStream(): Promise<MediaStream> {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
+    return await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } },
       audio: false,
     });
-    await nextTick();
-    if (!video.value) return stopCamera();
-    video.value.srcObject = stream;
-    await video.value.play();
-    camera.value = "live";
   } catch (e) {
+    // Some cameras reject the preferred size or facing; any camera will do.
+    if (e instanceof DOMException && ["OverconstrainedError", "NotFoundError", "AbortError"].includes(e.name)) {
+      return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+    throw e;
+  }
+}
+
+async function startCamera() {
+  const mine = ++attempt;
+  stopCamera();
+  if (!navigator.mediaDevices?.getUserMedia) {
+    camera.value = "unavailable";
+    cameraNote.value = window.isSecureContext ? "This browser doesn't offer camera access." : "The camera only works over a secure (https) connection.";
+    return;
+  }
+  camera.value = "starting";
+  cameraNote.value = "";
+  try {
+    const opened = await openStream();
+    if (mine !== attempt) return opened.getTracks().forEach((t) => t.stop());
+    stream = opened;
+    await nextTick();
+    if (!video.value) return;
+    video.value.srcObject = opened;
+    await video.value.play().catch(() => undefined); // muted inline video; the stream is live either way
+    if (mine === attempt) camera.value = "live";
+  } catch (e) {
+    if (mine !== attempt) return;
     stopCamera();
-    camera.value = e instanceof DOMException && e.name === "NotAllowedError" ? "denied" : "unavailable";
+    const name = e instanceof DOMException ? e.name : "";
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      camera.value = "denied";
+      cameraNote.value = "Camera access is off for this site. Allow it in your browser's site settings, then try again.";
+    } else if (name === "NotReadableError") {
+      camera.value = "unavailable";
+      cameraNote.value = "Another app is using the camera. Close it and try again.";
+    } else if (name === "NotFoundError") {
+      camera.value = "unavailable";
+      cameraNote.value = "We couldn't find a camera on this device.";
+    } else {
+      camera.value = "unavailable";
+      cameraNote.value = `The camera didn't start${name ? ` (${name})` : ""}. Try again, or choose a photo.`;
+    }
   }
 }
 
 function stopCamera() {
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
+  if (video.value) video.value.srcObject = null;
 }
 
 function onVisibility() {
-  if (document.hidden) stopCamera();
+  if (document.hidden) {
+    attempt++; // cancels a start in progress
+    stopCamera();
+  }
   else if (eligible.value && stage.value === "camera" && !lab.value) startCamera();
 }
 
@@ -264,7 +305,7 @@ function showAnalysis() {
   const id = entryId.value;
   // The question is on the device now; the photos are no longer needed.
   clearShots();
-  router.push(`/misses/${id}`);
+  router.push(`/misses/${id}?view=analysis`);
 }
 </script>
 
@@ -328,15 +369,20 @@ function showAnalysis() {
       <div v-if="camera === 'live' || camera === 'starting'" class="frame" aria-hidden="true">
         <span class="c tl" /><span class="c tr" /><span class="c bl" /><span class="c br" />
       </div>
-      <p v-if="camera === 'live'" class="hint">{{ adding ? `Part ${parts.length + 1}: the rest of the question` : "Fit one question you missed in the frame" }}</p>
+      <p class="hint">
+        <strong>{{ adding ? `Part ${parts.length + 1}` : "Snap a question you missed" }}</strong>
+        <span>{{ adding ? "the rest of the question" : camera === "live" ? "Fit it inside the frame" : camera === "starting" ? "Starting the camera…" : "" }}</span>
+      </p>
       <button v-if="adding" type="button" class="cancel-add" @click="adding = false; stopCamera()">Cancel</button>
-      <div v-else-if="camera !== 'starting'" class="panel nocam">
-        <h1>Snap a question you missed</h1>
-        <p>{{ camera === "denied" ? "Camera access is off for this site. Allow it in your browser settings, or choose a photo." : "No camera here. Choose a photo of one question you missed." }}</p>
-        <label class="primary file">
-          <input type="file" accept="image/*" capture="environment" @change="pick" />
-          Choose a photo
-        </label>
+      <div v-if="camera === 'denied' || camera === 'unavailable'" class="nocam" role="status">
+        <p>{{ cameraNote }}</p>
+        <div class="nocam-actions">
+          <button type="button" class="ghost" @click="startCamera">Try the camera again</button>
+          <label class="primary file">
+            <input type="file" accept="image/*" capture="environment" @change="pick" />
+            Choose a photo
+          </label>
+        </div>
       </div>
       <p v-if="error && camera === 'live'" class="error floating" role="alert">{{ error }}</p>
       <div class="controls">
@@ -378,7 +424,10 @@ video.on { opacity: 1; }
 .c.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
 .c.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
 .c.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
-.hint { position: absolute; top: max(18px, env(safe-area-inset-top, 0px)); left: 0; right: 0; margin: 0 auto; width: fit-content; padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); font-size: 13px; }
+.hint { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100% - 120px); padding: 8px 16px; border-radius: 16px; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center; }
+.hint strong { font-size: 15px; }
+.hint span { font-size: 12px; opacity: 0.8; }
+.hint span:empty { display: none; }
 .controls { position: absolute; left: 0; right: 0; bottom: 18px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 max(28px, env(safe-area-inset-left, 0px)); }
 .shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid #fff; background: transparent; padding: 5px; cursor: pointer; }
 .shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; transition: transform 0.1s; }
@@ -396,7 +445,9 @@ span.side { visibility: hidden; justify-self: end; }
 .gate label { display: flex; flex-direction: column; gap: 4px; }
 .gate .check { flex-direction: row; align-items: center; gap: 8px; }
 .gate select { font: inherit; padding: 8px; border-radius: 8px; }
-.nocam { position: relative; z-index: 1; margin-bottom: 140px; }
+.nocam { position: absolute; left: 16px; right: 16px; bottom: 120px; padding: 14px; border-radius: 14px; background: rgba(18, 26, 33, 0.92); display: flex; flex-direction: column; gap: 10px; }
+.nocam p { margin: 0; font-size: 14px; line-height: 1.45; }
+.nocam-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .primary { position: relative; display: block; text-align: center; padding: 13px; border-radius: 12px; border: 0; background: #4fd1c5; color: #062022; font: inherit; font-weight: 700; cursor: pointer; }
 .primary:disabled { opacity: 0.45; cursor: default; }
 .ghost { padding: 13px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.25); background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }

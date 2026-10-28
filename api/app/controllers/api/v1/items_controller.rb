@@ -13,7 +13,7 @@ module Api
         page = items.limit(PAGE_SIZE).to_a
         attempted = Learning::Attempt.where(user: current_user, item: page).distinct.pluck(:item_id).to_set
         render json: {
-          items: page.map { |item| ItemPayload.new(item, revealed: attempted.include?(item.id)).as_json },
+          items: page.map { |item| ItemPayload.new(item, revealed: attempted.include?(item.id), user: current_user).as_json },
           next: page.size == PAGE_SIZE ? page.last.public_id : nil
         }
       end

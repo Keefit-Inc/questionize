@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // Full-screen "lab" while a photographed question is analyzed. Every phase, number and log line
-// comes from the run's real events; only the scanning beam and the text-region boxes are decoration.
+// comes from the run's real events. The boxes are the text lines found in the photo (dark rows of
+// pixels, measured in the browser); they turn green once the question has been read. They do not
+// tell the passage from the options: that split comes only from the model's reading.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { FAMILY_LABELS, subtypeLabel, type GenerationEvent, type QuestionType } from "@questionize/shared";
 
@@ -156,8 +158,6 @@ const report = computed(() => {
   ];
 });
 
-// After classification the lower lines (usually the answer options) are marked in amber.
-const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
 </script>
 
 <template>
@@ -179,13 +179,13 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
               v-for="(b, i) in boxes"
               :key="i"
               class="region"
-              :class="{ lit: i < regionsLit, key: diagnosed && i >= optionStart }"
+              :class="{ lit: i < regionsLit, read: diagnosed }"
               :style="{ top: b.top + '%', left: b.left + '%', width: b.w + '%', height: b.h + '%' }"
               aria-hidden="true"
             />
           </div>
           <span class="corner tl" /><span class="corner tr" /><span class="corner bl" /><span class="corner br" />
-          <figcaption>specimen · {{ photoInfo }}</figcaption>
+          <figcaption>{{ boxes.length ? `${boxes.length} text lines` : "specimen" }} · {{ photoInfo }}</figcaption>
         </figure>
 
         <section class="hud">
@@ -275,7 +275,7 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
 .beam { position: absolute; left: 0; right: 0; height: 22%; top: -22%; background: linear-gradient(180deg, transparent, rgba(79, 209, 197, 0.28) 80%, rgba(79, 209, 197, 0.9)); animation: sweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; pointer-events: none; }
 .region { position: absolute; border: 1px solid transparent; opacity: 0; transition: opacity 0.4s, border-color 0.6s, background 0.6s; }
 .region.lit { opacity: 1; border-color: rgba(79, 209, 197, 0.7); background: rgba(79, 209, 197, 0.06); }
-.region.key { border-color: rgba(255, 180, 84, 0.75); background: rgba(255, 180, 84, 0.07); }
+.region.read { border-color: rgba(107, 227, 160, 0.75); background: rgba(107, 227, 160, 0.06); }
 .corner { position: absolute; width: 16px; height: 16px; border: 2px solid var(--signal); }
 .corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
 .corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }

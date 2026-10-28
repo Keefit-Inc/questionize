@@ -129,7 +129,7 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     assert_not @run.events.third.key?("map"), "the progress log does not duplicate the map"
   end
 
-  test "an error-log run stores a private entry, practice items and an anonymous observation, and drops the photo" do
+  test "an error-log run stores a private entry, shared practice items and an anonymous observation, and drops the photo" do
     run = GenerationRun.create!(user: @user, kind: "error_log", params: { "book" => "My CR Workbook", "page" => "42", "number" => "7", "chosen_label" => "A" })
     run.cache_text!([ PHOTO, PHOTO ].to_json)
     client = FakeClient.new(events: [ { "stage" => "reading", "message" => "Reading" }, diagnosis_event, { "stage" => "done" } ])
@@ -142,7 +142,8 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     assert_nil Rails.cache.read(run.text_cache_key)
     entry = @user.error_log_entries.sole
     assert_equal [ "My CR Workbook", "42", "7", "A" ], [ entry.book, entry.page, entry.number, entry.chosen_label ]
-    assert_equal %w[private private], run.items.map(&:visibility)
+    assert_equal %w[public public], run.items.map(&:visibility), "verified practice joins the shared bank"
+    assert run.items.all?(&:published_at)
     assert_equal %w[pattern pattern], run.items.map(&:origin)
 
     observation = entry.source_observation

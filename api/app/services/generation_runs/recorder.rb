@@ -52,8 +52,9 @@ module GenerationRuns
       { "stage" => "map", "map" => MapPayload.new(@run, user: @run.user).as_json }
     end
 
-    # The diagnosis becomes a private error-log entry; practice items are the user's own; the
-    # abstract design (if it passed the leak checks) becomes a knowledge-model observation.
+    # The diagnosis becomes a private error-log entry. Practice items are new questions written
+    # from the question's abstract design, so once verified they join the shared bank like any
+    # other item; the abstract design (if it passed the leak checks) becomes an observation.
     def error_log_entry(event)
       entry = nil
       Item.transaction do
@@ -97,9 +98,9 @@ module GenerationRuns
       Item.transaction do
         item = Item.create!(
           source: @run.source, generation_run: @run, family: q.fetch("type"), subtype: q.fetch("subtype"),
-          status: verified ? "verified" : "unverified", visibility: origin == "pattern" ? "private" : visibility(verified), origin: origin,
+          status: verified ? "verified" : "unverified", visibility: visibility(verified), origin: origin,
           content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
-          published_at: origin == "generated" && verified && @content_flags.empty? ? Time.current : nil
+          published_at: verified && @content_flags.empty? ? Time.current : nil
         )
         version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)
         item.update!(current_version: version)

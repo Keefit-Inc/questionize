@@ -2,23 +2,26 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ApiError, QuestionCard, subscribeToItem, type FlagReason, type Item, type Label } from "@questionize/shared";
 import { api, withDevice } from "../api";
+import { useRoute, useRouter } from "vue-router";
+import DetailBar from "../components/DetailBar.vue";
+import ShareRow from "../components/ShareRow.vue";
+import { loadReview, type ListName } from "../review";
 
 const props = defineProps<{ id: string }>();
+const route = useRoute();
+const router = useRouter();
+// Opened from My misses or Archived: show the list's previous / next and archive controls.
+const list = computed<ListName | null>(() => (route.query.list === "archived" ? "archived" : route.query.list === "misses" ? "misses" : null));
+const saving = ref(false);
 
 const item = ref<Item | null>(null);
 const chosen = ref<Label | null>(null);
 const busy = ref(false);
 const note = ref("");
 const error = ref("");
-const copied = ref(false);
 const shownAt = ref(Date.now());
 let stopTally: (() => void) | null = null;
 
-const shareUrl = computed(() => `${window.location.origin}/q/${props.id}`);
-const xUrl = computed(() => {
-  const text = "Can you solve this reasoning question? I'd love to see how you answer.";
-  return `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl.value)}`;
-});
 
 function followTally() {
   stopTally?.();
@@ -68,42 +71,65 @@ async function flag(reason: FlagReason, comment: string) {
   }
 }
 
-async function copyLink() {
+async function vote(kind: "up" | "down") {
+  const res = await withDevice((client) => client.feedback(props.id, { kind })).catch(() => null);
+  if (res?.votes && item.value?.revealed) item.value = { ...item.value, votes: res.votes };
+}
+
+// Save to My misses, or archive / restore an item that is on it.
+async function keep(archived: boolean) {
+  if (!item.value) return;
+  saving.value = true;
   try {
-    await navigator.clipboard.writeText(shareUrl.value);
-    copied.value = true;
-    setTimeout(() => (copied.value = false), 1500);
+    const saved = await withDevice((client) => client.saveItem(props.id, archived));
+    item.value = { ...item.value, saved };
+    if (list.value) {
+      await loadReview(list.value);
+      if (archived !== (list.value === "archived")) router.replace(list.value === "archived" ? "/questions?view=archived" : "/questions");
+    }
   } catch {
-    copied.value = false;
+    error.value = "Couldn't update your list. Please try again.";
+  } finally {
+    saving.value = false;
   }
 }
+
 
 watch(() => props.id, load, { immediate: true });
 onBeforeUnmount(() => stopTally?.());
 </script>
 
 <template>
+  <DetailBar v-if="list && item" :list="list" :card-key="`item:${id}`" :archived="!!item.saved?.archived" :busy="saving" @archive="keep" />
   <p v-if="error" class="error">{{ error }}</p>
   <template v-else-if="item">
     <p v-if="item.source" class="source">
       Written from <a :href="item.source.url" target="_blank" rel="noopener noreferrer">{{ item.source.title || item.source.domain }}</a>
       <span class="muted"> · passage adapted, not quoted</span>
     </p>
-    <QuestionCard :item="item" :chosen="chosen" :busy="busy" :locatable="false" @answer="answer" @flag="flag" />
+    <p v-else-if="item.origin === 'pattern'" class="source muted">Practice question, written from the design of a question a learner missed</p>
+    <QuestionCard :item="item" :chosen="chosen" :busy="busy" :locatable="false" @answer="answer" @flag="flag" @vote="vote" />
     <p v-if="note" class="note">{{ note }}</p>
-    <div class="share">
-      <button type="button" @click="copyLink">{{ copied ? "Link copied" : "Copy link" }}</button>
-      <a :href="xUrl" target="_blank" rel="noopener noreferrer">Post on X</a>
-    </div>
+    <button v-if="!list && !item.saved" type="button" class="save" :disabled="saving" @click="keep(false)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z" /></svg>
+      Practice later
+    </button>
+    <p v-else-if="!list && item.saved" class="muted saved">
+      On your list ({{ item.saved.archived ? "archived" : item.saved.reason === "missed" ? "missed" : "saved" }}) ·
+      <RouterLink :to="item.saved.archived ? '/questions?view=archived' : '/questions'">Open My misses</RouterLink>
+    </p>
+    <ShareRow v-if="item.verified" :item="item" />
   </template>
-  <p v-else class="muted">Loading…</p>
+  <div v-else class="skeleton" aria-hidden="true"><span /></div>
 </template>
 
 <style scoped>
-.source { font-size: 13px; }
-.muted { opacity: 0.7; }
-.note { font-size: 13px; opacity: 0.85; }
-.error { color: #d0563b; }
-.share { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
-.share button, .share a { padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
+.source { font-size: 13px; margin: 0 0 4px; }
+.muted { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.error { color: var(--bad); }
+.save { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.save svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.saved { font-size: 13px; margin: 4px 0 0; }
+.skeleton span { display: block; height: 320px; border-radius: var(--radius); background: var(--chip); }
 </style>

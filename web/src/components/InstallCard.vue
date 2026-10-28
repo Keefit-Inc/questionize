@@ -40,6 +40,6 @@ function dismiss() {
 .install img { border-radius: 9px; flex: none; }
 .text { display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; flex: 1; }
 .text svg { width: 14px; height: 14px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.go { padding: 8px 14px; border-radius: 8px; border: 0; background: #3b6fd0; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.go { padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .x { width: 30px; height: 30px; border: 0; background: transparent; color: inherit; font-size: 20px; opacity: 0.6; cursor: pointer; }
 </style>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_000007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -131,6 +131,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000006) do
     t.jsonb "diagnosis", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "archived_at"
     t.index ["generation_run_id"], name: "index_error_log_entries_on_generation_run_id"
     t.index ["source_observation_id"], name: "index_error_log_entries_on_source_observation_id"
     t.index ["user_id"], name: "index_error_log_entries_on_user_id"
@@ -280,6 +281,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000006) do
     t.index ["node_type", "node_id"], name: "index_node_status_events_on_node"
   end
 
+  create_table "saved_items", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "item_id", null: false
+    t.string "reason", null: false
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["item_id"], name: "index_saved_items_on_item_id"
+    t.index ["user_id", "item_id"], name: "index_saved_items_on_user_id_and_item_id", unique: true
+    t.index ["user_id"], name: "index_saved_items_on_user_id"
+  end
+
   create_table "skill_ratings", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "skill", null: false
@@ -386,6 +399,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000006) do
   add_foreign_key "items", "item_versions", column: "current_version_id"
   add_foreign_key "items", "sources"
   add_foreign_key "judge_measurements", "item_versions"
+  add_foreign_key "saved_items", "items"
+  add_foreign_key "saved_items", "users"
   add_foreign_key "skill_ratings", "users"
   add_foreign_key "trap_pattern_targets", "misconceptions"
   add_foreign_key "trap_pattern_targets", "trap_patterns"

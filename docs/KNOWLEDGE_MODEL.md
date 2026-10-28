@@ -252,7 +252,7 @@ Learners bring their own study material through an **error log**. While working 
 1. **Personal layer**, for that learner only:
    - an error-log entry that records the question's *location* (book title or ISBN, page, question number), the learner's choice, and the diagnosis, but none of the question's text;
    - what the question measures, the trap behind the chosen option and the misconception it points to;
-   - new practice items generated from the matching blueprint that target the same trap (never the original item);
+   - new practice items generated from the matching blueprint that target the same trap (never the original item). They are original questions written from the abstract design, so once verified they join the shared bank for everyone, where learners rate them;
    - an updated weakness map and review schedule across everything the learner has logged.
 
    - on the learner's **own device only**, the question word for word (passage, stem and options), so they can solve it again. The service reads it from the photo, hands it to that device once, and deletes its copy as it is read (it waits in a short-lived cache, never in a table, a log or the run's stored events). The photo itself is not kept anywhere once the question is read.

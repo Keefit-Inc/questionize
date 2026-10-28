@@ -24,6 +24,13 @@ module Api
         render json: ErrorLogPayload.new(entry, user: current_user).as_json
       end
 
+      # PATCH /api/v1/error_log/:id {archived: true|false}
+      def update
+        entry = current_user.error_log_entries.find(params[:id])
+        entry.update!(archived_at: ActiveModel::Type::Boolean.new.cast(params[:archived]) ? (entry.archived_at || Time.current) : nil)
+        render json: ErrorLogPayload.new(entry, user: current_user).as_json
+      end
+
       # GET /api/v1/error_log/:id/question
       # The photographed question, word for word, handed to the learner's device once: it is
       # kept only in the cache until then and deleted as it is read (docs/KNOWLEDGE_MODEL.md §9).

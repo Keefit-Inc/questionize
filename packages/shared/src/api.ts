@@ -21,6 +21,16 @@ interface ItemBase {
   skill: string | null;
   attempts_count: number;
   source: ItemSource | null;
+  /** "generated" from an article; "pattern" from the abstract design of a question someone snapped. */
+  origin?: "generated" | "pattern";
+  /** On this learner's review list (My misses), and why. */
+  saved?: { reason: "missed" | "saved"; archived: boolean } | null;
+}
+
+export interface Votes {
+  up: number;
+  down: number;
+  mine: "up" | "down" | null;
 }
 
 /** Before the user has attempted the item: no key, explanations or tallies. */
@@ -39,6 +49,7 @@ export interface RevealedItem extends ItemBase {
   verification: Verification;
   /** Per-option Argument Judge measurements; null for items generated without the judge. */
   judge: (Omit<JudgeResult, "options"> & { options: { label: Label; support_delta?: Measurement; necessity?: Measurement }[] }) | null;
+  votes?: Votes;
 }
 
 type Measurement = JudgeResult["options"][number]["support_delta"];
@@ -50,7 +61,13 @@ export type FlagReason = "wrong_key" | "two_answers" | "unclear" | "typo" | "off
 export interface FeedbackResponse {
   recorded: "up" | "down" | "flag";
   review_started: boolean;
+  votes?: Votes;
 }
+
+/** One card on the review list: a question the learner snapped, or a bank item they missed or saved. */
+export type ReviewCard =
+  | { kind: "snap"; at: string; entry: ErrorLogEntry }
+  | { kind: "item"; at: string; reason: "missed" | "saved"; item: Item };
 
 export interface FeedPage {
   items: Item[];
@@ -199,6 +216,7 @@ export interface ErrorLogEntry {
   diagnosis: Diagnosis;
   /** True when the abstract pattern passed the leak checks and joined the shared knowledge model. */
   contributed: boolean;
+  archived?: boolean;
   practice: Item[];
   created_at: string;
 }

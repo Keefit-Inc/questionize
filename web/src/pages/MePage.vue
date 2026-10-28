@@ -63,7 +63,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <h1>Me</h1>
+  <h1 class="page-title">Me</h1>
   <InstallCard />
   <p v-if="me" class="muted">{{ me.handle }} · {{ me.xp }} XP</p>
   <div class="seg" role="tablist" aria-label="Profile views">
@@ -122,25 +122,22 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-h1 { margin: 4px 0 2px; font-size: 24px; }
-h2 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.7; }
+section { margin-top: 12px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+h2 { margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .muted { opacity: 0.7; font-size: 13px; margin: 0 0 12px; }
-.error { color: #d0563b; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; margin-bottom: 8px; border-radius: 10px; background: rgba(127, 127, 127, 0.14); }
-.seg button { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 600; opacity: 0.65; cursor: pointer; }
-.seg button.on { background: Canvas; opacity: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
-.empty { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding: 18px; border-radius: 12px; border: 1px dashed rgba(127, 127, 127, 0.4); }
+.error { color: var(--bad); }
+.empty { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding: 18px; border-radius: 12px; border: 1px dashed var(--line); }
 .empty p { margin: 0; }
-.go { display: block; text-align: center; padding: 12px; border-radius: 12px; background: #3b6fd0; color: #fff !important; font-weight: 700; text-decoration: none; }
+.go { display: block; text-align: center; padding: 12px; border-radius: 12px; background: var(--accent); color: #fff !important; font-weight: 700; text-decoration: none; }
 .bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .bars li { display: grid; grid-template-columns: minmax(0, 10rem) 1fr 2rem; align-items: center; gap: 8px; font-size: 14px; }
-.bar { height: 8px; border-radius: 4px; background: rgba(127, 127, 127, 0.15); overflow: hidden; }
-.bar span { display: block; height: 100%; background: #d0563b; }
-.bar.alt span { background: #b7791f; }
+.bar { height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--bad); }
+.bar.alt span { background: var(--warn); }
 .n { text-align: right; font-variant-numeric: tabular-nums; }
 .goals { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(127, 127, 127, 0.2); }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
 td:not(:first-child), th:not(:first-child) { font-variant-numeric: tabular-nums; }
 tr.overall td { font-weight: 700; }
 </style>

@@ -16,7 +16,7 @@ module Api
           rated: result.attempt.rated,
           rating_changes: result.rating_changes,
           xp_awarded: result.xp_awarded,
-          item: ItemPayload.new(item, revealed: true).as_json
+          item: ItemPayload.new(item, revealed: true, user: current_user).as_json
         }, status: :created
       end
     end

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { FlagReason, Item } from "../api";
+import type { FlagReason, Item, Votes } from "../api";
 import type { Label } from "../types";
 import { FAMILY_LABELS, TRAP_LABELS, passageSegments, subtypeLabel } from "../labels";
 import ChoiceDistribution from "./ChoiceDistribution.vue";
@@ -12,7 +12,7 @@ const props = withDefaults(defineProps<{ item: Item; chosen?: Label | null; busy
   busy: false,
   locatable: true,
 });
-const emit = defineEmits<{ answer: [label: Label]; locate: [anchor: string]; flag: [reason: FlagReason, comment: string] }>();
+const emit = defineEmits<{ answer: [label: Label]; locate: [anchor: string]; flag: [reason: FlagReason, comment: string]; vote: [kind: "up" | "down"] }>();
 
 const FLAG_REASONS: { value: FlagReason; label: string }[] = [
   { value: "two_answers", label: "More than one answer is defensible" },
@@ -111,6 +111,18 @@ function check() {
         </ul>
       </details>
 
+      <div v-if="revealed.votes" class="qz-vote" role="group" aria-label="Rate this question">
+        <span>Good question?</span>
+        <button type="button" :aria-pressed="revealed.votes.mine === 'up'" :class="{ on: revealed.votes.mine === 'up' }" @click="emit('vote', 'up')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 3 2l-1 4h5a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 1H7" /></svg>
+          {{ revealed.votes.up }}<span class="qz-sr"> found it good</span>
+        </button>
+        <button type="button" :aria-pressed="revealed.votes.mine === 'down'" :class="{ on: revealed.votes.mine === 'down' }" @click="emit('vote', 'down')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 13V4h3v9zM17 13l-4 7a2 2 0 0 1-3-2l1-4H6a2 2 0 0 1-2-2l2-7a2 2 0 0 1 2-1h9" /></svg>
+          {{ revealed.votes.down }}<span class="qz-sr"> found it weak</span>
+        </button>
+      </div>
+
       <div class="qz-row">
         <button v-if="locatable && revealed.source_anchor" type="button" class="qz-ghost" @click="emit('locate', revealed.source_anchor!)">Show in article</button>
         <button v-if="!flagged" type="button" class="qz-ghost" @click="reporting = !reporting">Report a problem</button>
@@ -128,26 +140,26 @@ function check() {
 </template>
 
 <style scoped>
-.qz-card { border: 1px solid rgba(127, 127, 127, 0.25); border-radius: 12px; padding: 14px; margin: 12px 0; }
+.qz-card { border: 1px solid var(--line, rgba(127, 127, 127, 0.25)); border-radius: var(--radius, 12px); padding: 18px; margin: 12px 0; background: var(--surface, transparent); box-shadow: var(--shadow, none); }
 .qz-card-head { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
-.qz-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(127, 127, 127, 0.15); }
+.qz-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--chip, rgba(127, 127, 127, 0.15)); }
 .qz-badge { font-size: 11px; margin-left: auto; }
 .qz-badge.verified { color: #2e9d5b; }
 .qz-badge.unverified { color: #b7791f; }
-.qz-passage { white-space: pre-wrap; line-height: 1.5; font-size: 14px; }
-.qz-stem { font-weight: 600; }
+.qz-passage { white-space: pre-wrap; font-family: var(--serif, inherit); line-height: 1.6; font-size: 16.5px; margin: 6px 0 12px; }
+.qz-stem { font-weight: 700; line-height: 1.45; }
 .qz-choices { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
-.qz-choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 8px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.3); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.qz-choices button.selected { border-color: #3b6fd0; box-shadow: 0 0 0 1px #3b6fd0; }
-.qz-choices button.correct { border-color: #2e9d5b; background: rgba(46, 157, 91, 0.1); }
-.qz-choices button.wrong { border-color: #d0563b; background: rgba(208, 86, 59, 0.1); }
+.qz-choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line, rgba(127, 127, 127, 0.3)); background: transparent; color: inherit; font: inherit; line-height: 1.4; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.qz-choices button.selected { border-color: var(--accent, #3b6fd0); box-shadow: 0 0 0 1px var(--accent, #3b6fd0); background: var(--accent-soft, transparent); }
+.qz-choices button.correct { border-color: var(--good, #2e9d5b); background: var(--good-soft, rgba(46, 157, 91, 0.1)); }
+.qz-choices button.wrong { border-color: var(--bad, #d0563b); background: var(--bad-soft, rgba(208, 86, 59, 0.1)); }
 .qz-lbl { font-weight: 700; }
-.qz-primary { padding: 8px 14px; border-radius: 8px; border: 0; background: #3b6fd0; color: #fff; font: inherit; cursor: pointer; }
+.qz-primary { padding: 11px 18px; border-radius: 10px; border: 0; background: var(--accent, #3b6fd0); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .qz-primary:disabled { opacity: 0.5; cursor: default; }
 .qz-ghost { margin-top: 10px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.qz-verdict { font-weight: 700; }
-.qz-verdict.good { color: #2e9d5b; }
-.qz-verdict.bad { color: #d0563b; }
+.qz-verdict { font-weight: 800; font-size: 17px; }
+.qz-verdict.good { color: var(--good, #2e9d5b); }
+.qz-verdict.bad { color: var(--bad, #d0563b); }
 .qz-details { margin-top: 10px; font-size: 13px; }
 .qz-rationales { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .qz-rationales li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; }
@@ -157,6 +169,12 @@ function check() {
 .qz-tag.revised { background: rgba(59, 111, 208, 0.15); }
 .qz-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .qz-row .qz-ghost { margin-top: 0; }
+.qz-vote { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
+.qz-vote > span { opacity: 0.75; margin-right: 2px; }
+.qz-vote button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.qz-vote button.on { border-color: #3b6fd0; background: rgba(59, 111, 208, 0.12); color: #3b6fd0; }
+.qz-vote svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.qz-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .qz-report { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .qz-report select, .qz-report textarea { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; }
 </style>

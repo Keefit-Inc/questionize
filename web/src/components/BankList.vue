@@ -59,15 +59,15 @@ onMounted(() => load(true));
 <style scoped>
 .intro { margin: 0; font-size: 14px; opacity: 0.75; line-height: 1.5; }
 .filters { display: flex; gap: 6px; margin: 12px 0; }
-.filters button { padding: 6px 12px; border-radius: 16px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.filters button.on { border-color: #3b6fd0; background: rgba(59, 111, 208, 0.12); font-weight: 600; }
+.filters button { padding: 7px 14px; border-radius: 999px; font-weight: 600; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.filters button.on { border-color: var(--accent); background: rgba(59, 111, 208, 0.12); font-weight: 600; }
 .feed { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; border: 1px solid rgba(127, 127, 127, 0.25); color: inherit; text-decoration: none; }
-.card:hover { border-color: #3b6fd0; }
+.card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); color: inherit; text-decoration: none; }
+.card:hover { border-color: var(--accent); }
 .meta { font-size: 12px; opacity: 0.7; }
-.stem { font-weight: 600; }
-.passage { font-size: 14px; opacity: 0.85; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.more { margin-top: 12px; padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.stem { font-weight: 700; line-height: 1.4; }
+.passage { font-family: var(--serif); font-size: 15px; line-height: 1.5; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.more { margin-top: 12px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .muted { opacity: 0.7; }
-.error { color: #d0563b; }
+.error { color: var(--bad); }
 </style>
