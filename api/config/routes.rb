@@ -36,6 +36,9 @@ Rails.application.routes.draw do
     end
   end
 
-  # Every other HTML route belongs to the Vue web app.
-  get "*path", to: "spa#show", constraints: ->(req) { req.format.html? && !req.path.start_with?("/api/", "/cable", "/rails/") }
+  # Every other page address belongs to the Vue web app, whatever the Accept header: crawlers
+  # (Facebook's included) ask with */*. Paths with a file extension are files, so a missing one
+  # stays a 404 instead of becoming the app shell.
+  get "*path", to: "spa#show", format: false,
+               constraints: ->(req) { !req.path.start_with?("/api/", "/cable", "/rails/") && File.extname(req.path).empty? }
 end
