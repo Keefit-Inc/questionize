@@ -232,7 +232,51 @@ For any source, including a scanned page:
 
 `item_versions` gain `blueprint_version_id`, `objective_id`, and per-option `{trap_pattern_id, misconception_id}` inside `rationales`.
 
-## 8. First slice (hackathon scope)
+## 8. Two domains and their boundary
+
+| | Knowledge domain | Learner domain |
+|---|---|---|
+| Purpose | Accumulate and validate what is worth learning and how to teach and assess it | Diagnose and grow each learner |
+| Holds | Competencies, misconceptions, trap patterns, blueprints, strategies, evidence | Attempts, ratings, trap profiles, roadmaps, rankings, games |
+| Data | Shared asset, CC BY-SA | Personal, private |
+| Receives | Anonymous, aggregated evidence only | Blueprints and items |
+
+The knowledge domain never sees an individual learner. Evidence crosses the boundary only as aggregates over enough learners that no one can be singled out. In Rails the two live in separate namespaces (`Knowledge::`, `Learning::`) and talk through that interface, so the knowledge domain can later be published or hosted on its own.
+
+Learner-domain features are designed to double as measurement. A game where learners name the trap behind each wrong option trains metacognition and, in aggregate, tests whether a trap pattern reads the way the model says it does; rated challenges put many learners on the same items, which calibrates them quickly.
+
+## 9. Personal and commons layers for uploaded material
+
+When a learner uploads material they own (a photo of a practice question they are stuck on), one pass produces two outputs:
+
+1. **Personal layer:** for that learner only. What the question measures, the misconception behind their answer, new practice items generated from the matching blueprint (never the original item), and an updated roadmap. Not shared, not published.
+2. **Commons layer:** abstract observations only (§3.9), through the leak checks in §6, entering the knowledge model as hypotheses and published only after corroboration.
+
+Rules:
+
+- Processing starts from the learner's own action on their own material; the service does not scan or collect material on anyone's behalf.
+- The original image, transcription and options are discarded when the request ends.
+- Contributing observations to the commons is explained up front, and the learner can see the knowledge nodes their contributions helped corroborate.
+- Personal data in an image (names, handwriting, school details) is not extracted.
+- No feature reproduces or imitates a specific publication (no "more questions like chapter 7 of book X").
+- Live or recalled exam content is rejected.
+- At launch, uploads and extraction are available in the United States only, to users 13 and older.
+
+## 10. Subject packs, with Critical Reasoning as the reference
+
+A subject joins the platform as a pack with a fixed contract. Critical Reasoning is the reference implementation that proves every part of the loop end to end.
+
+| Pack part | Critical Reasoning (reference) | Examples elsewhere |
+|---|---|---|
+| Competency seed and level crosswalk | Argument analysis, L11–L14 | Proportional reasoning, L5–L9 |
+| Subject misconceptions (extending the shared mechanism taxonomy) | Necessary vs sufficient, scope shift | Additive reasoning applied to ratios |
+| Item formats | Five-option multiple choice | Numeric entry, worked solution, ordering |
+| Verification strategy | Blind solver plus critic | Symbolic check of the answer; for logic games, a program that enumerates every valid arrangement and proves the key is the only answer |
+| Rendering components | Passage and options | Math notation, arrangement board |
+
+Verification sits behind one interface so each subject can use the strongest check available to it.
+
+## 11. First slice (hackathon scope)
 
 - **Subject:** verbal reasoning. **Strands:** argument analysis (Critical Reasoning) and reading for inference (Reading Comprehension). **Levels:** L11–L14.
 - **Seed:** about 25 competencies with prerequisites, 40 misconceptions, 20 trap patterns, 30 blueprints, written and reviewed by hand with agent assistance.
@@ -240,7 +284,7 @@ For any source, including a scanned page:
 - **Generation:** the pipeline takes a blueprint plus an article instead of a free-form sub-type.
 - **Evidence view:** per blueprint and trap pattern, selection rates by rating band as attempts arrive.
 
-## 9. Example (abridged)
+## 12. Example (abridged)
 
 ```json
 {

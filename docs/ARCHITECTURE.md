@@ -231,6 +231,7 @@ erDiagram
 - The analyst tags sensitive subject matter (`content_flags`: sexual violence, self-harm, graphic violence, harm to minors, hate or harassment, explicit sexual content). Flagged items stay out of the public feed until reviewed.
 - Uploaded images are never stored or published (5.5).
 - Recalled or leaked live-exam content is not accepted.
+- **Availability:** the service launches in the United States. Users confirm their country and age (13+) on first run, checked against an IP-based estimate. Uploads and knowledge extraction are US-only; public item pages and share links stay viewable everywhere.
 - Question-bank data is published under **CC BY-SA 4.0**; code under MIT.
 
 ## 8. Deployment (Kamal 2)
