@@ -3,10 +3,11 @@ module Api
     class ItemsController < BaseController
       PAGE_SIZE = 20
 
-      # GET /api/v1/items?family=CR&before=<public id> — the public feed, newest first.
+      # GET /api/v1/items?family=CR&level=middle&before=<public id> — the public feed, newest first.
       def index
         items = Item.listed.includes(:current_version, :source).order(published_at: :desc, id: :desc)
         items = items.where(family: params[:family]) if Item::FAMILIES.include?(params[:family])
+        items = items.where(level: params[:level]) if Level.valid?(params[:level])
         if (cursor = params[:before].presence && Item.listed.find_by(public_id: params[:before]))
           items = items.where("(items.published_at, items.id) < (?, ?)", cursor.published_at, cursor.id)
         end

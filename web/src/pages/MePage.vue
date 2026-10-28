@@ -6,6 +6,9 @@ import { FAMILY_LABELS, TRAP_LABELS, subtypeLabel, type ErrorLogPage, type Me, t
 import { withDevice } from "../api";
 import InstallCard from "../components/InstallCard.vue";
 import AccountCard from "../components/AccountCard.vue";
+import LevelPicker from "../components/LevelPicker.vue";
+import { levelInfo, type LevelId } from "@questionize/shared";
+import { chooseLevel, loadMe } from "../profile";
 
 const route = useRoute();
 const router = useRouter();
@@ -54,7 +57,15 @@ const goals = computed(() => {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([g]) => g);
 });
 
+const changingLevel = ref(false);
+async function pickLevel(level: LevelId) {
+  await chooseLevel(level).catch(() => (error.value = "Couldn't save your level."));
+  if (me.value) me.value = { ...me.value, level };
+  changingLevel.value = false;
+}
+
 async function load() {
+  loadMe();
   try {
     [me.value, log.value] = await Promise.all([withDevice((api) => api.getMe()), withDevice((api) => api.listErrorLog())]);
   } catch {
@@ -67,6 +78,17 @@ onMounted(load);
 <template>
   <h1 class="page-title">Me</h1>
   <InstallCard />
+  <section v-if="me" class="level-card">
+    <div class="level-row">
+      <span>
+        <small>Studying as</small>
+        <strong>{{ levelInfo(me.level)?.label ?? "Not chosen yet" }}</strong>
+      </span>
+      <button type="button" class="change" @click="changingLevel = !changingLevel">{{ changingLevel ? "Done" : "Change" }}</button>
+    </div>
+    <p class="level-note">New questions, explanations and analyses are written for this level.</p>
+    <LevelPicker v-if="changingLevel" :current="me.level" @pick="pickLevel" />
+  </section>
   <AccountCard v-if="me" :me="me" @changed="load" />
   <p v-if="me" class="muted">{{ me.handle }} · {{ me.xp }} XP</p>
   <div class="seg" role="tablist" aria-label="Profile views">
@@ -126,6 +148,13 @@ onMounted(load);
 </template>
 
 <style scoped>
+.level-card { margin: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
+.level-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.level-row span { display: flex; flex-direction: column; }
+.level-row small { font-size: 12px; color: var(--muted); }
+.level-row strong { font-size: 18px; }
+.level-note { margin: 0; font-size: 13px; color: var(--muted); }
+.change { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .operator { margin: 24px 0 0; text-align: center; font-size: 12px; color: var(--muted); }
 section { margin-top: 12px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
 h2 { margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }

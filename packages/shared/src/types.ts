@@ -144,3 +144,11 @@ export type AgentEvent =
   | { stage: "done"; result: GenerateResult }
   | { stage: "declined"; reason: Exclude<Suitability, "suitable">; message: string }
   | { stage: "failed"; message: string };
+
+/** Who a question or explanation is written for (ai/questionize/levels.py, api/app/models/level.rb). */
+export type LevelId = "elementary" | "middle" | "high" | "college" | "gmat" | "lsat" | "gre";
+
+/** The kind of situation a question is set in, for its illustration. */
+export type Scene =
+  | "everyday" | "school" | "science" | "health" | "nature" | "animals" | "city" | "business"
+  | "technology" | "sports" | "arts" | "history" | "food" | "law" | "space" | "transport";

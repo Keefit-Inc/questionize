@@ -4,6 +4,7 @@ export * from "./api";
 export * from "./client";
 export * from "./cable";
 export * from "./labels";
+export * from "./levels";
 export * from "./photo";
 export { default as QuestionCard } from "./components/QuestionCard.vue";
 export { default as JudgeMeter } from "./components/JudgeMeter.vue";
@@ -11,3 +12,4 @@ export { default as ChoiceDistribution } from "./components/ChoiceDistribution.v
 export { default as ArgumentMap } from "./components/ArgumentMap.vue";
 export { default as ChallengeCard } from "./components/ChallengeCard.vue";
 export { default as DiagnosisReport } from "./components/DiagnosisReport.vue";
+export { default as SubjectThumb } from "./components/SubjectThumb.vue";

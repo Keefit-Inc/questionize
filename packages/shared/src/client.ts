@@ -16,9 +16,10 @@ import type {
   FeedbackResponse,
   FlagReason,
   MapResponse,
+  Recommendations,
   ReviewCard,
 } from "./api";
-import type { Difficulty, QuestionType } from "./types";
+import type { Difficulty, LevelId, QuestionType } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -74,7 +75,16 @@ export class ApiClient {
     return this.request("GET", `/api/v1/generations/${id}`);
   }
 
-  listItems(params: { family?: string; before?: string } = {}): Promise<FeedPage> {
+  setLevel(level: LevelId): Promise<{ level: LevelId }> {
+    return this.request("PATCH", "/api/v1/me", { level });
+  }
+
+  /** What to practice next: weakest skills at the learner's level, pitched to about 70% success. */
+  recommendations(limit = 5): Promise<Recommendations> {
+    return this.request("GET", `/api/v1/recommendations?limit=${limit}`);
+  }
+
+  listItems(params: { family?: string; level?: string; before?: string } = {}): Promise<FeedPage> {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
     return this.request("GET", `/api/v1/items${query ? `?${query}` : ""}`);
   }

@@ -33,7 +33,12 @@ function reset() {
           :class="{ selected: picked === c.label, correct: checked && c.label === key, wrong: checked && picked === c.label && c.label !== key }"
           @click="picked = c.label"
         >
-          <span class="lbl">{{ c.label }}</span><span>{{ c.text }}</span>
+          <span class="lbl" :class="{ right: checked && c.label === key, wrong: checked && picked === c.label && c.label !== key }">
+            <template v-if="checked && c.label === key">✓</template>
+            <template v-else-if="checked && picked === c.label">✕</template>
+            <template v-else>{{ c.label }}</template>
+          </span>
+          <span>{{ c.text }}</span>
         </button>
         <p v-if="checked && reviews.get(c.label)?.reason" class="why">
           <em class="tag">{{ trap(reviews.get(c.label)!.trap) }}</em> {{ reviews.get(c.label)!.reason }}
@@ -58,12 +63,15 @@ function reset() {
 .passage { margin: 0; white-space: pre-wrap; font-family: var(--serif); font-size: 16.5px; line-height: 1.6; }
 .stem { margin: 0; font-weight: 700; line-height: 1.45; }
 .choices { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; line-height: 1.4; color: inherit; font: inherit; cursor: pointer; }
+.choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 26px 1fr; align-items: start; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; line-height: 1.4; color: inherit; font: inherit; cursor: pointer; }
 .choices button:disabled { cursor: default; }
 .choices button.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .choices button.correct { border-color: var(--good); background: var(--good-soft); }
 .choices button.wrong { border-color: var(--bad); background: var(--bad-soft); }
-.lbl { font-weight: 700; }
+.lbl { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--chip); }
+.choices button.selected .lbl { background: var(--accent); color: #fff; }
+.lbl.right { background: var(--good); color: #fff; }
+.lbl.wrong { background: var(--bad); color: #fff; }
 .why { margin: 4px 0 2px 28px; font-size: 13px; opacity: 0.85; }
 .tag { font-style: normal; font-size: 11px; padding: 0 6px; margin-right: 4px; border-radius: 8px; border: 1px solid currentColor; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

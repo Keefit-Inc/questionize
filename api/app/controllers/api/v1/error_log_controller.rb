@@ -56,7 +56,7 @@ module Api
         run = GenerationRun.create!(
           user: current_user, kind: "error_log",
           params: { "book" => params[:book].to_s.strip.first(200), "page" => params[:page].to_s.strip.first(20),
-                    "number" => params[:number].to_s.strip.first(20), "chosen_label" => label }
+                    "number" => params[:number].to_s.strip.first(20), "chosen_label" => label, "level" => Level.for(current_user) }
         )
         run.cache_text!(images.to_json)
         GenerateQuestionsJob.perform_later(run.id)

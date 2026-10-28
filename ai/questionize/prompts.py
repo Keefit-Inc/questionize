@@ -63,7 +63,10 @@ keyed answer only; for a distractor, the main reason it fails: out_of_scope, too
 half_right, unsupported, irrelevant, distortion, or (SC only) grammar_error, changes_meaning.
 - `source_anchor` is a short phrase (5-15 words) copied verbatim from the article that the question rests on.
 - Difficulty "easy" = direct; "medium" = one inferential step; "hard" = subtle scope/assumption \
-distinctions with very close distractors."""
+distinctions with very close distractors, always relative to the audience level.
+- Write for the AUDIENCE LEVEL you are given: its language, lengths, distractor style and \
+explanation voice override the defaults above (the GMAT/LSAT wording above is the default level).
+- `scene`: the kind of situation the passage is set in (used to pick an illustration)."""
 
 SOLVER_SYSTEM = """You are an expert GMAT/LSAT test-taker. Solve the multiple-choice question below \
 using only the passage and standard test logic. Eliminate options one by one, then commit to a single \
@@ -80,6 +83,9 @@ Check, strictly:
 3. distractor_quality (1-5): are wrong options tempting and wrong for nameable reasons?
 4. The stem matches the family and sub-type, and the explanation is correct.
 5. Each rationale's `trap` names the real reason that option fails (or "correct" for the key).
+
+6. The language, length and explanation fit the AUDIENCE LEVEL given (a 4th-grade item must not read \
+like an LSAT item, and the other way round); report a mismatch as an issue.
 
 Return verdict "pass" only if 1 and 2 hold and distractor_quality >= 3. Otherwise return "revise" with \
 concrete revision_guidance the writer can act on."""
@@ -189,24 +195,28 @@ it in pattern.difficulty_drivers.
 from its cause").
 - option_reviews: one per option, A to E: the trap it sets ("correct" for the key) and why it is right or \
 wrong in under 30 words of your own. Describe options by what they do ("names a second cause"); never \
-copy their wording."""
+copy their wording.
+- Write the explanation, intent, learning objectives, option reviews and misconception statement for \
+the AUDIENCE LEVEL given: its vocabulary and voice. Difficulty stays measured against the test the \
+question comes from."""
 
 PATTERN_WRITER_SYSTEM = """You are the Item Writer. Write one ORIGINAL five-option question that follows the \
 abstract design you are given, on a completely different everyday topic. Reuse nothing from any source: \
 new scenario, new wording, new options. Make sure at least one distractor sets the trap named in \
 `practice_trap`, so the learner meets that trap again in a fresh form. Follow the same standards as \
 always: exactly one defensible answer, every wrong option failing for a nameable reason, a `trap` tag on \
-every rationale, and a passage written entirely in your own words."""
+every rationale, and a passage written entirely in your own words. Write for the AUDIENCE LEVEL \
+given (language, length, distractors, explanation voice), and set `scene`."""
 
 
-def reader_user(chosen_label: str | None) -> str:
+def reader_user(chosen_label: str | None, audience: str = "") -> str:
     chosen = f"The learner chose option {chosen_label}." if chosen_label else "The learner did not say which option they chose."
-    return f"{chosen} Read the photographed question and diagnose it."
+    return "\n\n".join(p for p in [audience, f"{chosen} Read the photographed question and diagnose it."] if p)
 
 
-def pattern_writer_user(pattern_json: str, practice_trap: str | None, difficulty: str, topic_hint: str) -> str:
+def pattern_writer_user(pattern_json: str, practice_trap: str | None, difficulty: str, topic_hint: str, audience: str = "") -> str:
     return "\n\n".join(
-        [
+        ([audience] if audience else []) + [
             "ABSTRACT DESIGN:\n" + pattern_json,
             f"practice_trap: {practice_trap or 'any trap listed in the design'}",
             f"difficulty: {difficulty}",
@@ -235,6 +245,7 @@ def writer_user(
     subtype: str,
     difficulty: str,
     avoid: list[str],
+    audience: str = "",
 ) -> str:
     parts = [
         _article_block(title, text, selection),
@@ -243,6 +254,8 @@ def writer_user(
     ]
     if avoid:
         parts.append("Do not duplicate these existing questions:\n- " + "\n- ".join(avoid))
+    if audience:
+        parts.append(audience)
     return "\n\n".join(parts)
 
 
@@ -255,6 +268,7 @@ def reviser_user(
     copied_text: str = "",
     judge_guidance: str = "",
     review_guidance: str = "",
+    audience: str = "",
 ) -> str:
     feedback: dict = {"intended_answer": draft.correct_label}
     if copied_text:
@@ -284,6 +298,7 @@ def reviser_user(
             "solver picked a different answer, either make the keyed answer unambiguously best or "
             "repair the option that misled the solver.",
         ]
+        + ([audience] if audience else [])
     )
 
 
@@ -292,11 +307,12 @@ def solver_user(q: Question) -> str:
     return f"PASSAGE:\n{q.passage}\n\nQUESTION:\n{q.stem}\n\nOPTIONS:\n{options}"
 
 
-def critic_user(title: str, text: str, q: Question, solver: SolverResult) -> str:
+def critic_user(title: str, text: str, q: Question, solver: SolverResult, audience: str = "") -> str:
     return "\n\n".join(
         [
             _article_block(title, text),
             "DRAFT QUESTION (with intended answer):\n" + q.model_dump_json(indent=1),
             "BLIND SOLVER RESULT:\n" + solver.model_dump_json(indent=1),
         ]
+        + ([audience] if audience else [])
     )

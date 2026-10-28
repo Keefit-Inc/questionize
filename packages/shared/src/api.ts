@@ -1,5 +1,5 @@
 // Shapes of the Rails API (api/app/controllers/api/v1, api/app/serializers/item_payload.rb).
-import type { Choice, JudgeResult, Label, QuestionType, TrapType, Verification } from "./types";
+import type { Choice, JudgeResult, Label, LevelId, QuestionType, Scene, TrapType, Verification } from "./types";
 
 export interface ItemSource {
   title: string | null;
@@ -23,6 +23,8 @@ interface ItemBase {
   source: ItemSource | null;
   /** "generated" from an article; "pattern" from the abstract design of a question someone snapped. */
   origin?: "generated" | "pattern";
+  level?: LevelId;
+  scene?: Scene | null;
   /** On this learner's review list (My misses), and why. */
   saved?: { reason: "missed" | "saved"; archived: boolean } | null;
 }
@@ -81,6 +83,8 @@ export interface Me {
   xp: number;
   /** The sign-in account linked to this learner, if any. */
   account?: { provider: "facebook"; name: string | null } | null;
+  /** Who the learner studies as; null until they choose. */
+  level?: LevelId | null;
   ratings: { skill: string; rating: number; attempts: number; correct: number; provisional: boolean }[];
 }
 
@@ -244,4 +248,9 @@ export interface ErrorLogCapture {
   page?: string;
   number?: string;
   chosen_label?: Label;
+}
+
+export interface Recommendations {
+  level: LevelId;
+  items: { reason: string; item: Item }[];
 }

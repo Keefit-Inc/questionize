@@ -17,7 +17,7 @@ Rails.application.routes.draw do
           resource :answer, only: :create, controller: "challenge_answers"
         end
       end
-      resource :me, only: %i[show destroy], controller: "me"
+      resource :me, only: %i[show update destroy], controller: "me"
       post "me/eligibility", to: "eligibility#create", as: :eligibility
       resources :error_log, only: %i[index show create update], controller: "error_log" do
         get :question, on: :member
@@ -29,6 +29,7 @@ Rails.application.routes.draw do
       end
       get "review", to: "review#index"
       get "config", to: "config#show"
+      get "recommendations", to: "recommendations#index"
       namespace :auth do
         post "facebook", to: "facebook#create"
         post "facebook/data_deletion", to: "facebook#data_deletion"

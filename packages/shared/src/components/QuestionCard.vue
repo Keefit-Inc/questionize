@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import type { FlagReason, Item, Votes } from "../api";
 import type { Label } from "../types";
 import { FAMILY_LABELS, TRAP_LABELS, passageSegments, subtypeLabel } from "../labels";
+import { SCENE_EMOJI, levelInfo, sceneFor } from "../levels";
 import ChoiceDistribution from "./ChoiceDistribution.vue";
 import JudgeMeter from "./JudgeMeter.vue";
 
@@ -47,6 +48,15 @@ function choiceClass(label: Label) {
   return { correct: label === revealed.value.correct_label, wrong: label === selected.value && !correct.value };
 }
 
+const scene = computed(() => sceneFor(props.item));
+const level = computed(() => levelInfo(props.item.level));
+
+function mark(label: Label): "right" | "wrong" | null {
+  if (!revealed.value) return null;
+  if (label === revealed.value.correct_label) return "right";
+  return label === selected.value ? "wrong" : null;
+}
+
 function check() {
   if (picked.value && !props.busy) emit("answer", picked.value);
 }
@@ -55,8 +65,14 @@ function check() {
 <template>
   <article class="qz-card">
     <header class="qz-card-head">
-      <span class="qz-tag">{{ FAMILY_LABELS[item.family] }}</span>
-      <span class="qz-tag">{{ subtypeLabel(item.subtype) }}</span>
+      <span class="qz-scene" :data-scene="scene" aria-hidden="true">{{ SCENE_EMOJI[scene] }}</span>
+      <span class="qz-head-text">
+        <span class="qz-family">{{ FAMILY_LABELS[item.family] }}</span>
+        <span class="qz-head-tags">
+          <span class="qz-tag">{{ subtypeLabel(item.subtype) }}</span>
+          <span v-if="level" class="qz-tag qz-level">{{ level.label }}</span>
+        </span>
+      </span>
       <span v-if="item.version > 1" class="qz-tag revised" title="Replaced by a re-review after reader reports">v{{ item.version }} · revised</span>
       <span class="qz-badge" :class="item.verified ? 'verified' : 'unverified'">
         {{ item.status === "under_review" ? "⟳ Under review" : item.verified ? "✓ Verified" : "⚠ Unverified" }}
@@ -71,7 +87,12 @@ function check() {
     <ol class="qz-choices">
       <li v-for="choice in item.choices" :key="choice.label">
         <button type="button" :class="choiceClass(choice.label)" :disabled="!!revealed || busy" @click="picked = choice.label">
-          <span class="qz-lbl">{{ choice.label }}</span><span>{{ choice.text }}</span>
+          <span class="qz-lbl" :class="mark(choice.label)" :aria-label="mark(choice.label) === 'right' ? `${choice.label}, correct answer` : mark(choice.label) === 'wrong' ? `${choice.label}, your answer` : undefined">
+            <svg v-if="mark(choice.label) === 'right'" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9" /></svg>
+            <svg v-else-if="mark(choice.label) === 'wrong'" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+            <template v-else>{{ choice.label }}</template>
+          </span>
+          <span>{{ choice.text }}</span>
         </button>
       </li>
     </ol>
@@ -82,8 +103,11 @@ function check() {
 
     <div v-else class="qz-reveal">
       <p class="qz-verdict" :class="correct ? 'good' : 'bad'">
-        <template v-if="correct">Correct — {{ revealed.correct_label }}</template>
-        <template v-else>Not quite. You chose {{ selected }}<template v-if="chosenTrap"> (trap: {{ chosenTrap }})</template>; the answer is {{ revealed.correct_label }}.</template>
+        <span class="qz-verdict-icon" aria-hidden="true">{{ correct ? "✓" : "✕" }}</span>
+        <span>
+          <template v-if="correct">Correct! The answer is {{ revealed.correct_label }}.</template>
+          <template v-else>Not quite. You chose {{ selected }}<template v-if="chosenTrap"> (trap: {{ chosenTrap }})</template>; the answer is {{ revealed.correct_label }}.</template>
+        </span>
       </p>
       <p class="qz-explanation">{{ revealed.explanation }}</p>
 
@@ -141,7 +165,15 @@ function check() {
 
 <style scoped>
 .qz-card { border: 1px solid var(--line, rgba(127, 127, 127, 0.25)); border-radius: var(--radius, 12px); padding: 18px; margin: 12px 0; background: var(--surface, transparent); box-shadow: var(--shadow, none); }
-.qz-card-head { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.qz-card-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.qz-scene { width: 46px; height: 46px; flex: none; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; background: linear-gradient(135deg, #fff3d6, #ffe0e9); }
+.qz-scene[data-scene="science"], .qz-scene[data-scene="technology"], .qz-scene[data-scene="space"] { background: linear-gradient(135deg, #dde8ff, #e9ddff); }
+.qz-scene[data-scene="nature"], .qz-scene[data-scene="animals"], .qz-scene[data-scene="food"], .qz-scene[data-scene="health"] { background: linear-gradient(135deg, #dcf5e4, #f0f7d4); }
+.qz-scene[data-scene="city"], .qz-scene[data-scene="transport"], .qz-scene[data-scene="law"], .qz-scene[data-scene="business"] { background: linear-gradient(135deg, #e3eef7, #f3e9dc); }
+.qz-head-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.qz-family { font-weight: 800; font-size: 14px; }
+.qz-head-tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.qz-level { background: var(--accent-soft, rgba(59, 111, 208, 0.12)); color: var(--accent, #3b6fd0); }
 .qz-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--chip, rgba(127, 127, 127, 0.15)); }
 .qz-badge { font-size: 11px; margin-left: auto; }
 .qz-badge.verified { color: #2e9d5b; }
@@ -149,15 +181,23 @@ function check() {
 .qz-passage { white-space: pre-wrap; font-family: var(--serif, inherit); line-height: 1.6; font-size: 16.5px; margin: 6px 0 12px; }
 .qz-stem { font-weight: 700; line-height: 1.45; }
 .qz-choices { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
-.qz-choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line, rgba(127, 127, 127, 0.3)); background: transparent; color: inherit; font: inherit; line-height: 1.4; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.qz-choices button { width: 100%; text-align: left; display: grid; grid-template-columns: 26px 1fr; align-items: start; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line, rgba(127, 127, 127, 0.3)); background: transparent; color: inherit; font: inherit; line-height: 1.4; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
 .qz-choices button.selected { border-color: var(--accent, #3b6fd0); box-shadow: 0 0 0 1px var(--accent, #3b6fd0); background: var(--accent-soft, transparent); }
 .qz-choices button.correct { border-color: var(--good, #2e9d5b); background: var(--good-soft, rgba(46, 157, 91, 0.1)); }
 .qz-choices button.wrong { border-color: var(--bad, #d0563b); background: var(--bad-soft, rgba(208, 86, 59, 0.1)); }
-.qz-lbl { font-weight: 700; }
+.qz-lbl { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--chip, rgba(127, 127, 127, 0.15)); }
+.qz-choices button.selected .qz-lbl { background: var(--accent, #3b6fd0); color: #fff; }
+.qz-lbl.right { background: var(--good, #2e9d5b); color: #fff; }
+.qz-lbl.wrong { background: var(--bad, #d0563b); color: #fff; }
+.qz-lbl svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .qz-primary { padding: 11px 18px; border-radius: 10px; border: 0; background: var(--accent, #3b6fd0); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .qz-primary:disabled { opacity: 0.5; cursor: default; }
 .qz-ghost { margin-top: 10px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.qz-verdict { font-weight: 800; font-size: 17px; }
+.qz-verdict { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
+.qz-verdict-icon { width: 30px; height: 30px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; background: currentColor; }
+.qz-verdict-icon { color: inherit; }
+.qz-verdict.good .qz-verdict-icon { background: var(--good, #2e9d5b); color: #fff; }
+.qz-verdict.bad .qz-verdict-icon { background: var(--bad, #d0563b); color: #fff; }
 .qz-verdict.good { color: var(--good, #2e9d5b); }
 .qz-verdict.bad { color: var(--bad, #d0563b); }
 .qz-details { margin-top: 10px; font-size: 13px; }

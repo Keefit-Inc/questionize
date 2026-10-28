@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // My misses or Archived: questions the learner snapped, and bank questions they missed or saved.
 import { onMounted, reactive, ref } from "vue";
-import { FAMILY_LABELS, subtypeLabel, type QuestionType, type ReviewCard } from "@questionize/shared";
+import { SubjectThumb, subjectOf, subtypeLabel, type ReviewCard } from "@questionize/shared";
 import { cardKey, cardPath, loadReview, reviewList, type ListName } from "../review";
 import { loadQuestion } from "../device";
 
@@ -48,8 +48,8 @@ function view(c: ReviewCard) {
   <ul v-else-if="cards" class="cards">
     <li v-for="c in cards" :key="cardKey(c)">
       <RouterLink :to="cardPath(c, list)" class="card">
-        <span class="badge" :data-family="view(c).family">
-          {{ view(c).family }}
+        <span class="thumb">
+          <SubjectThumb :family="view(c).family" :size="48" />
           <span v-if="view(c).difficulty" class="dots" :aria-label="`Difficulty ${view(c).difficulty} of 5`">
             <i v-for="n in 5" :key="n" :class="{ on: n <= (view(c).difficulty ?? 0) }" />
           </span>
@@ -57,7 +57,7 @@ function view(c: ReviewCard) {
         <span class="body">
           <span class="meta">
             <span class="tag" :class="view(c).tag.toLowerCase()">{{ view(c).tag }}</span>
-            {{ FAMILY_LABELS[view(c).family as QuestionType] ?? view(c).family }} · {{ view(c).skill }}
+            {{ subjectOf(view(c).family).short }} · {{ view(c).skill }}
           </span>
           <span class="title">{{ view(c).title }}</span>
           <span v-if="view(c).where" class="where">{{ view(c).where }}</span>
@@ -78,9 +78,8 @@ function view(c: ReviewCard) {
 .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .card { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none; box-shadow: var(--shadow); transition: transform 0.12s; }
 .card:active { transform: scale(0.99); }
-.badge { width: 52px; height: 56px; flex: none; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-weight: 800; font-size: 15px; background: var(--accent-soft); color: var(--accent); }
-.badge[data-family="RC"] { background: var(--violet-soft); color: var(--violet); }
-.dots { display: flex; gap: 2px; }
+.thumb { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dots { display: flex; gap: 2px; color: var(--warn); }
 .dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.25; }
 .dots i.on { opacity: 1; }
 .body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }

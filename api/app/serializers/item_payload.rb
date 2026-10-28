@@ -28,6 +28,8 @@ class ItemPayload
       source: source_json,
       revealed: @revealed,
       origin: @item.origin,
+      level: @item.level,
+      scene: @item.scene,
       saved: saved_json
     }
     @revealed ? base.merge(reveal) : base

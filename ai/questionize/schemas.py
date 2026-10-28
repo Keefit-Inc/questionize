@@ -66,6 +66,7 @@ class GenerateRequest(BaseModel):
     types: list[QuestionType] = Field(default_factory=lambda: ["CR", "RC"])
     count_per_type: int = Field(1, ge=1, le=3)
     difficulty: Difficulty = "medium"
+    level: LevelId = Field("gmat", description="Who the questions are written for (questionize/levels.py)")
 
 
 class Choice(BaseModel):
@@ -77,6 +78,15 @@ class ChoiceRationale(BaseModel):
     label: Label
     rationale: str = Field(..., description="Why this option is right or exactly why it fails")
     trap: TrapType = Field(..., description='"correct" for the keyed answer; otherwise the trap this distractor sets')
+
+
+# The kind of situation a question is set in, for the illustration shown with it.
+Scene = Literal[
+    "everyday", "school", "science", "health", "nature", "animals", "city", "business",
+    "technology", "sports", "arts", "history", "food", "law", "space", "transport",
+]
+
+LevelId = Literal["elementary", "middle", "high", "college", "gmat", "lsat", "gre"]
 
 
 class Question(BaseModel):
@@ -94,6 +104,7 @@ class Question(BaseModel):
     source_anchor: str = Field(
         "", description="A short verbatim phrase from the article the question is grounded in"
     )
+    scene: Scene = Field("everyday", description="The kind of situation the passage is set in")
 
 
 class Verification(BaseModel):
@@ -396,6 +407,7 @@ class PhotoReading(BaseModel):
 class DiagnoseRequest(BaseModel):
     images: list[str] = Field(..., min_length=1, max_length=3, description="data: URLs of the parts of one question, in reading order")
     chosen_label: Label | None = None
+    level: LevelId = "gmat"
 
 
 class Diagnosis(BaseModel):

@@ -100,6 +100,7 @@ module GenerationRuns
           source: @run.source, generation_run: @run, family: q.fetch("type"), subtype: q.fetch("subtype"),
           status: verified ? "verified" : "unverified", visibility: visibility(verified), origin: origin,
           content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
+          level: Level.valid?(@run.params["level"]) ? @run.params["level"] : Level.for(@run.user), scene: q["scene"].presence,
           published_at: verified && @content_flags.empty? ? Time.current : nil
         )
         version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)

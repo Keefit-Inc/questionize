@@ -15,7 +15,7 @@ import random
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from . import prompts
+from . import levels, prompts
 from .pipeline import Declined, QuestionPipeline, longest_copied_run, normalize_question
 from .schemas import Diagnosis, DiagnoseRequest, PhotoReading, Question
 
@@ -31,7 +31,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     rng = random.Random(seed)
     await emit({"stage": "reading", "message": "Reading the photographed question"})
     reading = await pipeline.primary.complete(
-        prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label), PhotoReading, temperature=0.0, images=req.images
+        prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level)), PhotoReading, temperature=0.0, images=req.images
     )
     if not reading.readable or reading.kind == "not_a_question":
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
@@ -77,7 +77,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
     topics = rng.sample(TOPICS, PRACTICE_ITEMS)
     results = await asyncio.gather(
-        *(_practice(pipeline, i, pattern, diagnosis, transcript, topic, emit) for i, topic in enumerate(topics)),
+        *(_practice(pipeline, i, pattern, diagnosis, transcript, topic, emit, req.level) for i, topic in enumerate(topics)),
         return_exceptions=True,
     )
     practice = [r for r in results if not isinstance(r, BaseException) and r.verification.copied_words <= pipeline.max_copied_words]
@@ -101,18 +101,19 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     }
 
 
-async def _practice(pipeline, index, pattern, diagnosis, transcript, topic, emit):
+async def _practice(pipeline, index, pattern, diagnosis, transcript, topic, emit, level=None):
+    audience = levels.brief(level)
     draft = normalize_question(
         await pipeline.primary.complete(
             prompts.PATTERN_WRITER_SYSTEM,
-            prompts.pattern_writer_user(pattern.model_dump_json(indent=1), diagnosis.chosen_trap, "medium", topic),
+            prompts.pattern_writer_user(pattern.model_dump_json(indent=1), diagnosis.chosen_trap, "medium", topic, audience),
             Question,
             temperature=0.8,
         ),
         pattern.family,
     )
     # The photographed question is the "source" no practice passage may copy from.
-    return await pipeline.verify(index, "", transcript, draft, pattern.family, emit)
+    return await pipeline.verify(index, "", transcript, draft, pattern.family, emit, audience=audience)
 
 
 def _scrub(pattern, transcript: str):

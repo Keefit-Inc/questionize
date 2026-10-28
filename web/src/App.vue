@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
+import LevelSheet from "./components/LevelSheet.vue";
+import { loadMe, me } from "./profile";
 
 const route = useRoute();
 const tab = computed(() => route.meta.tab as string | undefined);
 const fullBleed = computed(() => Boolean(route.meta.fullBleed));
+// Ask for a level once, except on pages people open from links (legal pages, shared questions).
+const askLevel = computed(() => me.value !== null && !me.value.level && !["/privacy", "/terms", "/data-deletion"].includes(route.path) && !route.path.startsWith("/q/"));
+onMounted(loadMe);
 const TABS = [
   { key: "snap", to: "/snap", label: "Snap" },
   { key: "questions", to: "/questions", label: "Questions" },
@@ -20,6 +25,7 @@ const TABS = [
     <main :class="fullBleed ? 'stage' : 'shell'">
       <RouterView />
     </main>
+    <LevelSheet v-if="askLevel" />
     <nav class="tabs" aria-label="Main">
       <RouterLink v-for="t in TABS" :key="t.key" :to="t.to" class="tab" :class="{ on: tab === t.key }" :aria-current="tab === t.key ? 'page' : undefined">
         <svg v-if="t.key === 'snap'" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.6" /></svg>

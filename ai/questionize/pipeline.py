@@ -21,7 +21,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from . import prompts
+from . import levels, prompts
 from .judge import ArgumentJudge, judge_feedback
 from .llm import StructuredLLM
 from .schemas import (
@@ -106,10 +106,10 @@ def plan_slots(req: GenerateRequest, analysis: ArticleAnalysis, rng: random.Rand
     """Choose (family, sub-type) for each question, adapted to what the article supports."""
     slots: list[tuple[str, str]] = []
     for qtype in req.types:
-        options = list(SUBTYPES[qtype])
+        options = levels.subtypes(req.level, qtype) if qtype in ("CR", "RC") else list(SUBTYPES[qtype])
         if qtype == "CR" and not any(a.unstated_assumptions or a.potential_flaws for a in analysis.arguments):
             # Purely descriptive article: assumption/flaw items would be forced.
-            options = ["inference", "strengthen", "weaken"]
+            options = [o for o in ["inference", "strengthen", "weaken"] if o in options] or options
         rng.shuffle(options)
         for i in range(req.count_per_type):
             slots.append((qtype, options[i % len(options)]))
@@ -154,14 +154,14 @@ class QuestionPipeline:
         draft = normalize_question(
             await self.primary.complete(
                 prompts.WRITER_SYSTEM,
-                prompts.writer_user(req.title, req.text, req.selection, analysis, qtype, subtype, req.difficulty, []),
+                prompts.writer_user(req.title, req.text, req.selection, analysis, qtype, subtype, req.difficulty, [], levels.brief(req.level)),
                 Question,
                 temperature=0.7,
             ),
             qtype,
         )
 
-        return await self.verify(idx, req.title, req.text, draft, qtype, emit)
+        return await self.verify(idx, req.title, req.text, draft, qtype, emit, audience=levels.brief(req.level))
 
     async def verify(
         self,
@@ -172,6 +172,7 @@ class QuestionPipeline:
         qtype: str,
         emit: Emit,
         first_guidance: str = "",
+        audience: str = "",
     ) -> VerifiedQuestion:
         """Solve, critique and judge a draft, revising until it passes or revisions run out.
 
@@ -183,7 +184,7 @@ class QuestionPipeline:
             draft = normalize_question(
                 await self.primary.complete(
                     prompts.WRITER_SYSTEM,
-                    prompts.reviser_user(title, text or draft.passage, draft, None, None, review_guidance=first_guidance),
+                    prompts.reviser_user(title, text or draft.passage, draft, None, None, review_guidance=first_guidance, audience=audience),
                     Question,
                     temperature=0.5,
                 ),
@@ -214,7 +215,7 @@ class QuestionPipeline:
                 draft = normalize_question(
                     await self.primary.complete(
                         prompts.WRITER_SYSTEM,
-                        prompts.reviser_user(title, text, draft, None, None, copied_text),
+                        prompts.reviser_user(title, text, draft, None, None, copied_text, audience=audience),
                         Question,
                         temperature=0.5,
                     ),
@@ -233,7 +234,7 @@ class QuestionPipeline:
                 await emit({"stage": "critic", "index": idx, "attempt": attempts, "message": "Critic checking uniqueness and distractors"})
                 critic = await self.primary.complete(
                     prompts.CRITIC_SYSTEM,
-                    prompts.critic_user(title, text, draft, solver_result),
+                    prompts.critic_user(title, text, draft, solver_result, audience),
                     CriticResult,
                     temperature=0.0,
                 )
@@ -264,6 +265,7 @@ class QuestionPipeline:
                     prompts.reviser_user(
                         title, text, draft, solver_result, critic,
                         judge_guidance=judge_feedback(judged) if judged and not passed else "",
+                        audience=audience,
                     ),
                     Question,
                     temperature=0.5,

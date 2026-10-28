@@ -15,7 +15,7 @@ module Api
         return render(json: { error: "daily_limit_reached" }, status: :too_many_requests) if over_daily_limit?
 
         source = Source.for_page!(url: attrs[:url], title: attrs[:title], text: attrs[:text])
-        existing = source.items.where(status: "verified").includes(:current_version, :source).order(:created_at)
+        existing = source.items.where(status: "verified", level: Level.for(current_user)).includes(:current_version, :source).order(:created_at)
         if existing.any?
           return render json: { status: "cached", items: existing.map { |item| ItemPayload.for(item, user: current_user).as_json } }
         end
@@ -52,7 +52,8 @@ module Api
           "url" => attrs[:url], "title" => attrs[:title].to_s, "selection" => attrs[:selection].to_s,
           "types" => (Array(attrs[:types]) & FAMILIES).presence || %w[CR RC],
           "difficulty" => Item::START_RATINGS.key?(attrs[:difficulty]) ? attrs[:difficulty] : "medium",
-          "count_per_type" => attrs[:count_per_type].to_i.clamp(1, 3)
+          "count_per_type" => attrs[:count_per_type].to_i.clamp(1, 3),
+          "level" => Level.for(current_user)
         }
       end
 

@@ -19,7 +19,7 @@ class GenerateQuestionsJob < ApplicationJob
     handle = ->(event) { broadcast(run, recorder.record(event)) }
     case run.kind
     when "map" then client.map(payload.slice("title", "url", "selection", "text"), &handle)
-    when "error_log" then client.diagnose({ "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"] }, &handle)
+    when "error_log" then client.diagnose({ "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"], "level" => Level.for(run.user) }, &handle)
     else client.generate(payload, &handle)
     end
     broadcast(run, recorder.fail!("The AI service ended the stream unexpectedly.")) if run.reload.status == "running"
@@ -33,7 +33,7 @@ class GenerateQuestionsJob < ApplicationJob
   private
 
   def request_payload(run, text)
-    run.params.slice("title", "url", "selection", "types", "difficulty", "count_per_type").merge("text" => text)
+    run.params.slice("title", "url", "selection", "types", "difficulty", "count_per_type").merge("text" => text, "level" => run.params["level"] || Level.for(run.user))
   end
 
   def broadcast(run, payload)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_000008) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_000009) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -232,7 +232,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000008) do
     t.datetime "published_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "level", default: "gmat", null: false
+    t.string "scene"
     t.index ["generation_run_id"], name: "index_items_on_generation_run_id"
+    t.index ["level", "published_at"], name: "index_items_on_level_and_published_at"
     t.index ["public_id"], name: "index_items_on_public_id", unique: true
     t.index ["source_id"], name: "index_items_on_source_id"
     t.index ["visibility", "family", "published_at"], name: "index_items_on_visibility_and_family_and_published_at"
@@ -376,6 +379,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000008) do
     t.datetime "age_confirmed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "level"
     t.index ["api_token"], name: "index_users_on_api_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["handle"], name: "index_users_on_handle", unique: true

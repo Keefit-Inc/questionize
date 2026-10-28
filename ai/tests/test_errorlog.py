@@ -63,6 +63,8 @@ async def test_diagnosis_practice_and_observation():
     assert "Lincoln School" not in str(out), "nothing else carries the printed wording"
     writer_prompt = [u for name, u in primary.calls if name == "Question"][0]
     assert "practice_trap: irrelevant" in writer_prompt
+    reader_prompt = [u for name, u in primary.calls if name == "PhotoReading"][0]
+    assert "AUDIENCE LEVEL: GMAT" in reader_prompt and "AUDIENCE LEVEL: GMAT" in writer_prompt
     assert [e["stage"] for e in events][:3] == ["reading", "diagnosed", "practice"]
     assert (events[1]["difficulty"], events[1]["key_guess"], events[1]["chosen_correct"]) == (3, "C", False)
     assert (d["difficulty"], d["learning_objectives"][0]) == (3, "Separate a correlation from its cause")

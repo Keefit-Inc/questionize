@@ -1,6 +1,6 @@
 # Questionize — notes for coding agents
 
-Chrome extension + web app that turns articles into verified GMAT/LSAT-style reasoning questions and keeps them in an open, community-improved question bank. Read `docs/ARCHITECTURE.md` before structural changes; it is the source of truth for the target design. `docs/KNOWLEDGE_MODEL.md` defines the knowledge model (blueprints, misconceptions, evidence) that questions are generated from.
+Chrome extension + web app that turns articles into verified GMAT/LSAT-style reasoning questions and keeps them in an open, community-improved question bank. Read `docs/ARCHITECTURE.md` before structural changes; it is the source of truth for the target design. `docs/KNOWLEDGE_MODEL.md` defines the knowledge model (blueprints, misconceptions, evidence) that questions are generated from. `docs/LEARNING_MODEL.md` defines how learners are assessed, levels, recommendations and quality measures.
 
 ## Stack
 

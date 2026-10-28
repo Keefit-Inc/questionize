@@ -14,6 +14,7 @@ class User < ApplicationRecord
 
   validates :handle, presence: true, uniqueness: true
   validates :email, uniqueness: true, allow_nil: true
+  validates :level, inclusion: { in: Level::ALL }, allow_nil: true
 
   before_validation :assign_handle, on: :create
 
