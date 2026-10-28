@@ -42,6 +42,25 @@ type Measurement = JudgeResult["options"][number]["support_delta"];
 
 export type Item = HiddenItem | RevealedItem;
 
+export interface FeedPage {
+  items: Item[];
+  /** Pass as `before` for the next page; null on the last page. */
+  next: string | null;
+}
+
+export interface Me {
+  handle: string;
+  anonymous: boolean;
+  xp: number;
+  ratings: { skill: string; rating: number; attempts: number; correct: number; provisional: boolean }[];
+}
+
+export interface TallyUpdate {
+  item_id: string;
+  tally: Record<Label, number>;
+  attempts_count: number;
+}
+
 export interface DeviceResponse {
   token: string;
   user: { handle: string; xp: number };

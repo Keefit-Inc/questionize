@@ -19,6 +19,14 @@ class Item < ApplicationRecord
 
   before_validation :assign_public_id, on: :create
 
+  # Public items are in the feed and on share pages. Held (sensitive) items are reachable only by
+  # link, from the article they came from. Private (unverified) items belong to their creator.
+  scope :listed, -> { where(visibility: "public") }
+
+  def self.accessible_by(user)
+    where(visibility: %w[public held]).or(where(generation_run_id: GenerationRun.where(user: user).select(:id)))
+  end
+
   def self.start_rating(difficulty)
     START_RATINGS.fetch(difficulty.to_s, START_RATINGS["medium"])
   end

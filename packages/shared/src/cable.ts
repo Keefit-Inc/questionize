@@ -1,6 +1,6 @@
 // Live generation progress over Action Cable (GenerationChannel).
 import { createConsumer } from "@rails/actioncable";
-import type { GenerationEvent, GenerationRunState, Item } from "./api";
+import type { GenerationEvent, GenerationRunState, Item, TallyUpdate } from "./api";
 
 export const TERMINAL_STAGES = new Set(["done", "declined", "failed"]);
 
@@ -51,4 +51,14 @@ export function replayRunState(state: GenerationRunState): GenerationEvent[] {
     const item = items.get(event.item_id);
     return item && !item.revealed ? [{ stage: "question", index: event.index, item }] : [];
   });
+}
+
+/** Live answer tallies for an item the user has already answered (ItemChannel). */
+export function subscribeToItem(cableUrl: string, itemId: string, onTally: (update: TallyUpdate) => void): () => void {
+  const consumer = createConsumer(cableUrl);
+  const subscription = consumer.subscriptions.create({ channel: "ItemChannel", item_id: itemId }, { received: onTally });
+  return () => {
+    subscription.unsubscribe();
+    consumer.disconnect();
+  };
 }

@@ -5,8 +5,10 @@ import type {
   DeviceResponse,
   GenerationResponse,
   GenerationRunState,
+  FeedPage,
   Item,
   MapChallenge,
+  Me,
   MapResponse,
 } from "./api";
 import type { Difficulty, QuestionType } from "./types";
@@ -63,6 +65,15 @@ export class ApiClient {
 
   getRun(id: number): Promise<GenerationRunState> {
     return this.request("GET", `/api/v1/generations/${id}`);
+  }
+
+  listItems(params: { family?: string; before?: string } = {}): Promise<FeedPage> {
+    const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return this.request("GET", `/api/v1/items${query ? `?${query}` : ""}`);
+  }
+
+  getMe(): Promise<Me> {
+    return this.request("GET", "/api/v1/me");
   }
 
   getItem(id: string): Promise<Item> {

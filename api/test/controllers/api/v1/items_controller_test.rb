@@ -1,6 +1,7 @@
 require "test_helper"
 
 class Api::V1::ItemsControllerTest < ActionDispatch::IntegrationTest
+  include ActionCable::TestHelper
   setup do
     @user = User.create!
     @item = create_item(correct_label: "C")
@@ -39,6 +40,48 @@ class Api::V1::ItemsControllerTest < ActionDispatch::IntegrationTest
     option_b = judge["options"].find { _1["label"] == "B" }
     assert_in_delta(-0.7, option_b.dig("support_delta", "value"))
     assert_not response.parsed_body.dig("item", "verification").key?("judge")
+  end
+
+  test "the feed lists public items newest first and reveals only what the user answered" do
+    older = create_item(family: "RC", subtype: "inference")
+    older.update!(published_at: 2.days.ago)
+    create_item(visibility: "private")
+    Learning::RecordAttempt.call(user: @user, item: @item, chosen_label: "C")
+
+    get api_v1_items_path, headers: auth_headers(@user)
+    ids = response.parsed_body["items"].map { _1["id"] }
+    assert_equal [ @item.public_id, older.public_id ], ids
+    assert_equal [ true, false ], response.parsed_body["items"].map { _1["revealed"] }
+
+    get api_v1_items_path(family: "RC"), headers: auth_headers(@user)
+    assert_equal [ older.public_id ], response.parsed_body["items"].map { _1["id"] }
+  end
+
+  test "private items are only visible to the user who generated them" do
+    owner = User.create!
+    run = GenerationRun.create!(user: owner)
+    private_item = create_item(visibility: "private")
+    private_item.update!(generation_run: run)
+
+    get api_v1_item_path(private_item.public_id), headers: auth_headers(@user)
+    assert_response :not_found
+    get api_v1_item_path(private_item.public_id), headers: auth_headers(owner)
+    assert_response :ok
+  end
+
+  test "an attempt broadcasts the new tally to the item's channel" do
+    assert_broadcasts(ItemChannel.broadcasting_for(@item), 1) do
+      post api_v1_item_attempts_path(@item.public_id), params: { label: "A" }, headers: auth_headers(@user), as: :json
+    end
+  end
+
+  test "me returns XP and ratings by skill" do
+    Learning::RecordAttempt.call(user: @user, item: @item, chosen_label: "C")
+    get api_v1_me_path, headers: auth_headers(@user)
+    body = response.parsed_body
+    assert_equal 10, body["xp"]
+    assert_equal %w[CR CR:assumption overall], body["ratings"].map { _1["skill"] }
+    assert body["ratings"].all? { _1["provisional"] }
   end
 
   test "rejects labels outside A-E" do

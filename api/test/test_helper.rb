@@ -68,8 +68,9 @@ module ActiveSupport
       GenerationRun.create!(user: user, source: source, kind: "map", status: "completed", result: sample_map)
     end
 
-    def create_item(family: "CR", subtype: "assumption", difficulty: "medium", correct_label: "B")
-      item = Item.create!(family: family, subtype: subtype, rating: Item.start_rating(difficulty))
+    def create_item(family: "CR", subtype: "assumption", difficulty: "medium", correct_label: "B", visibility: "public")
+      item = Item.create!(family: family, subtype: subtype, rating: Item.start_rating(difficulty), visibility: visibility,
+                          published_at: visibility == "public" ? Time.current : nil)
       version = item.versions.create!(
         version: 1,
         passage: "Accidents fell after bike lanes were added, so bike lanes make streets safer.",

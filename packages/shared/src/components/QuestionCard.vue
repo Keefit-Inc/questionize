@@ -6,7 +6,12 @@ import { FAMILY_LABELS, TRAP_LABELS, passageSegments, subtypeLabel } from "../la
 import ChoiceDistribution from "./ChoiceDistribution.vue";
 import JudgeMeter from "./JudgeMeter.vue";
 
-const props = defineProps<{ item: Item; chosen?: Label | null; busy?: boolean }>();
+// `locatable`: the card sits next to the source page (the extension), so "Show in article" can work.
+const props = withDefaults(defineProps<{ item: Item; chosen?: Label | null; busy?: boolean; locatable?: boolean }>(), {
+  chosen: null,
+  busy: false,
+  locatable: true,
+});
 const emit = defineEmits<{ answer: [label: Label]; locate: [anchor: string] }>();
 
 const picked = ref<Label | null>(null);
@@ -84,7 +89,7 @@ function check() {
         </ul>
       </details>
 
-      <button v-if="revealed.source_anchor" type="button" class="qz-ghost" @click="emit('locate', revealed.source_anchor!)">Show in article</button>
+      <button v-if="locatable && revealed.source_anchor" type="button" class="qz-ghost" @click="emit('locate', revealed.source_anchor!)">Show in article</button>
     </div>
   </article>
 </template>

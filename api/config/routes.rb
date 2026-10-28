@@ -2,6 +2,9 @@ Rails.application.routes.draw do
   # Health check for kamal-proxy and uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Shared question links get social preview tags.
+  get "q/:public_id", to: "share_pages#show", as: :share_page
+
   namespace :api do
     namespace :v1 do
       resources :devices, only: :create
@@ -11,9 +14,13 @@ Rails.application.routes.draw do
           resource :answer, only: :create, controller: "challenge_answers"
         end
       end
-      resources :items, only: :show do
+      resource :me, only: :show, controller: "me"
+      resources :items, only: %i[index show] do
         resources :attempts, only: :create
       end
     end
   end
+
+  # Every other HTML route belongs to the Vue web app.
+  get "*path", to: "spa#show", constraints: ->(req) { req.format.html? && !req.path.start_with?("/api/", "/cable", "/rails/") }
 end
