@@ -130,13 +130,13 @@ In critical reasoning there is no answer to compute: a statement makes a conclus
 | `scope` | Is the statement within the argument's scope? | trap typing |
 | `entailment` | Does the passage support this statement? | reading inference |
 
-**Method.** Two independent judges (Muse Spark and Muse Spark Open) each sample several times. Options are compared in pairs with their order shuffled, and the comparisons are aggregated into scores with uncertainty (Bradley–Terry). When the judges disagree or the uncertainty is wide, the case escalates to a deeper pass (longer reasoning, more samples) instead of being accepted.
+**Method.** Two independent judges (the primary model and the solver model, e.g. Muse Spark and Muse Spark Open) each rate every option several times without seeing the key, with the options shuffled on every sample to wash out position bias. The pooled samples are bootstrapped into a value and 90 % interval per option, the share of resamples where the key ranks first, and the median margin over the runner-up. Close calls get one extra round of samples before a verdict. Version `aj-0.1` measures `support_delta` and `necessity` and gates strengthen, weaken and assumption items; other sub-types are measured but not gated yet. Pairwise comparisons aggregated with Bradley–Terry are the planned next method.
 
 **Item gate.** An item passes only if, across bootstrap resamples, the key ranks first in at least 90 % of them with a margin over the runner-up above a threshold, and each distractor's measurements match its intended trap (a strengthener posing as an assumption shows high `support_delta` and low `necessity`). The margin also predicts difficulty. Measurements are stored per option as the trap's quantitative signature in the knowledge model.
 
 **Calibration.** A number is only meaningful if it is calibrated. The judge is scored against a human-adjudicated gold set and, over time, against learner evidence (do learners actually fall for what the judge rates as a strong trap?). Accuracy and calibration error are reported per judge version.
 
-**Versioning and reporting.** Every measurement records `judge_version`. A single command reproduces the judge's results on the gold set, and a public report lists accuracy, calibration curves, gold-set size and known limits for each version. The improvement path is: human adjudication → calibration → learner evidence → fine-tuning an open-weight judge on the accumulated judgments.
+**Versioning and reporting.** Every measurement records `judge_version`. A single command (`python -m questionize.eval_judge`, see `ai/eval/README.md`) reproduces the judge's results on the gold set, and a public report lists accuracy, calibration curves, gold-set size and known limits for each version. The improvement path is: human adjudication → calibration → learner evidence → fine-tuning an open-weight judge on the accumulated judgments.
 
 ## 5. Key flows
 

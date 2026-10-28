@@ -62,6 +62,11 @@ class Settings:
     max_article_chars: int = 40_000
     # Passages copying a longer run of consecutive article words go back for a rewrite.
     max_copied_words: int = 12
+    # Argument Judge: samples per judge model, and the gate an item must clear.
+    judge_enabled: bool = True
+    judge_samples: int = 3
+    judge_min_first_rate: float = 0.9
+    judge_min_margin: float = 0.15
 
 
 def load_settings() -> Settings:
@@ -79,4 +84,8 @@ def load_settings() -> Settings:
         timeout_seconds=float(os.getenv("REQUEST_TIMEOUT_SECONDS", "300")),
         max_article_chars=int(os.getenv("MAX_ARTICLE_CHARS", "40000")),
         max_copied_words=int(os.getenv("MAX_COPIED_WORDS", "12")),
+        judge_enabled=os.getenv("JUDGE_ENABLED", "true").strip().lower() not in ("0", "false", "no"),
+        judge_samples=int(os.getenv("JUDGE_SAMPLES", "3")),
+        judge_min_first_rate=float(os.getenv("JUDGE_MIN_FIRST_RATE", "0.9")),
+        judge_min_margin=float(os.getenv("JUDGE_MIN_MARGIN", "0.15")),
     )

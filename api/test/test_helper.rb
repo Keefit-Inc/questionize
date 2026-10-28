@@ -32,7 +32,15 @@ module ActiveSupport
           "skill" => "Alternative causes", "source_anchor" => "cut accidents by 30 percent"
         },
         "verification" => { "verified" => verified, "attempts" => 1, "solver_model" => "fake", "solver_answer" => correct,
-                             "solver_confidence" => 0.9, "critic_verdict" => "pass", "distractor_quality" => 4, "issues" => [], "copied_words" => 3 }
+                             "solver_confidence" => 0.9, "critic_verdict" => "pass", "distractor_quality" => 4, "issues" => [], "copied_words" => 3 },
+        "judge" => {
+          "judge_version" => "aj-0.1:fake", "measure" => "support_delta", "direction" => "min", "verdict" => "pass",
+          "margin" => 0.62, "key_first_rate" => 1.0, "runner_up" => "A", "judges" => [ "fake" ], "samples" => 6,
+          "options" => ItemVersion::LABELS.map do |l|
+            { "label" => l, "support_delta" => { "value" => l == correct ? -0.7 : -0.05, "ci_low" => -0.8, "ci_high" => 0.0 },
+              "necessity" => { "value" => 0.2, "ci_low" => 0.1, "ci_high" => 0.3 } }
+          end
+        }
       }
     end
 

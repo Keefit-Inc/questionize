@@ -1,6 +1,6 @@
 """Multi-agent question pipeline.
 
-    Analyst ──► Item Writer ──► Blind Solver ──► Critic ──► (pass) ──► question
+    Analyst ──► Item Writer ──► Blind Solver ──► Critic ──► Argument Judge ──► (pass) ──► question
                       ▲                │            │
                       └──── Reviser ◄──┴── fail ────┘   (up to MAX_REVISIONS)
 
@@ -22,6 +22,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import prompts
+from .judge import ArgumentJudge, judge_feedback
 from .llm import StructuredLLM
 from .schemas import (
     LABELS,
@@ -116,11 +117,13 @@ class QuestionPipeline:
         max_revisions: int = 2,
         seed: int | None = None,
         max_copied_words: int = 12,
+        judge: ArgumentJudge | None = None,
     ):
         self.primary = primary
         self.solver = solver
         self.max_revisions = max_revisions
         self.max_copied_words = max_copied_words
+        self.judge = judge
         self.rng = random.Random(seed)
 
     async def analyze(self, req: GenerateRequest) -> ArticleAnalysis:
@@ -154,11 +157,12 @@ class QuestionPipeline:
         attempts = 1
         solver_result: SolverResult | None = None
         critic: CriticResult | None = None
+        judged = None
         while True:
             copied, copied_text = longest_copied_run(draft.passage, req.text)
             if copied > self.max_copied_words:
                 # Not worth a solver call: this passage can't ship either way.
-                solver_result, critic, passed = None, None, False
+                solver_result, critic, judged, passed = None, None, None, False
                 await emit(
                     {
                         "stage": "verdict",
@@ -198,6 +202,11 @@ class QuestionPipeline:
                     temperature=0.0,
                 )
             passed = agrees and critic is not None and _critic_passes(critic)
+            judged = None
+            if passed and self.judge is not None:
+                await emit({"stage": "judge", "index": idx, "attempt": attempts, "message": "Argument Judge measuring every option"})
+                judged = await self.judge.judge(draft)
+                passed = judged.verdict in ("pass", "not_applicable")
             await emit(
                 {
                     "stage": "verdict",
@@ -206,7 +215,8 @@ class QuestionPipeline:
                     "passed": passed,
                     "solver_answer": solver_result.answer_label,
                     "intended_answer": draft.correct_label,
-                    "message": _verdict_message(passed, agrees, solver_result, draft, critic),
+                    "message": _verdict_message(passed, agrees, solver_result, draft, critic, judged),
+                    **({"judge": _judge_summary(judged)} if judged else {}),
                 }
             )
             if passed or attempts > self.max_revisions:
@@ -215,7 +225,10 @@ class QuestionPipeline:
             draft = normalize_question(
                 await self.primary.complete(
                     prompts.WRITER_SYSTEM,
-                    prompts.reviser_user(req.title, req.text, draft, solver_result, critic),
+                    prompts.reviser_user(
+                        req.title, req.text, draft, solver_result, critic,
+                        judge_guidance=judge_feedback(judged) if judged and not passed else "",
+                    ),
                     Question,
                     temperature=0.5,
                 ),
@@ -223,7 +236,9 @@ class QuestionPipeline:
             )
             attempts += 1
 
-        if critic:
+        if judged and not passed:
+            issues = [judge_feedback(judged)]
+        elif critic:
             issues = critic.issues
         elif solver_result:
             issues = [f"Blind solver chose {solver_result.answer_label}"]
@@ -243,6 +258,7 @@ class QuestionPipeline:
                 issues=issues,
                 copied_words=copied,
             ),
+            judge=judged,
         )
 
     async def run(self, req: GenerateRequest, emit: Emit = _noop) -> GenerateResponse:
@@ -275,7 +291,17 @@ def _critic_passes(c: CriticResult) -> bool:
     return c.verdict == "pass" and c.unique_answer and c.faithful_to_source and c.distractor_quality >= 3
 
 
-def _verdict_message(passed: bool, agrees: bool, s: SolverResult, q: Question, c: CriticResult | None) -> str:
+def _judge_summary(j) -> dict[str, Any]:
+    return {"verdict": j.verdict, "measure": j.measure, "margin": j.margin, "key_first_rate": j.key_first_rate}
+
+
+def _verdict_message(
+    passed: bool, agrees: bool, s: SolverResult, q: Question, c: CriticResult | None, j=None
+) -> str:
+    if j is not None and j.verdict not in ("pass", "not_applicable"):
+        return f"Argument Judge: key leads {j.runner_up} by only {j.margin:.2f} on {j.measure} — revising"
+    if passed and j is not None and j.verdict == "pass":
+        return f"Verified: solver chose {s.answer_label}; judge margin {j.margin:.2f} on {j.measure}"
     if passed:
         return f"Verified: solver independently chose {s.answer_label} ({s.confidence:.0%} confident)"
     if not agrees:

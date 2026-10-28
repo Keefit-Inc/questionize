@@ -97,3 +97,36 @@ def passing_critic() -> CriticResult:
 
 def solver(label: str, conf: float = 0.9) -> SolverResult:
     return SolverResult(answer_label=label, confidence=conf, reasoning="elimination")
+
+
+class FakeJudgeLLM:
+    """Plays an Argument Judge: rates each displayed option by the original label in its text.
+
+    `scores(passage)` returns {original_label: (support_delta, necessity)}; options in conftest
+    questions read "Option A" ... "Option E", so shuffled display letters map back to labels.
+    """
+
+    def __init__(self, scores, model: str = "judge-model"):
+        self.model = model
+        self.scores = scores if callable(scores) else (lambda _passage: scores)
+        self.calls = 0
+
+    async def complete(self, system, user, schema, *, temperature=0.4):
+        import re
+
+        from questionize.schemas import JudgeRatings, OptionRating
+
+        self.calls += 1
+        passage = user.split("PASSAGE:\n", 1)[1].split("\n\nQUESTION:", 1)[0]
+        table = self.scores(passage)
+        ratings = []
+        for letter, original in re.findall(r"^\(([A-E])\) Option ([A-E])$", user, re.M):
+            sd, nec = table[original]
+            ratings.append(OptionRating(option=letter, support_delta=sd, necessity=nec))
+        return JudgeRatings(ratings=ratings)
+
+
+def flat_scores(**overrides):
+    table = {label: (0.0, 0.1) for label in "ABCDE"}
+    table.update(overrides)
+    return table

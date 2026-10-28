@@ -38,8 +38,22 @@ class ItemPayload
       source_anchor: @version.source_anchor,
       tally: @version.tally,
       correct_rate: @item.attempts_count.zero? ? nil : (@item.correct_count.to_f / @item.attempts_count).round(3),
-      verification: @version.verification
+      verification: @version.verification.except("judge"),
+      judge: judge_json
     }
+  end
+
+  # Argument Judge measurements per option, shown with the explanation.
+  def judge_json
+    summary = @version.verification["judge"]
+    return nil unless summary
+
+    measurements = @version.judge_measurements.where(judge_version: summary["judge_version"]).group_by(&:label)
+    options = ItemVersion::LABELS.map do |label|
+      values = measurements.fetch(label, []).index_by(&:measure)
+      { label: label }.merge(values.transform_values { |m| { value: m.value, ci_low: m.ci_low, ci_high: m.ci_high } })
+    end
+    summary.merge("options" => options)
   end
 
   def source_json

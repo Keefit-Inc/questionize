@@ -108,10 +108,67 @@ class Verification(BaseModel):
     copied_words: int = Field(0, description="Longest run of consecutive words the passage shares with the article")
 
 
+# ------------------------------------------------------------- Argument Judge
+
+
+class JudgeRequest(BaseModel):
+    """An argument and its options, for POST /v1/judge."""
+
+    passage: str = Field(..., min_length=20)
+    stem: str
+    choices: list[Choice] = Field(..., min_length=5, max_length=5)
+    correct_label: Label
+    subtype: str
+
+
+class OptionRating(BaseModel):
+    """One judge sample's reading of one option (docs/ARCHITECTURE.md §4.5)."""
+
+    option: Label
+    support_delta: float = Field(
+        ..., ge=-1, le=1, description="How far, and which way, the conclusion's likelihood moves if this option is true"
+    )
+    necessity: float = Field(..., ge=0, le=1, description="Probability the argument falls apart if this option is false")
+
+
+class JudgeRatings(BaseModel):
+    ratings: list[OptionRating] = Field(..., min_length=5, max_length=5)
+
+
+class Measurement(BaseModel):
+    value: float
+    ci_low: float
+    ci_high: float
+
+
+class OptionJudgement(BaseModel):
+    label: Label
+    support_delta: Measurement
+    necessity: Measurement
+
+
+JudgeVerdict = Literal["pass", "ambiguous", "wrong_key", "not_applicable"]
+
+
+class JudgeResult(BaseModel):
+    judge_version: str
+    # Which measure decides this sub-type ("support_delta" or "necessity"), or None when not covered yet.
+    measure: str | None
+    direction: Literal["max", "min"] | None
+    options: list[OptionJudgement]
+    key_first_rate: float = Field(..., description="Share of bootstrap resamples where the key ranks first")
+    margin: float = Field(..., description="Median gap between the key and the best other option")
+    runner_up: Label | None
+    judges: list[str]
+    samples: int
+    verdict: JudgeVerdict
+
+
 class VerifiedQuestion(BaseModel):
     id: str
     question: Question
     verification: Verification
+    judge: JudgeResult | None = None
 
 
 class GenerateResponse(BaseModel):

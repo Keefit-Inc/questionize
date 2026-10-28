@@ -1,5 +1,5 @@
 // Shapes of the Rails API (api/app/controllers/api/v1, api/app/serializers/item_payload.rb).
-import type { Choice, Label, QuestionType, TrapType, Verification } from "./types";
+import type { Choice, JudgeResult, Label, QuestionType, TrapType, Verification } from "./types";
 
 export interface ItemSource {
   title: string | null;
@@ -34,7 +34,11 @@ export interface RevealedItem extends ItemBase {
   tally: Record<Label, number>;
   correct_rate: number | null;
   verification: Verification;
+  /** Per-option Argument Judge measurements; null for items generated without the judge. */
+  judge: (Omit<JudgeResult, "options"> & { options: { label: Label; support_delta?: Measurement; necessity?: Measurement }[] }) | null;
 }
+
+type Measurement = JudgeResult["options"][number]["support_delta"];
 
 export type Item = HiddenItem | RevealedItem;
 
@@ -57,8 +61,8 @@ export interface AttemptResponse {
 
 /** Broadcast on GenerationChannel; mirrors the AI stream with items stored and hidden. */
 export type GenerationEvent =
-  | { stage: "analyze" | "plan" | "write" | "solve" | "critic" | "revise" | "error"; message: string; index?: number; attempt?: number }
-  | { stage: "verdict"; index: number; attempt: number; passed: boolean; message: string }
+  | { stage: "analyze" | "plan" | "write" | "solve" | "critic" | "judge" | "revise" | "error"; message: string; index?: number; attempt?: number }
+  | { stage: "verdict"; index: number; attempt: number; passed: boolean; message: string; judge?: { verdict: string; measure: string | null; margin: number; key_first_rate: number } }
   | { stage: "analyzed"; message: string; content_flags: string[] }
   | { stage: "question"; index: number; item: HiddenItem }
   | { stage: "done"; count: number }

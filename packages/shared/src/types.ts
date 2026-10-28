@@ -69,10 +69,33 @@ export interface Verification {
   copied_words: number;
 }
 
+export interface Measurement {
+  value: number;
+  ci_low: number;
+  ci_high: number;
+}
+
+export type JudgeVerdict = "pass" | "ambiguous" | "wrong_key" | "not_applicable";
+
+/** Argument Judge output (docs/ARCHITECTURE.md §4.5). */
+export interface JudgeResult {
+  judge_version: string;
+  measure: "support_delta" | "necessity" | null;
+  direction: "max" | "min" | null;
+  options: { label: Label; support_delta: Measurement; necessity: Measurement }[];
+  key_first_rate: number;
+  margin: number;
+  runner_up: Label | null;
+  judges: string[];
+  samples: number;
+  verdict: JudgeVerdict;
+}
+
 export interface VerifiedQuestion {
   id: string;
   question: Question;
   verification: Verification;
+  judge: JudgeResult | null;
 }
 
 export interface Argument {
@@ -104,7 +127,7 @@ export type AgentEvent =
   | { stage: "analyze"; message: string }
   | { stage: "analyzed"; message: string; analysis: ArticleAnalysis }
   | { stage: "plan"; message: string; slots: [QuestionType, string][] }
-  | { stage: "write" | "solve" | "critic" | "revise"; index: number; attempt?: number; message: string }
+  | { stage: "write" | "solve" | "critic" | "judge" | "revise"; index: number; attempt?: number; message: string }
   | {
       stage: "verdict";
       index: number;
@@ -113,6 +136,7 @@ export type AgentEvent =
       // Absent when the passage was sent back for copying article text before the solver ran.
       solver_answer?: Label;
       intended_answer?: Label;
+      judge?: Pick<JudgeResult, "verdict" | "measure" | "margin" | "key_first_rate">;
       message: string;
     }
   | { stage: "question"; index: number; question: VerifiedQuestion }

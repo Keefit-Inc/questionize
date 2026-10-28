@@ -85,6 +85,26 @@ Return verdict "pass" only if 1 and 2 hold and distractor_quality >= 3. Otherwis
 concrete revision_guidance the writer can act on."""
 
 
+JUDGE_SYSTEM = """You are the Argument Judge. You measure how each answer option bears on the argument \
+in the passage. You are not told which option is intended to be correct, and you do not pick one.
+
+For every option, give two numbers:
+- support_delta (-1 to 1): assume the option is true. How far, and in which direction, does that move the \
+likelihood that the argument's conclusion holds? -1 means it would demolish the conclusion, 0 means no \
+bearing, 1 means it would make the conclusion nearly certain.
+- necessity (0 to 1): assume the option is false. How likely is it that the argument then falls apart? \
+1 means the argument depends on the option; 0 means the argument does not need it at all.
+
+Judge each option on its own merits, against the passage only. Statements outside the argument's scope \
+have support_delta near 0. A statement can strongly support the conclusion without being necessary to it. \
+Return one rating for each of the five options."""
+
+
+def judge_user(passage: str, stem: str, options: list[tuple[str, str]]) -> str:
+    listed = "\n".join(f"({label}) {text}" for label, text in options)
+    return f"PASSAGE:\n{passage}\n\nQUESTION:\n{stem}\n\nOPTIONS:\n{listed}"
+
+
 def _article_block(title: str, text: str, selection: str = "") -> str:
     block = f"ARTICLE TITLE: {title or '(untitled)'}\n\nARTICLE TEXT:\n{text}"
     if selection:
@@ -123,6 +143,7 @@ def reviser_user(
     solver: SolverResult | None,
     critic: CriticResult | None,
     copied_text: str = "",
+    judge_guidance: str = "",
 ) -> str:
     feedback: dict = {"intended_answer": draft.correct_label}
     if copied_text:
@@ -133,6 +154,8 @@ def reviser_user(
         )
     if solver is not None:
         feedback.update(blind_solver_answer=solver.answer_label, solver_reasoning=solver.reasoning)
+    if judge_guidance:
+        feedback["argument_judge"] = judge_guidance
     if critic is not None:
         feedback.update(
             issues=critic.issues,

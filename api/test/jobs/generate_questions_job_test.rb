@@ -50,6 +50,9 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     assert_equal 1300.0, item.rating
     assert_equal "D", item.current_version.correct_label
     assert_equal %w[label rationale trap], item.current_version.rationales.first.keys.sort
+    assert_equal 10, item.current_version.judge_measurements.count
+    assert_equal "pass", item.current_version.verification.dig("judge", "verdict")
+    assert_in_delta(-0.7, item.current_version.judge_measurements.find_by(label: "D", measure: "support_delta").value)
 
     assert_equal %w[analyze analyzed question done], broadcasts.map { _1["stage"] }
     question = broadcasts.find { _1["stage"] == "question" }

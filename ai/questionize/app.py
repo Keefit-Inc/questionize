@@ -1,6 +1,7 @@
 """Internal HTTP API, called only by Rails jobs.
 
 GET  /health        -> liveness and configured models (no auth)
+POST /v1/judge      -> Argument Judge measurements for an argument and its options
 POST /v1/generate   -> NDJSON stream of agent events, ending with {"stage": "done", ...},
                        {"stage": "declined", ...} for an unsuitable page, or {"stage": "failed", ...}
 
@@ -22,8 +23,9 @@ from fastapi.responses import StreamingResponse
 from . import __version__
 from .config import Settings, load_settings
 from .llm import LLMError, make_llm
+from .judge import ArgumentJudge
 from .pipeline import ArticleDeclined, QuestionPipeline
-from .schemas import GenerateRequest
+from .schemas import GenerateRequest, JudgeRequest, JudgeResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("questionize")
@@ -33,7 +35,21 @@ def build_pipeline(settings: Settings) -> QuestionPipeline:
     primary = make_llm(settings.primary, timeout=settings.timeout_seconds)
     solver = primary if settings.solver == settings.primary else make_llm(settings.solver, timeout=settings.timeout_seconds)
     return QuestionPipeline(
-        primary, solver, max_revisions=settings.max_revisions, max_copied_words=settings.max_copied_words
+        primary,
+        solver,
+        max_revisions=settings.max_revisions,
+        max_copied_words=settings.max_copied_words,
+        judge=build_judge(settings, primary, solver) if settings.judge_enabled else None,
+    )
+
+
+def build_judge(settings: Settings, primary, solver) -> ArgumentJudge:
+    # The solver model doubles as the second, independent judge.
+    return ArgumentJudge(
+        [primary, solver],
+        samples_per_judge=settings.judge_samples,
+        min_first_rate=settings.judge_min_first_rate,
+        min_margin=settings.judge_min_margin,
     )
 
 
@@ -71,6 +87,16 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             "model": settings.primary.model,
             "solver_model": settings.solver.model,
         }
+
+    @v1.post("/judge", response_model=JudgeResult)
+    async def judge(req: JudgeRequest) -> JudgeResult:
+        pipeline = get_pipeline()
+        if pipeline.judge is None:
+            raise HTTPException(status_code=503, detail="Argument Judge is disabled (JUDGE_ENABLED=false)")
+        try:
+            return await pipeline.judge.judge(req)
+        except LLMError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
 
     @v1.post("/generate")
     async def generate(req: GenerateRequest) -> StreamingResponse:
