@@ -106,7 +106,7 @@ export type GenerationEvent =
   | { stage: "map"; map: ArgumentMapPayload }
   | { stage: "reading" | "practice"; message: string }
   | { stage: "diagnosed"; message: string; competency?: string; family?: string; subtype?: string; difficulty?: number; key_guess?: Label | null; chosen_correct?: boolean | null }
-  | { stage: "diagnosis"; entry: ErrorLogEntry }
+  | { stage: "diagnosis"; entry: ErrorLogEntry; question_ready?: boolean }
   | { stage: "done"; count: number }
   | { stage: "declined"; reason: string; message: string }
   | { stage: "failed"; message: string };
@@ -209,9 +209,17 @@ export interface ErrorLogPage {
   weaknesses: { traps: Record<string, number>; misconceptions: Record<string, number> };
 }
 
+/** The photographed question word for word. The server hands it to the learner's device once and keeps no copy. */
+export interface SourceQuestion {
+  passage: string;
+  stem: string;
+  choices: Choice[];
+}
+
 export interface ErrorLogCapture {
-  /** One image as a data: URL; the server keeps it only until the diagnosis is read. */
-  image: string;
+  /** One to three parts of one question (e.g. passage and question on different pages), as data: URLs.
+   *  The server keeps them only until the question is read. */
+  images: string[];
   book?: string;
   page?: string;
   number?: string;

@@ -8,6 +8,12 @@ module GenerationRuns
       @content_flags = []
     end
 
+    QUESTION_TTL = 1.hour
+
+    def self.question_cache_key(entry)
+      "error_log_entries/#{entry.id}/question"
+    end
+
     # Returns the payload to broadcast for this event.
     def record(event)
       payload =
@@ -59,7 +65,11 @@ module GenerationRuns
         )
         Array(event["practice"]).each { |generated| persist(generated, origin: "pattern") }
       end
-      { "stage" => "diagnosis", "entry" => ErrorLogPayload.new(entry, user: @run.user).as_json }
+      # The printed question waits in the cache for the learner's device to fetch it once; it is
+      # never stored with the entry, the run's events or the broadcast.
+      question = event["source_question"]
+      Rails.cache.write(self.class.question_cache_key(entry), question, expires_in: QUESTION_TTL) if question.present?
+      { "stage" => "diagnosis", "entry" => ErrorLogPayload.new(entry, user: @run.user).as_json, "question_ready" => question.present? }
     end
 
     def observation_from(event)

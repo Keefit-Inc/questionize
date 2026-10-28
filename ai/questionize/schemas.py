@@ -365,11 +365,23 @@ class OptionReview(BaseModel):
 DifficultyLevel = Literal[1, 2, 3, 4, 5]
 
 
+class SourceQuestion(BaseModel):
+    """The photographed question word for word. It goes back once to the learner who photographed it,
+    so they can solve it again on their own device; Questionize never stores it."""
+
+    passage: str = Field(..., description="The passage or argument exactly as printed; empty if there is none")
+    stem: str = Field(..., description="The question being asked, exactly as printed")
+    choices: list[Choice] = Field(..., min_length=2, max_length=5, description="Every answer option, exactly as printed")
+
+    def text(self) -> str:
+        return "\n".join([self.passage, self.stem, *(f"({c.label}) {c.text}" for c in self.choices)])
+
+
 class PhotoReading(BaseModel):
     readable: bool
     kind: Literal["practice_question", "live_exam_suspected", "not_a_question"]
     personal_data_present: bool = Field(..., description="Names, handwriting identifying a person, school or ID details")
-    transcript: str = Field(..., description="The question as printed; used only for originality checks, never returned")
+    question: "SourceQuestion" = Field(..., description="The question exactly as printed, for the learner's own device")
     key_guess: Label | None = Field(None, description="Your own answer to the question")
     pattern: PatternObservation
     chosen_trap: TrapType | None = Field(None, description="The trap the learner's chosen option sets, if they chose wrong")
@@ -382,7 +394,7 @@ class PhotoReading(BaseModel):
 
 
 class DiagnoseRequest(BaseModel):
-    image: str = Field(..., description="data: URL of one photographed question")
+    images: list[str] = Field(..., min_length=1, max_length=3, description="data: URLs of the parts of one question, in reading order")
     chosen_label: Label | None = None
 
 

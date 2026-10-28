@@ -2,6 +2,7 @@
   "name": "Questionize",
   "short_name": "Questionize",
   "description": "Snap a question you missed. See what it tests, why your answer was tempting, and practice the same trap.",
+  "id": "/",
   "start_url": "/snap",
   "scope": "/",
   "display": "standalone",

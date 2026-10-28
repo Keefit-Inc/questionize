@@ -3,7 +3,9 @@
 (docs/KNOWLEDGE_MODEL.md §6, §9.) The image and its transcript exist only for the length of the
 request. What leaves this service is the learner's diagnosis (in our own words), new original
 practice items built from the question's abstract design, and that design as an observation for
-the knowledge model, after checks that none of it copies the photographed question.
+the knowledge model, after checks that none of it copies the photographed question. The question
+itself goes back once as `source_question`, for the learner's own device only; Rails hands it over
+and does not keep it.
 """
 
 from __future__ import annotations
@@ -29,14 +31,14 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     rng = random.Random(seed)
     await emit({"stage": "reading", "message": "Reading the photographed question"})
     reading = await pipeline.primary.complete(
-        prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label), PhotoReading, temperature=0.0, images=[req.image]
+        prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label), PhotoReading, temperature=0.0, images=req.images
     )
     if not reading.readable or reading.kind == "not_a_question":
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
     if reading.kind == "live_exam_suspected":
         raise Declined("live_exam", "This looks like a question from a live exam. We don't work with recalled or leaked exam content.")
 
-    transcript = reading.transcript
+    transcript = reading.question.text()
     pattern, field_copied = _scrub(reading.pattern, transcript)
     explanation = reading.explanation
     explanation_copied, _ = longest_copied_run(explanation, transcript)
@@ -95,6 +97,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         "observation": pattern.model_dump() if leak_checks["passed"] else None,
         "leak_checks": leak_checks,
         "practice": [p.model_dump() for p in practice],
+        "source_question": reading.question.model_dump(),
     }
 
 

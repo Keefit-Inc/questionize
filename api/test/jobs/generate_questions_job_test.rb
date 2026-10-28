@@ -131,14 +131,14 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
 
   test "an error-log run stores a private entry, practice items and an anonymous observation, and drops the photo" do
     run = GenerationRun.create!(user: @user, kind: "error_log", params: { "book" => "My CR Workbook", "page" => "42", "number" => "7", "chosen_label" => "A" })
-    run.cache_text!(PHOTO)
+    run.cache_text!([ PHOTO, PHOTO ].to_json)
     client = FakeClient.new(events: [ { "stage" => "reading", "message" => "Reading" }, diagnosis_event, { "stage" => "done" } ])
     GenerateQuestionsJob.ai_client_factory = -> { client }
     broadcasts = capture_broadcasts(GenerationChannel.broadcasting_for(run)) { GenerateQuestionsJob.perform_now(run.id) }
     run.reload
 
     assert_equal "completed", run.status
-    assert_equal({ "image" => PHOTO, "chosen_label" => "A" }, client.payloads.first)
+    assert_equal({ "images" => [ PHOTO, PHOTO ], "chosen_label" => "A" }, client.payloads.first)
     assert_nil Rails.cache.read(run.text_cache_key)
     entry = @user.error_log_entries.sole
     assert_equal [ "My CR Workbook", "42", "7", "A" ], [ entry.book, entry.page, entry.number, entry.chosen_label ]
@@ -151,7 +151,12 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     assert_not_includes observation.to_json, "Workbook"
     assert_equal "keyword_matching", observation.observed.dig("misconception", "mechanism_type")
 
+    assert_not_includes run.events.to_json, "PRINTED"
+    assert_not_includes entry.to_json, "PRINTED"
+    assert_equal "PRINTED PASSAGE about the library", Rails.cache.read(GenerationRuns::Recorder.question_cache_key(entry))["passage"]
     payload = broadcasts.find { _1["stage"] == "diagnosis" }
+    assert payload["question_ready"]
+    assert_not_includes payload.to_json, "PRINTED"
     assert_equal "irrelevant", payload.dig("entry", "diagnosis", "chosen_trap")
     assert_not payload.dig("entry", "practice", 0).key?("correct_label")
   end

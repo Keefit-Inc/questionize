@@ -255,14 +255,16 @@ Learners bring their own study material through an **error log**. While working 
    - new practice items generated from the matching blueprint that target the same trap (never the original item);
    - an updated weakness map and review schedule across everything the learner has logged.
 
-   To see the original again, the learner opens their own book. Entries are private and never shared or published.
+   - on the learner's **own device only**, the question word for word (passage, stem and options), so they can solve it again. The service reads it from the photo, hands it to that device once, and deletes its copy as it is read (it waits in a short-lived cache, never in a table, a log or the run's stored events). The photo itself is not kept anywhere once the question is read.
+
+   Entries are private and never shared or published.
 2. **Commons layer:** abstract observations only (§3.9), through the leak checks in §6, entering the knowledge model as hypotheses and published only after corroboration. Questions people actually miss, and the options they actually pick, are the densest evidence the knowledge model gets.
 
 Rules:
 
-- One question per capture, started by the learner on material they own. There is no bulk or whole-book upload, and the service does not scan or collect material on anyone's behalf.
-- The original image, transcription and options are discarded when the request ends. Only the location reference, the learner's answer and the abstract diagnosis are stored.
-- No feature reproduces, re-displays or imitates a specific publication (no "show me page 123 again", no "more questions like chapter 7 of book X"). The feature only works alongside the learner's own copy.
+- One question per capture, started by the learner on material they own. A capture may hold up to three photos when one question spans pages (a passage on one page, the question on the next); the learner crops each to the question first. There is no bulk or whole-book upload, and the service does not scan or collect material on anyone's behalf.
+- The service keeps no copy of the image, transcription or options. The images are deleted as soon as they are read; the transcription goes once to the learner's device and is then deleted. Only the location reference, the learner's answer and the abstract diagnosis are stored on the server.
+- Nothing on the service reproduces, re-displays or imitates a specific publication for anyone else (no shared copies, no "more questions like chapter 7 of book X"). The only copy of a question is the one on the device of the learner who photographed it.
 - Material from test makers' official guides is flagged and handled conservatively; live or recalled exam content is rejected.
 - Contributing observations to the commons is explained up front, and the learner can see the knowledge nodes their contributions helped corroborate.
 - Personal data in an image (names, handwriting, school details) is not extracted.

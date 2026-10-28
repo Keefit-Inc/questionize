@@ -171,7 +171,11 @@ question's design only in general terms.
 - kind: "practice_question" for an ordinary practice or textbook item; "live_exam_suspected" if it looks \
 like a recalled or leaked question from a real, live exam (e.g. described as from a recent sitting); \
 "not_a_question" otherwise. Set readable=false if you cannot read it.
-- transcript: the question as printed. It is used only to check that nothing you write copies it.
+- The photos are the parts of ONE question in reading order (for example the passage on one page and \
+the question on another). Read them together.
+- question: the passage, the question stem and every option exactly as printed, so the learner can \
+solve it again. Fix only obvious scanning breaks (hyphenation at line ends); keep underlining as \
+[[double brackets]]. Leave out page numbers, headers and handwriting.
 - pattern: the question's design in general terms: what it measures, structural features of the passage \
 (not its topic or content), the rule that makes the key correct, the traps the wrong options set, and what \
 makes it hard. Never include the question's wording, names, numbers or scenario.

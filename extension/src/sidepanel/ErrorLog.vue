@@ -104,7 +104,7 @@ async function capture() {
     const api = await props.connect();
     const image = (await preparePhoto(file.value)).dataUrl;
     const res = await api.captureErrorLog({
-      image,
+      images: [image],
       book: form.book || undefined,
       page: form.page || undefined,
       number: form.number || undefined,

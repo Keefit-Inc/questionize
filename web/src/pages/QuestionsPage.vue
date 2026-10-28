@@ -4,6 +4,7 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MissesList from "../components/MissesList.vue";
 import BankList from "../components/BankList.vue";
+import InstallCard from "../components/InstallCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -13,6 +14,7 @@ const show = (v: "mine" | "shared") => router.replace({ query: v === "shared" ? 
 
 <template>
   <h1>Questions</h1>
+  <InstallCard />
   <div class="seg" role="tablist" aria-label="Which questions">
     <button role="tab" :aria-selected="view === 'mine'" :class="{ on: view === 'mine' }" @click="show('mine')">My misses</button>
     <button role="tab" :aria-selected="view === 'shared'" :class="{ on: view === 'shared' }" @click="show('shared')">Shared</button>

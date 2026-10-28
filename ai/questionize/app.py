@@ -109,8 +109,8 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
 
     @v1.post("/diagnose")
     async def diagnose_photo(req: DiagnoseRequest) -> StreamingResponse:
-        if not req.image.startswith("data:image/") or len(req.image) > MAX_IMAGE_CHARS:
-            raise HTTPException(status_code=422, detail="Send one image as a data: URL under 6 MB")
+        if any(not i.startswith("data:image/") or len(i) > MAX_IMAGE_CHARS for i in req.images):
+            raise HTTPException(status_code=422, detail="Send up to three images as data: URLs under 6 MB each")
         pipeline = get_pipeline()
 
         async def run(emit) -> list[dict[str, Any]]:

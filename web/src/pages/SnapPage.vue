@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// Snap: the app opens on a live camera. Shoot one missed question, mark your answer, then watch
-// Miss Lab analyze it. Without a camera (or permission), pick a photo instead.
+// Snap: the app opens on a live camera. Shoot a missed question, crop it to the passage, question
+// and choices (adding up to three parts when they sit on different pages), mark your answer, then
+// watch Miss Lab analyze it. Without a camera (or permission), pick a photo instead.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ApiError, eventKey, preparePhoto, replayRunState, subscribeToGeneration, type GenerationEvent, type Label, type PreparedPhoto } from "@questionize/shared";
 import AnalysisScene from "../components/AnalysisScene.vue";
+import CropEditor from "../components/CropEditor.vue";
 import { ensureDevice, withDevice } from "../api";
-import { savePhoto } from "../photos";
+import { saveQuestion } from "../device";
 
 const router = useRouter();
 const LABELS: Label[] = ["A", "B", "C", "D", "E"];
@@ -17,8 +19,13 @@ const camera = ref<"starting" | "live" | "denied" | "unavailable">("starting");
 const video = ref<HTMLVideoElement | null>(null);
 let stream: MediaStream | null = null;
 
-const photo = ref<PreparedPhoto | null>(null);
-const still = ref("");
+const MAX_PARTS = 3;
+// The shot being cropped (full photo), and the cropped parts ready to send.
+const raw = ref("");
+const parts = ref<{ photo: PreparedPhoto; url: string }[]>([]);
+const stage = computed(() => (raw.value ? "crop" : parts.value.length && !adding.value ? "review" : "camera"));
+const adding = ref(false);
+const saved = ref<"pending" | "saved" | "failed" | null>(null);
 const form = reactive({ chosen: null as Label | null, book: "", page: "", number: "" });
 const showWhere = ref(false);
 const busy = ref(false);
@@ -32,7 +39,12 @@ const entryId = ref<number | null>(null);
 const seen = new Set<string>();
 let closeStream: (() => void) | null = null;
 
-const photoInfo = computed(() => (photo.value ? `${photo.value.width}×${photo.value.height} · ${Math.round(photo.value.blob.size / 1024)} KB` : ""));
+const photoInfo = computed(() => {
+  const first = parts.value[0]?.photo;
+  if (!first) return "";
+  const kb = Math.round(parts.value.reduce((n, p) => n + p.photo.blob.size, 0) / 1024);
+  return `${parts.value.length > 1 ? `${parts.value.length} parts · ` : ""}${first.width}×${first.height} · ${kb} KB`;
+});
 
 async function startCamera() {
   stopCamera();
@@ -64,7 +76,7 @@ function stopCamera() {
 
 function onVisibility() {
   if (document.hidden) stopCamera();
-  else if (eligible.value && !photo.value && !lab.value) startCamera();
+  else if (eligible.value && stage.value === "camera" && !lab.value) startCamera();
 }
 
 onMounted(async () => {
@@ -82,8 +94,15 @@ onBeforeUnmount(() => {
   document.removeEventListener("visibilitychange", onVisibility);
   stopCamera();
   closeStream?.();
-  if (still.value) URL.revokeObjectURL(still.value);
+  clearShots();
 });
+
+function clearShots() {
+  if (raw.value) URL.revokeObjectURL(raw.value);
+  parts.value.forEach((p) => URL.revokeObjectURL(p.url));
+  raw.value = "";
+  parts.value = [];
+}
 
 async function confirmEligibility() {
   error.value = "";
@@ -97,19 +116,45 @@ async function confirmEligibility() {
   }
 }
 
-async function usePhoto(file: Blob) {
-  busy.value = true;
+// A new shot goes to the crop editor first.
+function usePhoto(file: Blob) {
   error.value = "";
+  stopCamera();
+  if (raw.value) URL.revokeObjectURL(raw.value);
+  raw.value = URL.createObjectURL(file);
+}
+
+async function cropped(blob: Blob) {
+  busy.value = true;
   try {
-    photo.value = await preparePhoto(file);
-    if (still.value) URL.revokeObjectURL(still.value);
-    still.value = URL.createObjectURL(photo.value.blob);
-    stopCamera();
+    const photo = await preparePhoto(blob);
+    parts.value = [...parts.value, { photo, url: URL.createObjectURL(photo.blob) }];
+    URL.revokeObjectURL(raw.value);
+    raw.value = "";
+    adding.value = false;
   } catch {
     error.value = "That file isn't an image we can read. Try another photo.";
   } finally {
     busy.value = false;
   }
+}
+
+function cancelCrop() {
+  URL.revokeObjectURL(raw.value);
+  raw.value = "";
+  if (parts.value.length && !adding.value) return;
+  startCamera();
+}
+
+function addPart() {
+  adding.value = true;
+  startCamera();
+}
+
+function removePart(i: number) {
+  URL.revokeObjectURL(parts.value[i].url);
+  parts.value = parts.value.filter((_, j) => j !== i);
+  if (!parts.value.length) startCamera();
 }
 
 function shutter() {
@@ -129,10 +174,14 @@ function pick(event: Event) {
   if (file) usePhoto(file);
 }
 
-function retake() {
-  photo.value = null;
+function startOver() {
+  closeStream?.();
+  lab.value = false;
+  saved.value = null;
   form.chosen = null;
   error.value = "";
+  adding.value = false;
+  clearShots();
   startCamera();
 }
 
@@ -143,7 +192,7 @@ async function onEvent(event: GenerationEvent) {
   events.value = [...events.value, event];
   if (event.stage === "diagnosis") {
     entryId.value = event.entry.id;
-    if (photo.value) await savePhoto(event.entry.id, photo.value.blob);
+    await keepQuestion(event.entry.id, event.question_ready);
   }
   if (event.stage === "done") {
     if (entryId.value === null) failed.value = "We couldn't read a question in that photo. Try a sharper, closer shot of one question.";
@@ -155,14 +204,29 @@ async function onEvent(event: GenerationEvent) {
   }
 }
 
+// Fetch the printed question (offered once) and keep it on this device; the photos can then go.
+async function keepQuestion(id: number, ready: boolean | undefined) {
+  if (!ready) {
+    saved.value = "failed";
+    return;
+  }
+  saved.value = "pending";
+  try {
+    const question = await withDevice((c) => c.takeErrorLogQuestion(id));
+    saved.value = (await saveQuestion(id, question)) ? "saved" : "failed";
+  } catch {
+    saved.value = "failed";
+  }
+}
+
 async function analyze() {
-  if (!photo.value) return;
+  if (!parts.value.length) return;
   busy.value = true;
   error.value = "";
   try {
     const res = await withDevice((c) =>
       c.captureErrorLog({
-        image: photo.value!.dataUrl,
+        images: parts.value.map((p) => p.photo.dataUrl),
         book: form.book || undefined,
         page: form.page || undefined,
         number: form.number || undefined,
@@ -174,6 +238,7 @@ async function analyze() {
     finished.value = false;
     failed.value = "";
     entryId.value = null;
+    saved.value = null;
     lab.value = true;
     const client = await ensureDevice();
     closeStream = subscribeToGeneration(client.cableUrl(), res.run_id, onEvent, {
@@ -195,13 +260,11 @@ async function analyze() {
 }
 
 function showAnalysis() {
-  if (entryId.value !== null) router.push(`/misses/${entryId.value}`);
-}
-
-function afterFailure() {
-  closeStream?.();
-  lab.value = false;
-  retake();
+  if (entryId.value === null) return;
+  const id = entryId.value;
+  // The question is on the device now; the photos are no longer needed.
+  clearShots();
+  router.push(`/misses/${id}`);
 }
 </script>
 
@@ -223,9 +286,23 @@ function afterFailure() {
       <RouterLink to="/questions?view=shared" class="link">Practice shared questions instead</RouterLink>
     </div>
 
-    <!-- Review the shot -->
-    <div v-else-if="photo" class="review">
-      <img :src="still" alt="Your photo of the question" class="still" />
+    <!-- Crop the shot -->
+    <CropEditor v-else-if="stage === 'crop'" :src="raw" :part="parts.length + 1" @done="cropped" @cancel="cancelCrop" />
+
+    <!-- Review the parts -->
+    <div v-else-if="stage === 'review'" class="review">
+      <div class="parts">
+        <figure v-for="(p, i) in parts" :key="p.url" class="part">
+          <img :src="p.url" :alt="`Part ${i + 1} of your question`" />
+          <figcaption>Part {{ i + 1 }}</figcaption>
+          <button type="button" class="remove" :aria-label="`Remove part ${i + 1}`" @click="removePart(i)">×</button>
+        </figure>
+        <button v-if="parts.length < MAX_PARTS" type="button" class="add" @click="addPart">
+          <span aria-hidden="true">+</span>
+          Add another part
+          <small>e.g. the passage on another page</small>
+        </button>
+      </div>
       <div class="sheet">
         <p class="ask">Which answer did you choose?</p>
         <div class="chips">
@@ -239,7 +316,7 @@ function afterFailure() {
         </div>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <div class="actions">
-          <button type="button" class="ghost" @click="retake">Retake</button>
+          <button type="button" class="ghost" @click="startOver">Start over</button>
           <button type="button" class="primary" :disabled="busy" @click="analyze">{{ busy ? "Sending…" : "Analyze" }}</button>
         </div>
       </div>
@@ -251,7 +328,8 @@ function afterFailure() {
       <div v-if="camera === 'live' || camera === 'starting'" class="frame" aria-hidden="true">
         <span class="c tl" /><span class="c tr" /><span class="c bl" /><span class="c br" />
       </div>
-      <p v-if="camera === 'live'" class="hint">Fit one question you missed in the frame</p>
+      <p v-if="camera === 'live'" class="hint">{{ adding ? `Part ${parts.length + 1}: the rest of the question` : "Fit one question you missed in the frame" }}</p>
+      <button v-if="adding" type="button" class="cancel-add" @click="adding = false; stopCamera()">Cancel</button>
       <div v-else-if="camera !== 'starting'" class="panel nocam">
         <h1>Snap a question you missed</h1>
         <p>{{ camera === "denied" ? "Camera access is off for this site. Allow it in your browser settings, or choose a photo." : "No camera here. Choose a photo of one question you missed." }}</p>
@@ -272,16 +350,20 @@ function afterFailure() {
       </div>
     </div>
 
-    <AnalysisScene
-      v-if="lab && photo"
-      :photo-url="still"
-      :photo-info="photoInfo"
-      :events="events"
-      :finished="finished"
-      :failed="failed"
-      @continue="showAnalysis"
-      @retry="afterFailure"
-    />
+    <!-- Above everything, the tab bar included: the Snap stage is its own stacking context. -->
+    <Teleport to="body">
+      <AnalysisScene
+        v-if="lab && parts.length"
+        :photo-url="parts[0].url"
+        :photo-info="photoInfo"
+        :events="events"
+        :finished="finished"
+        :failed="failed"
+        :saved="saved"
+        @continue="showAnalysis"
+        @retry="startOver"
+      />
+    </Teleport>
   </section>
 </template>
 
@@ -321,7 +403,15 @@ span.side { visibility: hidden; justify-self: end; }
 .link { background: none; border: 0; padding: 0; color: #4fd1c5; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
 .error { color: #ff8a7a; margin: 0; font-size: 14px; }
 .error.floating { position: absolute; top: 60px; left: 16px; right: 16px; text-align: center; }
-.still { flex: 1; min-height: 0; width: 100%; object-fit: contain; background: #000; }
+.parts { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: max(16px, env(safe-area-inset-top, 0px)) 16px 16px; align-content: start; }
+.part { position: relative; margin: 0; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(255, 255, 255, 0.12); }
+.part img { display: block; width: 100%; max-height: 42dvh; object-fit: contain; }
+.part figcaption { position: absolute; left: 6px; bottom: 6px; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(0, 0, 0, 0.6); }
+.remove { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.add { min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 10px; border: 1.5px dashed rgba(79, 209, 197, 0.6); background: transparent; color: #4fd1c5; font: inherit; font-weight: 600; cursor: pointer; }
+.add span { font-size: 28px; line-height: 1; }
+.add small { font-weight: 400; opacity: 0.8; color: #e8eef2; }
+.cancel-add { position: absolute; top: max(18px, env(safe-area-inset-top, 0px)); right: 14px; padding: 6px 12px; border-radius: 999px; border: 0; background: rgba(0, 0, 0, 0.55); color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
 .sheet { padding: 16px max(16px, env(safe-area-inset-left, 0px)) 18px; background: #121a21; border-radius: 18px 18px 0 0; display: flex; flex-direction: column; gap: 12px; }
 .ask { margin: 0; font-weight: 600; }
 .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -332,4 +422,5 @@ span.side { visibility: hidden; justify-self: end; }
 .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
 button:focus-visible, .side:focus-within, .file:focus-within { outline: 2px solid #4fd1c5; outline-offset: 2px; }
 @media (min-width: 900px) { .review { flex-direction: row; } .sheet { width: 24rem; border-radius: 0; justify-content: center; } }
+.viewfinder, .review { z-index: 0; }
 </style>

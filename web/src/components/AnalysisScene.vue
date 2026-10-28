@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // Full-screen "lab" while a photographed question is analyzed. Every phase, number and log line
 // comes from the run's real events; only the scanning beam and the text-region boxes are decoration.
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { FAMILY_LABELS, subtypeLabel, type GenerationEvent, type QuestionType } from "@questionize/shared";
 
-const props = defineProps<{ photoUrl: string; photoInfo: string; events: GenerationEvent[]; finished: boolean; failed: string }>();
+// `saved`: whether the printed question reached this device so it can be solved again.
+const props = defineProps<{ photoUrl: string; photoInfo: string; events: GenerationEvent[]; finished: boolean; failed: string; saved: "pending" | "saved" | "failed" | null }>();
 const emit = defineEmits<{ continue: []; retry: [] }>();
 
 const PHASES = [
@@ -21,6 +22,16 @@ const now = ref(Date.now());
 let timer = 0;
 onMounted(() => (timer = window.setInterval(() => (now.value = Date.now()), 87)));
 onBeforeUnmount(() => clearInterval(timer));
+// The clock stops when the run ends.
+watch(
+  () => props.finished,
+  (done) => {
+    if (done) {
+      now.value = Date.now();
+      clearInterval(timer);
+    }
+  },
+);
 
 const clock = computed(() => {
   const ms = now.value - started;
@@ -123,6 +134,28 @@ onMounted(async () => {
 });
 
 const regionsLit = computed(() => (stages.value.has("diagnosed") ? boxes.value.length : Math.min(boxes.value.length, Math.floor((now.value - started) / 350))));
+// The end-of-run report: each step and whether it worked.
+const diagnosisEvent = computed(() => props.events.find((e) => e.stage === "diagnosis") as Extract<GenerationEvent, { stage: "diagnosis" }> | undefined);
+const practiceCount = computed(() => diagnosisEvent.value?.entry.practice.length ?? 0);
+const report = computed(() => {
+  const d = diagnosed.value;
+  const family = d ? `${FAMILY_LABELS[d.family as QuestionType] ?? d.family} · ${subtypeLabel(d.subtype ?? "")}` : "";
+  return [
+    { label: "Read the question", state: d ? "ok" : props.finished ? "fail" : "wait", detail: d ? family : "" },
+    { label: "Analysis", state: diagnosisEvent.value ? "ok" : props.finished ? "fail" : "wait", detail: d?.difficulty ? `difficulty ${d.difficulty}/5` : "" },
+    {
+      label: "Practice questions",
+      state: !diagnosisEvent.value ? (props.finished ? "fail" : "wait") : practiceCount.value ? "ok" : "warn",
+      detail: diagnosisEvent.value ? `${practiceCount.value} of 2 verified` : "",
+    },
+    {
+      label: "Saved to this device",
+      state: props.saved === "saved" ? "ok" : props.saved === "failed" ? "warn" : props.saved === "pending" ? "wait" : props.finished ? "fail" : "wait",
+      detail: props.saved === "failed" ? "you can still read the analysis" : props.saved === "saved" ? "solve it again any time" : "",
+    },
+  ];
+});
+
 // After classification the lower lines (usually the answer options) are marked in amber.
 const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
 </script>
@@ -186,14 +219,26 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
             </li>
           </ol>
 
-          <p v-if="failed" class="lab-fail">{{ failed }}</p>
-          <div class="lab-actions">
-            <button v-if="finished && !failed" type="button" class="lab-go" @click="emit('continue')">See the analysis</button>
-            <button v-if="failed" type="button" class="lab-go" @click="emit('retry')">Try another photo</button>
-          </div>
         </section>
       </div>
     </div>
+
+    <!-- Always on screen: the outcome and what to do next. -->
+    <footer class="dock" :class="{ open: finished }">
+      <ul v-if="finished" class="report">
+        <li v-for="r in report" :key="r.label" :class="r.state">
+          <span class="mark" aria-hidden="true">{{ r.state === "ok" ? "✓" : r.state === "warn" ? "!" : r.state === "fail" ? "✕" : "…" }}</span>
+          <span>{{ r.label }}</span>
+          <span class="detail">{{ r.detail }}</span>
+        </li>
+      </ul>
+      <p v-if="failed" class="lab-fail" role="alert">{{ failed }}</p>
+      <p v-else-if="!finished" class="dock-wait">Analyzing your question. This usually takes under a minute; you can keep this screen open.</p>
+      <div v-if="finished" class="lab-actions">
+        <button v-if="!failed" type="button" class="lab-go" :disabled="saved === 'pending'" @click="emit('continue')">See the analysis</button>
+        <button type="button" class="lab-go" :class="{ secondary: !failed }" @click="emit('retry')">{{ failed ? "Try again" : "Snap another" }}</button>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -202,12 +247,12 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
 .lab {
   --ink: #0b1116; --panel: #111a21; --line: #24333d; --text: #d7e3ea; --dim: #7f95a3;
   --signal: #4fd1c5; --hot: #ffb454; --bad: #ff6b5e; --good: #6be3a0;
-  position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse at 30% 20%, #142430 0%, var(--ink) 60%);
-  color: var(--text); overflow-y: auto; color-scheme: dark;
+  position: fixed; inset: 0; z-index: 100; background: radial-gradient(ellipse at 30% 20%, #142430 0%, var(--ink) 60%);
+  color: var(--text); overflow-y: auto; color-scheme: dark; display: flex; flex-direction: column;
   font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 .lab-inner {
-  max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+  flex: 1; width: 100%; box-sizing: border-box; max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
   padding-block: max(16px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-bottom, 0px));
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
@@ -270,7 +315,21 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
 .log .good { color: var(--good); }
 .log .bad { color: var(--bad); }
 .lab-fail { margin: 0; color: var(--bad); font-size: 13px; }
-.lab-actions { display: flex; }
+.dock { position: sticky; bottom: 0; z-index: 2; padding: 12px max(16px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-bottom, 0px)); background: rgba(11, 17, 22, 0.94); border-top: 1px solid var(--line); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 10px; }
+.dock > * { max-width: 980px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.dock-wait { margin: 0; font-size: 12px; color: var(--dim); }
+.report { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.report li { display: grid; grid-template-columns: 20px auto 1fr; gap: 8px; align-items: baseline; }
+.report .detail { color: var(--dim); text-align: right; overflow-wrap: anywhere; }
+.report .mark { font-weight: 700; }
+.report .ok .mark { color: var(--good); }
+.report .warn .mark { color: var(--hot); }
+.report .fail .mark { color: var(--bad); }
+.report .wait .mark { color: var(--dim); }
+.lab-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.lab-actions .lab-go:only-child { grid-column: 1 / -1; }
+.lab-go.secondary { border-color: var(--line); background: transparent; }
+.lab-go:disabled { opacity: 0.5; }
 .lab-go { font: inherit; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 18px; border: 1px solid var(--signal); background: rgba(79, 209, 197, 0.12); color: var(--text); cursor: pointer; }
 .lab-go:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
 

@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { FAMILY_LABELS, TRAP_LABELS, subtypeLabel, type ErrorLogPage, type Me, type QuestionType, type TrapType } from "@questionize/shared";
 import { withDevice } from "../api";
+import InstallCard from "../components/InstallCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -63,6 +64,7 @@ onMounted(async () => {
 
 <template>
   <h1>Me</h1>
+  <InstallCard />
   <p v-if="me" class="muted">{{ me.handle }} · {{ me.xp }} XP</p>
   <div class="seg" role="tablist" aria-label="Profile views">
     <button role="tab" :aria-selected="view === 'analysis'" :class="{ on: view === 'analysis' }" @click="show('analysis')">Analysis</button>

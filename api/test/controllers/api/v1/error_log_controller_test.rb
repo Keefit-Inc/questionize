@@ -24,14 +24,14 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
   test "a capture queues a run and keeps the photo only in the cache" do
     make_eligible
     assert_enqueued_with(job: GenerateQuestionsJob) do
-      post api_v1_error_log_index_path, params: { image: PHOTO, book: "My CR Workbook", page: "42", number: "7", chosen_label: "a" },
+      post api_v1_error_log_index_path, params: { images: [ PHOTO, PHOTO ], book: "My CR Workbook", page: "42", number: "7", chosen_label: "a" },
                                         headers: auth_headers(@user), as: :json
     end
     assert_response :accepted
     run = GenerationRun.find(response.parsed_body["run_id"])
     assert_equal [ "error_log", "A", "42" ], [ run.kind, run.params["chosen_label"], run.params["page"] ]
     assert_not_includes run.params.to_json, "base64"
-    assert_equal PHOTO, Rails.cache.read(run.text_cache_key)
+    assert_equal [ PHOTO, PHOTO ], JSON.parse(Rails.cache.read(run.text_cache_key))
   end
 
   test "rejects anything that is not one image" do
@@ -40,6 +40,10 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     post api_v1_error_log_index_path, params: { image: PHOTO, chosen_label: "Z" }, headers: auth_headers(@user), as: :json
     assert_response :unprocessable_entity
+    post api_v1_error_log_index_path, params: { images: [ PHOTO ] * 4 }, headers: auth_headers(@user), as: :json
+    assert_response :unprocessable_entity
+    post api_v1_error_log_index_path, params: { image: PHOTO }, headers: auth_headers(@user), as: :json
+    assert_response :accepted, "a single image from older clients still works"
   end
 
   test "index lists entries with practice items and the traps that keep catching the learner" do
@@ -67,6 +71,19 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
     assert_equal 5, body.dig("diagnosis", "option_reviews").size
 
     get api_v1_error_log_path(entry), headers: auth_headers(User.create!)
+    assert_response :not_found
+  end
+
+  test "the printed question is handed to the learner's device once, then it is gone" do
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: {})
+    GenerationRuns::Recorder.new(run).record(diagnosis_event)
+    entry = @user.error_log_entries.sole
+
+    get question_api_v1_error_log_path(entry), headers: auth_headers(User.create!)
+    assert_response :not_found
+    get question_api_v1_error_log_path(entry), headers: auth_headers(@user)
+    assert_equal [ "Which most weakens the claim?", 5 ], [ response.parsed_body["stem"], response.parsed_body["choices"].size ]
+    get question_api_v1_error_log_path(entry), headers: auth_headers(@user)
     assert_response :not_found
   end
 end

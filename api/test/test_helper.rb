@@ -83,7 +83,9 @@ module ActiveSupport
         "observation" => observation ? { "family" => "CR", "subtype" => "weaken", "competency" => "Spot an alternative cause", "stimulus_features" => [],
                                          "key_rule" => "Names another cause", "distractor_traps" => [ "irrelevant" ], "difficulty_drivers" => [], "stated_level" => "graduate" } : nil,
         "leak_checks" => { "passed" => observation, "max_field_copied_words" => 3, "max_practice_copied_words" => 4, "personal_data_present" => false },
-        "practice" => [ generated_question(correct: "C"), generated_question(correct: "A") ]
+        "practice" => [ generated_question(correct: "C"), generated_question(correct: "A") ],
+        "source_question" => { "passage" => "PRINTED PASSAGE about the library", "stem" => "Which most weakens the claim?",
+                               "choices" => %w[A B C D E].map { |l| { "label" => l, "text" => "Printed option #{l}" } } }
       }
     end
 

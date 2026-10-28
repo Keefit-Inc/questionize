@@ -19,7 +19,9 @@ Rails.application.routes.draw do
       end
       resource :me, only: :show, controller: "me"
       post "me/eligibility", to: "eligibility#create", as: :eligibility
-      resources :error_log, only: %i[index show create], controller: "error_log"
+      resources :error_log, only: %i[index show create], controller: "error_log" do
+        get :question, on: :member
+      end
       resources :items, only: %i[index show] do
         resources :attempts, only: :create
         resource :feedback, only: :create

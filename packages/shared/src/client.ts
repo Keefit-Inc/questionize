@@ -6,6 +6,7 @@ import type {
   ErrorLogCapture,
   ErrorLogEntry,
   ErrorLogPage,
+  SourceQuestion,
   GenerationResponse,
   GenerationRunState,
   FeedPage,
@@ -92,6 +93,11 @@ export class ApiClient {
 
   getErrorLogEntry(id: number): Promise<ErrorLogEntry> {
     return this.request("GET", `/api/v1/error_log/${id}`);
+  }
+
+  /** The printed question, available once, right after its analysis; 404 afterwards. */
+  takeErrorLogQuestion(id: number): Promise<SourceQuestion> {
+    return this.request("GET", `/api/v1/error_log/${id}/question`);
   }
 
   captureErrorLog(body: ErrorLogCapture): Promise<{ status: "queued"; run_id: number }> {

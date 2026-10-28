@@ -27,7 +27,7 @@ describe("ApiClient", () => {
   it("posts error-log captures and eligibility", async () => {
     const f = fakeFetch(202, { status: "queued", run_id: 9 });
     const client = new ApiClient("https://questionize.org", "tok", f as unknown as typeof fetch);
-    await client.captureErrorLog({ image: "data:image/png;base64,AA==", page: "42", chosen_label: "A" });
+    await client.captureErrorLog({ images: ["data:image/png;base64,AA=="], page: "42", chosen_label: "A" });
     await client.setEligibility("US", true);
     const calls = f.mock.calls as unknown as [string, RequestInit][];
     expect(calls.map(([url]) => url)).toEqual(["https://questionize.org/api/v1/error_log", "https://questionize.org/api/v1/me/eligibility"]);

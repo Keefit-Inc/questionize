@@ -32,13 +32,14 @@ const TABS = [
 </template>
 
 <style>
-:root { color-scheme: light dark; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; --tabbar: calc(60px + env(safe-area-inset-bottom, 0px)); }
-body { margin: 0; background: Canvas; color: CanvasText; }
+:root { color-scheme: light dark; font-family: system-ui, -apple-system, sans-serif; font-size: 15px; --tabbar: calc(54px + env(safe-area-inset-bottom, 0px)); }
+html, body { height: 100%; }
+body { margin: 0; background: Canvas; color: CanvasText; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
 a { color: #3b6fd0; }
 .top { max-width: 44rem; margin: 0 auto; padding: max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); }
 .brand { font-weight: 800; font-size: 18px; color: inherit !important; text-decoration: none; }
 .shell { max-width: 44rem; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(var(--tabbar) + 24px) max(16px, env(safe-area-inset-left, 0px)); }
-.stage { height: 100dvh; padding-bottom: var(--tabbar); box-sizing: border-box; }
+.stage { position: fixed; inset: 0 0 var(--tabbar) 0; }
 .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-template-columns: repeat(3, 1fr); height: var(--tabbar); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; background: color-mix(in srgb, Canvas 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid rgba(127, 127, 127, 0.2); }
 .bleed .tabs { background: rgba(8, 12, 16, 0.92); color: #e8eef2; border-top-color: rgba(255, 255, 255, 0.08); }
 .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: inherit; opacity: 0.6; text-decoration: none; }
