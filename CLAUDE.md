@@ -1,6 +1,6 @@
 # Questionize — notes for coding agents
 
-Chrome extension + web app that turns articles into verified GMAT/LSAT-style reasoning questions and keeps them in an open, community-improved question bank. Read `docs/ARCHITECTURE.md` before structural changes; it is the source of truth for the target design.
+Chrome extension + web app that turns articles into verified GMAT/LSAT-style reasoning questions and keeps them in an open, community-improved question bank. Read `docs/ARCHITECTURE.md` before structural changes; it is the source of truth for the target design. `docs/KNOWLEDGE_MODEL.md` defines the knowledge model (blueprints, misconceptions, evidence) that questions are generated from.
 
 ## Stack
 
@@ -29,6 +29,7 @@ pnpm install && pnpm -r test && pnpm -r typecheck
 - **The repository is public.** Never commit secrets, server IPs, `.env` files, `.kamal/secrets` values or credentials. Put new configuration in `.env.example` with empty values.
 - Rails owns all persistent state. The AI service never touches the database and is only called by Rails jobs with the `X-Internal-Token` header.
 - Do not store article full text in permanent tables, and never store or publish uploaded contribution images (see ARCHITECTURE §5.5, §7).
+- Knowledge extracted from sources holds abstract fields only: never a source's wording, stimulus, options or images (KNOWLEDGE_MODEL §1, §6).
 - Shared bank items use adapted RC passages plus a source link, not long verbatim excerpts.
 - Render model output as text (`textContent` / Vue interpolation), never as raw HTML.
 - Hide an item's key, explanations and answer tallies until the requesting user has attempted it.

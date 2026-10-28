@@ -2,6 +2,8 @@
 
 Questionize turns the articles people read into exam-style reasoning questions (GMAT/LSAT-style Reading Comprehension, Critical Reasoning, Sentence Correction), verifies them with a multi-agent pipeline, and collects them in an open, community-improved question bank.
 
+The knowledge the bank is built on (competencies, misconceptions, trap patterns, blueprints, evidence) is specified in [`KNOWLEDGE_MODEL.md`](KNOWLEDGE_MODEL.md); questions are generated from it.
+
 This document describes the **target architecture**. The current code (`extension/` + `ai/`) is the first prototype; the migration plan is at the end.
 
 ## 1. Product capabilities
@@ -189,6 +191,8 @@ A review produces a new `ItemVersion`. Attempts stay linked to the version they 
 `GET /q/:publicId` is rendered by Rails with Open Graph / Twitter card tags (stem preview, family, "x % answered correctly"), then mounts the Vue question component. The card image is rendered from an SVG template by `RenderShareImageJob` (ruby-vips) and cached in object storage.
 
 ## 6. Data model
+
+The tables below cover users, items and activity. Knowledge-model tables are listed in [`KNOWLEDGE_MODEL.md` §7](KNOWLEDGE_MODEL.md#7-storage-postgresql-owned-by-rails).
 
 ```mermaid
 erDiagram
