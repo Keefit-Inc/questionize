@@ -164,6 +164,45 @@ def reviewer_user(q: Question, flags: list[dict], crowd: dict, judge: JudgeResul
     return "\n\n".join(parts)
 
 
+READER_SYSTEM = """You are the Diagnostician. A learner photographed one practice question from a book \
+they own and tells you which option they chose. Help them understand their mistake, and describe the \
+question's design only in general terms.
+
+- kind: "practice_question" for an ordinary practice or textbook item; "live_exam_suspected" if it looks \
+like a recalled or leaked question from a real, live exam (e.g. described as from a recent sitting); \
+"not_a_question" otherwise. Set readable=false if you cannot read it.
+- transcript: the question as printed. It is used only to check that nothing you write copies it.
+- pattern: the question's design in general terms: what it measures, structural features of the passage \
+(not its topic or content), the rule that makes the key correct, the traps the wrong options set, and what \
+makes it hard. Never include the question's wording, names, numbers or scenario.
+- key_guess: your own answer. chosen_trap and misconception: why the learner's choice was tempting, if \
+it was wrong.
+- explanation: in your own words and under 120 words; do not quote the question."""
+
+PATTERN_WRITER_SYSTEM = """You are the Item Writer. Write one ORIGINAL five-option question that follows the \
+abstract design you are given, on a completely different everyday topic. Reuse nothing from any source: \
+new scenario, new wording, new options. Make sure at least one distractor sets the trap named in \
+`practice_trap`, so the learner meets that trap again in a fresh form. Follow the same standards as \
+always: exactly one defensible answer, every wrong option failing for a nameable reason, a `trap` tag on \
+every rationale, and a passage written entirely in your own words."""
+
+
+def reader_user(chosen_label: str | None) -> str:
+    chosen = f"The learner chose option {chosen_label}." if chosen_label else "The learner did not say which option they chose."
+    return f"{chosen} Read the photographed question and diagnose it."
+
+
+def pattern_writer_user(pattern_json: str, practice_trap: str | None, difficulty: str, topic_hint: str) -> str:
+    return "\n\n".join(
+        [
+            "ABSTRACT DESIGN:\n" + pattern_json,
+            f"practice_trap: {practice_trap or 'any trap listed in the design'}",
+            f"difficulty: {difficulty}",
+            f"Choose a topic from this area, unrelated to any source: {topic_hint}",
+        ]
+    )
+
+
 def _article_block(title: str, text: str, selection: str = "") -> str:
     block = f"ARTICLE TITLE: {title or '(untitled)'}\n\nARTICLE TEXT:\n{text}"
     if selection:

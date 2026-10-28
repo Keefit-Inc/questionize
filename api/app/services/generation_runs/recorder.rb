@@ -15,6 +15,7 @@ module GenerationRuns
         when "analyzed" then analyzed(event)
         when "question" then question(event)
         when "map" then argument_map(event)
+        when "diagnosis" then error_log_entry(event)
         when "done" then finish("completed", { "stage" => "done", "count" => @run.items.count })
         when "declined" then finish("declined", event.slice("stage", "reason", "message"))
         when "failed" then finish("failed", event.slice("stage", "message"))
@@ -45,16 +46,50 @@ module GenerationRuns
       { "stage" => "map", "map" => MapPayload.new(@run, user: @run.user).as_json }
     end
 
-    def persist(generated)
+    # The diagnosis becomes a private error-log entry; practice items are the user's own; the
+    # abstract design (if it passed the leak checks) becomes a knowledge-model observation.
+    def error_log_entry(event)
+      entry = nil
+      Item.transaction do
+        observation = observation_from(event)
+        entry = Learning::ErrorLogEntry.create!(
+          user: @run.user, generation_run: @run, source_observation: observation,
+          book: @run.params["book"], page: @run.params["page"], number: @run.params["number"],
+          chosen_label: @run.params["chosen_label"], diagnosis: event.fetch("diagnosis")
+        )
+        Array(event["practice"]).each { |generated| persist(generated, origin: "pattern") }
+      end
+      { "stage" => "diagnosis", "entry" => ErrorLogPayload.new(entry, user: @run.user).as_json }
+    end
+
+    def observation_from(event)
+      return unless event["observation"]
+
+      Knowledge::SourceObservation.create!(
+        source_kind: "print_scan", source_ref: source_ref, stated_level: event.dig("observation", "stated_level"),
+        observed: event["observation"].merge("misconception" => event.dig("diagnosis", "misconception"), "chosen_trap" => event.dig("diagnosis", "chosen_trap")),
+        extractor: "diagnose", leak_checks: event["leak_checks"] || {}
+      )
+    end
+
+    # A keyed hash of where the question lives: counts independent sources and honors removal
+    # requests without revealing the book (docs/KNOWLEDGE_MODEL.md §3.9).
+    def source_ref
+      location = @run.params.values_at("book", "page", "number").map { _1.to_s.downcase.squish }.join("|")
+      location = "unlabeled|#{@run.id}" if location.delete("|").empty?
+      OpenSSL::HMAC.hexdigest("SHA256", Rails.application.secret_key_base, location)
+    end
+
+    def persist(generated, origin: "generated")
       q = generated.fetch("question")
       verified = generated.dig("verification", "verified") == true
 
       Item.transaction do
         item = Item.create!(
           source: @run.source, generation_run: @run, family: q.fetch("type"), subtype: q.fetch("subtype"),
-          status: verified ? "verified" : "unverified", visibility: visibility(verified),
+          status: verified ? "verified" : "unverified", visibility: origin == "pattern" ? "private" : visibility(verified), origin: origin,
           content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
-          published_at: verified && @content_flags.empty? ? Time.current : nil
+          published_at: origin == "generated" && verified && @content_flags.empty? ? Time.current : nil
         )
         version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)
         item.update!(current_version: version)

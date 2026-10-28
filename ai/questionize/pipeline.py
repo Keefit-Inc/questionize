@@ -48,13 +48,20 @@ async def _noop(_: dict[str, Any]) -> None:
     return None
 
 
-class ArticleDeclined(Exception):
+class Declined(Exception):
+    """The input is not something we work from; the stream ends with a reason."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+
+
+class ArticleDeclined(Declined):
     """The analyst judged the page unsuitable; no questions are written."""
 
     def __init__(self, analysis: ArticleAnalysis):
-        super().__init__(analysis.suitability_reason)
-        self.reason = analysis.suitability
-        self.message = analysis.suitability_reason
+        super().__init__(analysis.suitability, analysis.suitability_reason)
 
 
 def normalize_question(q: Question, qtype: str) -> Question:

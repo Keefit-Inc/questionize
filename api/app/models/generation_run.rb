@@ -1,6 +1,6 @@
 class GenerationRun < ApplicationRecord
   STATUSES = %w[queued running completed declined failed].freeze
-  KINDS = %w[questions map].freeze
+  KINDS = %w[questions map error_log].freeze
   TEXT_TTL = 1.hour
 
   belongs_to :user, optional: true
@@ -13,12 +13,15 @@ class GenerationRun < ApplicationRecord
 
   scope :completed_maps, -> { where(kind: "map", status: "completed").where.not(result: nil) }
 
-  # Article text lives only in the cache, never in a permanent table.
+  IMAGE_TTL = 15.minutes
+
+  # The run's input (article text, or for the error log a photo as a data: URL) lives only in
+  # the cache, never in a permanent table, and the job deletes it as soon as it is read.
   def text_cache_key
     "generation_runs/#{id}/text"
   end
 
   def cache_text!(text)
-    Rails.cache.write(text_cache_key, text, expires_in: TEXT_TTL)
+    Rails.cache.write(text_cache_key, text, expires_in: kind == "error_log" ? IMAGE_TTL : TEXT_TTL)
   end
 end

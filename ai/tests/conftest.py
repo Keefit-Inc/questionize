@@ -75,8 +75,10 @@ class ScriptedLLM:
         self.queues = {k: list(v) for k, v in queues.items()}
         self.calls: list[tuple[str, str]] = []
 
-    async def complete(self, system, user, schema, *, temperature=0.4):
+    async def complete(self, system, user, schema, *, temperature=0.4, images=None):
         self.calls.append((schema.__name__, user))
+        if images:
+            self.images = images
         queue = self.queues.get(schema.__name__)
         if not queue:
             raise AssertionError(f"Unexpected call for {schema.__name__}")
@@ -111,7 +113,7 @@ class FakeJudgeLLM:
         self.scores = scores if callable(scores) else (lambda _passage: scores)
         self.calls = 0
 
-    async def complete(self, system, user, schema, *, temperature=0.4):
+    async def complete(self, system, user, schema, *, temperature=0.4, images=None):
         import re
 
         from questionize.schemas import JudgeRatings, OptionRating
@@ -141,7 +143,7 @@ class TextJudgeLLM:
         self.default = default
         self.calls = 0
 
-    async def complete(self, system, user, schema, *, temperature=0.4):
+    async def complete(self, system, user, schema, *, temperature=0.4, images=None):
         import re
 
         from questionize.schemas import JudgeRatings, OptionRating

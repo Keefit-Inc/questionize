@@ -18,6 +18,7 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
       raise @error if @error
     end
     alias_method :map, :generate
+    alias_method :diagnose, :generate
   end
 
   setup do
@@ -126,5 +127,39 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     assert_not map_event.dig("map", "challenges", 0).key?("judged")
     assert_equal %w[analyze mapping map done], @run.events.map { _1["stage"] }
     assert_not @run.events.third.key?("map"), "the progress log does not duplicate the map"
+  end
+
+  test "an error-log run stores a private entry, practice items and an anonymous observation, and drops the photo" do
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: { "book" => "My CR Workbook", "page" => "42", "number" => "7", "chosen_label" => "A" })
+    run.cache_text!(PHOTO)
+    client = FakeClient.new(events: [ { "stage" => "reading", "message" => "Reading" }, diagnosis_event, { "stage" => "done" } ])
+    GenerateQuestionsJob.ai_client_factory = -> { client }
+    broadcasts = capture_broadcasts(GenerationChannel.broadcasting_for(run)) { GenerateQuestionsJob.perform_now(run.id) }
+    run.reload
+
+    assert_equal "completed", run.status
+    assert_equal({ "image" => PHOTO, "chosen_label" => "A" }, client.payloads.first)
+    assert_nil Rails.cache.read(run.text_cache_key)
+    entry = @user.error_log_entries.sole
+    assert_equal [ "My CR Workbook", "42", "7", "A" ], [ entry.book, entry.page, entry.number, entry.chosen_label ]
+    assert_equal %w[private private], run.items.map(&:visibility)
+    assert_equal %w[pattern pattern], run.items.map(&:origin)
+
+    observation = entry.source_observation
+    assert_equal "print_scan", observation.source_kind
+    assert_equal 64, observation.source_ref.length
+    assert_not_includes observation.to_json, "Workbook"
+    assert_equal "keyword_matching", observation.observed.dig("misconception", "mechanism_type")
+
+    payload = broadcasts.find { _1["stage"] == "diagnosis" }
+    assert_equal "irrelevant", payload.dig("entry", "diagnosis", "chosen_trap")
+    assert_not payload.dig("entry", "practice", 0).key?("correct_label")
+  end
+
+  test "an error-log diagnosis that failed the leak checks contributes nothing to the commons" do
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: {})
+    GenerationRuns::Recorder.new(run).record(diagnosis_event(observation: false))
+    assert_nil @user.error_log_entries.sole.source_observation
+    assert_equal 0, Knowledge::SourceObservation.count
   end
 end

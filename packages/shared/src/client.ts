@@ -3,6 +3,8 @@ import type {
   ArgumentMapPayload,
   AttemptResponse,
   DeviceResponse,
+  ErrorLogCapture,
+  ErrorLogPage,
   GenerationResponse,
   GenerationRunState,
   FeedPage,
@@ -76,6 +78,19 @@ export class ApiClient {
 
   getMe(): Promise<Me> {
     return this.request("GET", "/api/v1/me");
+  }
+
+  /** Photo capture is US-only and 13+; the answer says whether the error log is now available. */
+  setEligibility(country: string, age13Plus: boolean): Promise<{ country: string; error_log: boolean }> {
+    return this.request("POST", "/api/v1/me/eligibility", { country, age_13_plus: age13Plus });
+  }
+
+  listErrorLog(): Promise<ErrorLogPage> {
+    return this.request("GET", "/api/v1/error_log");
+  }
+
+  captureErrorLog(body: ErrorLogCapture): Promise<{ status: "queued"; run_id: number }> {
+    return this.request("POST", "/api/v1/error_log", body);
   }
 
   getItem(id: string): Promise<Item> {

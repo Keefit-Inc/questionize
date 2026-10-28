@@ -330,3 +330,56 @@ class ReviewResult(BaseModel):
     decision: ReviewDecision
     judge: JudgeResult | None = None
     revised: VerifiedQuestion | None = None
+
+
+# ------------------------------------------------------------- Error log (photo → diagnosis)
+
+MechanismFamily = Literal["knowledge", "generalization", "attention", "logic", "scope_language", "processing", "metacognitive"]
+
+
+class PatternObservation(BaseModel):
+    """Abstract design of a question. Must never contain the source's wording, names or numbers."""
+
+    family: QuestionType
+    subtype: str
+    competency: str = Field(..., description="What the question measures, in general terms")
+    stimulus_features: list[str] = Field(..., description="Structural features of the passage, not its content")
+    key_rule: str = Field(..., description="What makes the correct answer correct, in general terms")
+    distractor_traps: list[TrapType]
+    difficulty_drivers: list[str]
+    stated_level: str = Field("", description="Level the material targets, if evident (e.g. graduate admissions)")
+
+
+class MisconceptionGuess(BaseModel):
+    mechanism_family: MechanismFamily
+    mechanism_type: str = Field(..., description="e.g. necessary_vs_sufficient, scope_shift, keyword_matching")
+    statement: str = Field(..., description="What the learner likely believed or did, in one sentence")
+
+
+class PhotoReading(BaseModel):
+    readable: bool
+    kind: Literal["practice_question", "live_exam_suspected", "not_a_question"]
+    personal_data_present: bool = Field(..., description="Names, handwriting identifying a person, school or ID details")
+    transcript: str = Field(..., description="The question as printed; used only for originality checks, never returned")
+    key_guess: Label | None = Field(None, description="Your own answer to the question")
+    pattern: PatternObservation
+    chosen_trap: TrapType | None = Field(None, description="The trap the learner's chosen option sets, if they chose wrong")
+    misconception: MisconceptionGuess | None = None
+    explanation: str = Field(..., description="Why the key is right and the chosen option is not, in your own words, no quotes")
+
+
+class DiagnoseRequest(BaseModel):
+    image: str = Field(..., description="data: URL of one photographed question")
+    chosen_label: Label | None = None
+
+
+class Diagnosis(BaseModel):
+    family: QuestionType
+    subtype: str
+    competency: str
+    key_guess: Label | None
+    chosen_label: Label | None
+    chosen_correct: bool | None
+    chosen_trap: TrapType | None
+    misconception: MisconceptionGuess | None
+    explanation: str

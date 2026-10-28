@@ -15,6 +15,8 @@ Rails.application.routes.draw do
         end
       end
       resource :me, only: :show, controller: "me"
+      post "me/eligibility", to: "eligibility#create", as: :eligibility
+      resources :error_log, only: %i[index create], controller: "error_log"
       resources :items, only: %i[index show] do
         resources :attempts, only: :create
         resource :feedback, only: :create

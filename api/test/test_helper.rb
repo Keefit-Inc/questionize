@@ -64,6 +64,25 @@ module ActiveSupport
       }
     end
 
+    PHOTO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==".freeze
+
+    # The final event of the AI service's /v1/diagnose stream.
+    def diagnosis_event(observation: true, chosen_trap: "irrelevant")
+      {
+        "stage" => "diagnosis",
+        "diagnosis" => {
+          "family" => "CR", "subtype" => "weaken", "competency" => "Spot an alternative cause", "key_guess" => "C",
+          "chosen_label" => "A", "chosen_correct" => false, "chosen_trap" => chosen_trap,
+          "misconception" => { "mechanism_family" => "attention", "mechanism_type" => "keyword_matching", "statement" => "Picked the on-topic option" },
+          "explanation" => "The key offers another cause; the chosen option is on topic but irrelevant."
+        },
+        "observation" => observation ? { "family" => "CR", "subtype" => "weaken", "competency" => "Spot an alternative cause", "stimulus_features" => [],
+                                         "key_rule" => "Names another cause", "distractor_traps" => [ "irrelevant" ], "difficulty_drivers" => [], "stated_level" => "graduate" } : nil,
+        "leak_checks" => { "passed" => observation, "max_field_copied_words" => 3, "max_practice_copied_words" => 4, "personal_data_present" => false },
+        "practice" => [ generated_question(correct: "C"), generated_question(correct: "A") ]
+      }
+    end
+
     def create_map_run(source: nil, user: User.create!)
       GenerationRun.create!(user: user, source: source, kind: "map", status: "completed", result: sample_map)
     end

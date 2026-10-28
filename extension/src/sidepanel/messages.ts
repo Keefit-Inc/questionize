@@ -7,6 +7,8 @@ const ERRORS: Record<string, string> = {
   daily_limit_reached: "You've reached today's generation limit. Practice the questions you have, or come back tomorrow.",
   unauthorized: "Your session expired. Reopen the panel to reconnect.",
   not_found: "That question no longer exists.",
+  not_available: "Photo capture is available in the United States for ages 13 and up.",
+  invalid_image: "That file isn't an image we can read. Try a clearer photo.",
 };
 
 export function errorMessage(error: unknown, server: string): string {
@@ -30,10 +32,13 @@ const AGENTS: Partial<Record<GenerationEvent["stage"], string>> = {
   verdict: "Verifier",
   revise: "Reviser",
   error: "Error",
+  reading: "Reader",
+  diagnosed: "Diagnosis",
+  practice: "Writer",
 };
 
 export function eventLine(event: GenerationEvent): { who: string; text: string; ok?: boolean } | null {
-  if (event.stage === "question" || event.stage === "map" || event.stage === "done") return null;
+  if (event.stage === "question" || event.stage === "map" || event.stage === "diagnosis" || event.stage === "done") return null;
   const question = "index" in event && typeof event.index === "number" ? ` Q${event.index + 1}` : "";
   const who = `${AGENTS[event.stage] ?? event.stage}${question}`;
   const ok = event.stage === "verdict" ? event.passed : event.stage === "error" || event.stage === "failed" ? false : undefined;

@@ -17,6 +17,7 @@ import {
   type QuestionType,
 } from "@questionize/shared";
 import { extractArticle, highlightPhrase, type PageContent } from "../page-tools";
+import ErrorLog from "./ErrorLog.vue";
 import { errorMessage, eventLine } from "./messages";
 import { DEFAULT_SERVER, loadSettings, loadToken, saveSettings, saveToken, type Settings } from "./storage";
 
@@ -39,7 +40,7 @@ const log = ref<{ who: string; text: string; ok?: boolean }[]>([]);
 const error = ref("");
 const entries = ref<Entry[]>([]);
 // Map → Challenge is the default view; practice questions are the second tab.
-const mode = ref<"map" | "questions">("map");
+const mode = ref<"map" | "questions" | "errors">("map");
 const argMap = ref<ArgumentMapPayload | null>(null);
 const mapTabId = ref<number | null>(null);
 const challengeBusy = ref<number | null>(null);
@@ -58,6 +59,7 @@ const selectionNote = computed(() => {
 });
 
 async function connect(): Promise<ApiClient> {
+  if (client.value) return client.value;
   const api = new ApiClient(settings.server, await loadToken(settings.server));
   if (!(await loadToken(settings.server))) {
     const device = await api.registerDevice();
@@ -308,9 +310,12 @@ onBeforeUnmount(() => {
   <nav class="tabs" role="tablist">
     <button role="tab" :aria-selected="mode === 'map'" :class="{ on: mode === 'map' }" @click="mode = 'map'">Map &amp; challenge</button>
     <button role="tab" :aria-selected="mode === 'questions'" :class="{ on: mode === 'questions' }" @click="mode = 'questions'">Practice questions</button>
+    <button role="tab" :aria-selected="mode === 'errors'" :class="{ on: mode === 'errors' }" @click="mode = 'errors'">Error log</button>
   </nav>
 
-  <section class="controls">
+  <ErrorLog v-if="mode === 'errors'" :connect="connect" :server="settings.server" />
+
+  <section v-if="mode !== 'errors'" class="controls">
     <p class="source"><span class="muted">Reading</span> {{ sourceTitle }}</p>
     <p v-if="selectionNote" class="selection">{{ selectionNote }}</p>
   </section>
@@ -319,7 +324,7 @@ onBeforeUnmount(() => {
     <button class="primary" :disabled="running" @click="mapArgument">{{ running ? "Working…" : "Map this argument" }}</button>
   </section>
 
-  <section v-else class="controls">
+  <section v-else-if="mode === 'questions'" class="controls">
     <fieldset class="types">
       <label v-for="f in FAMILIES" :key="f.value" class="chip">
         <input v-model="settings.types" type="checkbox" :value="f.value" @change="applySettings" /><span>{{ f.label }}</span>
@@ -344,13 +349,13 @@ onBeforeUnmount(() => {
     <button class="primary" :disabled="running" @click="generate">{{ running ? "Working…" : "Questionize this page" }}</button>
   </section>
 
-  <ol v-if="log.length" class="log" aria-live="polite">
+  <ol v-if="log.length && mode !== 'errors'" class="log" aria-live="polite">
     <li v-for="(line, i) in log" :key="i" :class="{ ok: line.ok === true, fail: line.ok === false }">
       <span class="who">{{ line.who }}</span> {{ line.text }}
     </li>
   </ol>
 
-  <p v-if="error" class="error" role="alert">{{ error }}</p>
+  <p v-if="error && mode !== 'errors'" class="error" role="alert">{{ error }}</p>
 
   <section v-if="mode === 'map' && argMap">
     <ArgumentMap :map="argMap" @locate="locateAnchor" />

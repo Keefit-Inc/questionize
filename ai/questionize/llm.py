@@ -31,7 +31,16 @@ class LLMError(RuntimeError):
 class StructuredLLM(Protocol):
     model: str
 
-    async def complete(self, system: str, user: str, schema: type[T], *, temperature: float = 0.4) -> T: ...
+    async def complete(
+        self, system: str, user: str, schema: type[T], *, temperature: float = 0.4, images: list[str] | None = None
+    ) -> T: ...
+
+
+def _split_data_url(url: str) -> tuple[str, str]:
+    """("image/png", base64 data) from a data: URL."""
+    header, _, data = url.partition(",")
+    media_type = header.removeprefix("data:").split(";")[0] or "image/jpeg"
+    return media_type, data
 
 
 def _extract_json(text: str) -> str:
@@ -67,14 +76,22 @@ class OpenAICompatLLM:
             }
         return {"type": "json_object"}
 
-    async def complete(self, system: str, user: str, schema: type[T], *, temperature: float = 0.4) -> T:
+    async def complete(
+        self, system: str, user: str, schema: type[T], *, temperature: float = 0.4, images: list[str] | None = None
+    ) -> T:
         schema_hint = json.dumps(schema.model_json_schema())
+        # Images (data: URLs) ride along as OpenAI-style content parts; they are never stored.
+        user_content: str | list[dict] = (
+            [{"type": "text", "text": user}] + [{"type": "image_url", "image_url": {"url": url}} for url in images]
+            if images
+            else user
+        )
         messages = [
             {
                 "role": "system",
                 "content": f"{system}\n\nRespond with a single JSON object matching this JSON Schema:\n{schema_hint}",
             },
-            {"role": "user", "content": user},
+            {"role": "user", "content": user_content},
         ]
         last_error: Exception | None = None
         for attempt in range(self._max_retries + 1):
@@ -133,9 +150,17 @@ class AnthropicLLM:
         self._client = anthropic.AsyncAnthropic(api_key=provider.api_key, timeout=timeout, max_retries=max_retries)
         self._max_retries = max_retries
 
-    async def complete(self, system: str, user: str, schema: type[T], *, temperature: float = 0.4) -> T:
+    async def complete(
+        self, system: str, user: str, schema: type[T], *, temperature: float = 0.4, images: list[str] | None = None
+    ) -> T:
         # Current Claude models fix sampling, so `temperature` is accepted for interface parity and not sent.
-        messages: list[dict] = [{"role": "user", "content": user}]
+        content: str | list[dict] = user
+        if images:
+            content = [
+                {"type": "image", "source": {"type": "base64", "media_type": m, "data": d}}
+                for m, d in map(_split_data_url, images)
+            ] + [{"type": "text", "text": user}]
+        messages: list[dict] = [{"role": "user", "content": content}]
         last_error: Exception | None = None
         for attempt in range(2):
             try:
@@ -159,8 +184,9 @@ class AnthropicLLM:
                 # Schema constraints the API can't enforce (e.g. exactly five choices) are checked client-side.
                 last_error = e
                 log.warning("anthropic returned invalid %s (attempt %d)", schema.__name__, attempt + 1)
+                retry = f"{user}\n\nA previous answer failed validation: {e}. Follow the schema exactly."
                 messages = [
-                    {"role": "user", "content": f"{user}\n\nA previous answer failed validation: {e}. Follow the schema exactly."}
+                    {"role": "user", "content": retry if isinstance(content, str) else content[:-1] + [{"type": "text", "text": retry}]}
                 ]
                 continue
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -118,6 +118,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000005) do
     t.index ["competency_id", "misconception_id"], name: "index_competency_misconceptions_unique", unique: true
     t.index ["competency_id"], name: "index_competency_misconceptions_on_competency_id"
     t.index ["misconception_id"], name: "index_competency_misconceptions_on_misconception_id"
+  end
+
+  create_table "error_log_entries", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "generation_run_id", null: false
+    t.bigint "source_observation_id"
+    t.string "book"
+    t.string "page"
+    t.string "number"
+    t.string "chosen_label"
+    t.jsonb "diagnosis", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["generation_run_id"], name: "index_error_log_entries_on_generation_run_id"
+    t.index ["source_observation_id"], name: "index_error_log_entries_on_source_observation_id"
+    t.index ["user_id"], name: "index_error_log_entries_on_user_id"
   end
 
   create_table "evidence_snapshots", force: :cascade do |t|
@@ -353,6 +369,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000005) do
   add_foreign_key "competency_edges", "competencies", column: "prerequisite_id"
   add_foreign_key "competency_misconceptions", "competencies"
   add_foreign_key "competency_misconceptions", "misconceptions"
+  add_foreign_key "error_log_entries", "generation_runs"
+  add_foreign_key "error_log_entries", "source_observations"
+  add_foreign_key "error_log_entries", "users"
   add_foreign_key "feedbacks", "item_versions"
   add_foreign_key "feedbacks", "users"
   add_foreign_key "generation_runs", "sources"

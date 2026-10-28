@@ -3,6 +3,7 @@
 GET  /health        -> liveness and configured models (no auth)
 POST /v1/judge      -> Argument Judge measurements for an argument and its options
 POST /v1/review     -> re-review of a published item: keep, revise (with a verified revision) or retire
+POST /v1/diagnose   -> NDJSON stream for one photographed question, ending with {"stage": "diagnosis", ...}
 POST /v1/map        -> NDJSON stream ending with {"stage": "map", "map": {...}} then {"stage": "done"}
 POST /v1/generate   -> NDJSON stream of agent events, ending with {"stage": "done", ...},
                        {"stage": "declined", ...} for an unsuitable page, or {"stage": "failed", ...}
@@ -27,12 +28,16 @@ from .config import Settings, load_settings
 from .llm import LLMError, make_llm
 from .judge import ArgumentJudge
 from .mapper import MapPipeline
-from .pipeline import ArticleDeclined, QuestionPipeline
+from .pipeline import Declined, QuestionPipeline
+from .errorlog import diagnose
 from .reviewer import review
-from .schemas import GenerateRequest, JudgeRequest, JudgeResult, MapRequest, ReviewRequest, ReviewResult
+from .schemas import DiagnoseRequest, GenerateRequest, JudgeRequest, JudgeResult, MapRequest, ReviewRequest, ReviewResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("questionize")
+
+# A base64 data URL for a ~6 MB image.
+MAX_IMAGE_CHARS = 8_000_000
 
 
 def build_pipeline(settings: Settings) -> QuestionPipeline:
@@ -102,6 +107,17 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
         except LLMError as e:
             raise HTTPException(status_code=502, detail=str(e)) from e
 
+    @v1.post("/diagnose")
+    async def diagnose_photo(req: DiagnoseRequest) -> StreamingResponse:
+        if not req.image.startswith("data:image/") or len(req.image) > MAX_IMAGE_CHARS:
+            raise HTTPException(status_code=422, detail="Send one image as a data: URL under 6 MB")
+        pipeline = get_pipeline()
+
+        async def run(emit) -> list[dict[str, Any]]:
+            return [await diagnose(pipeline, req, emit), {"stage": "done"}]
+
+        return stream(run)
+
     @v1.post("/review", response_model=ReviewResult)
     async def review_item(req: ReviewRequest) -> ReviewResult:
         try:
@@ -151,7 +167,7 @@ def stream(run) -> StreamingResponse:
             try:
                 for event in await run(emit):
                     await queue.put(event)
-            except ArticleDeclined as e:
+            except Declined as e:
                 await queue.put({"stage": "declined", "reason": e.reason, "message": e.message})
             except Exception as e:  # surfaced to the client as a final event
                 log.exception("pipeline failed")

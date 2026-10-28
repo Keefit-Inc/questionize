@@ -55,7 +55,8 @@ ai/                 FastAPI AI service with the agent pipeline (internal only)
     prompts.py        agent instructions
     schemas.py        structured-output contracts (Pydantic → JSON Schema)
     llm.py            clients: OpenAI-compatible (Meta Model API / Baseten) and Anthropic
-    app.py            /health and the token-guarded endpoints /v1/generate and /v1/judge
+    errorlog.py       error log: diagnose one photographed question, write practice on the same trap
+    app.py            /health and the token-guarded /v1 endpoints (generate, judge, map, review, diagnose)
   eval/               gold-set format for scoring the Argument Judge
   tests/              offline tests with scripted models
 packages/shared/    TypeScript types, API client, Action Cable helpers and shared Vue components

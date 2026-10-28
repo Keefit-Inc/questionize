@@ -10,13 +10,18 @@ class GenerateQuestionsJob < ApplicationJob
     run = GenerationRun.find(run_id)
     recorder = GenerationRuns::Recorder.new(run)
     text = Rails.cache.read(run.text_cache_key)
-    return broadcast(run, recorder.fail!("The article text expired before generation started. Please try again.")) unless text
+    Rails.cache.delete(run.text_cache_key) if run.kind == "error_log" # the photo is read once, then gone
+    return broadcast(run, recorder.fail!("The input expired before processing started. Please try again.")) unless text
 
     run.update!(status: "running")
     client = ai_client_factory.call
     payload = request_payload(run, text)
     handle = ->(event) { broadcast(run, recorder.record(event)) }
-    run.kind == "map" ? client.map(payload.slice("title", "url", "selection", "text"), &handle) : client.generate(payload, &handle)
+    case run.kind
+    when "map" then client.map(payload.slice("title", "url", "selection", "text"), &handle)
+    when "error_log" then client.diagnose({ "image" => text, "chosen_label" => run.params["chosen_label"] }, &handle)
+    else client.generate(payload, &handle)
+    end
     broadcast(run, recorder.fail!("The AI service ended the stream unexpectedly.")) if run.reload.status == "running"
   rescue AiService::Error => e
     Rails.logger.error("[GenerateQuestionsJob] run #{run_id}: #{e.message}")

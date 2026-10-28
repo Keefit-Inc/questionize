@@ -18,6 +18,10 @@ module AiService
       stream("/v1/map", payload, &block)
     end
 
+    def diagnose(payload, &block)
+      stream("/v1/diagnose", payload, &block)
+    end
+
     # POST /v1/review returns one JSON document.
     def review(payload)
       body = +""

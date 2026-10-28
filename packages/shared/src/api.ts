@@ -104,6 +104,8 @@ export type GenerationEvent =
   | { stage: "analyzed"; message: string; content_flags: string[] }
   | { stage: "question"; index: number; item: HiddenItem }
   | { stage: "map"; map: ArgumentMapPayload }
+  | { stage: "reading" | "diagnosed" | "practice"; message: string }
+  | { stage: "diagnosis"; entry: ErrorLogEntry }
   | { stage: "done"; count: number }
   | { stage: "declined"; reason: string; message: string }
   | { stage: "failed"; message: string };
@@ -158,3 +160,46 @@ export interface ArgumentMapPayload {
 }
 
 export type MapResponse = { status: "cached"; map: ArgumentMapPayload } | { status: "queued"; run_id: number };
+
+// ------------------------------------------------------------------ Error log
+
+export interface Diagnosis {
+  family: string;
+  subtype: string;
+  competency: string;
+  key_guess: Label | null;
+  chosen_label: Label | null;
+  chosen_correct: boolean | null;
+  chosen_trap: string | null;
+  misconception: { mechanism_family: string; mechanism_type: string; statement: string } | null;
+  explanation: string;
+}
+
+/** One photographed question: where it lives in the learner's own book, our diagnosis, and new practice. */
+export interface ErrorLogEntry {
+  id: number;
+  book: string | null;
+  page: string | null;
+  number: string | null;
+  chosen_label: Label | null;
+  diagnosis: Diagnosis;
+  /** True when the abstract pattern passed the leak checks and joined the shared knowledge model. */
+  contributed: boolean;
+  practice: Item[];
+  created_at: string;
+}
+
+export interface ErrorLogPage {
+  eligible: boolean;
+  entries: ErrorLogEntry[];
+  weaknesses: { traps: Record<string, number>; misconceptions: Record<string, number> };
+}
+
+export interface ErrorLogCapture {
+  /** One image as a data: URL; the server keeps it only until the diagnosis is read. */
+  image: string;
+  book?: string;
+  page?: string;
+  number?: string;
+  chosen_label?: Label;
+}
