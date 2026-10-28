@@ -8,10 +8,22 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit"
   },
   "devDependencies": {
+    "@types/rails__actioncable": "^8.0.3",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/test-utils": "^2.5.1",
+    "jsdom": "^30.1.3",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "vue": "^3.5.44",
+    "vue-tsc": "^3.3.13"
+  },
+  "dependencies": {
+    "@rails/actioncable": "^8.1.400"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
   }
 }

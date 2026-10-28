@@ -20,8 +20,9 @@ uvicorn questionize.app:app --reload --port 8000   # needs INTERNAL_TOKEN and a 
 # Rails (needs PostgreSQL)
 cd api && bin/setup && bin/rails test && bin/dev
 
-# TS workspace (packages/shared, web; extension once migrated)
-pnpm install && pnpm -r test && pnpm -r typecheck && pnpm --filter @questionize/web dev
+# TS workspace (packages/shared, web, extension)
+pnpm install && pnpm -r test && pnpm -r typecheck
+pnpm --filter @questionize/extension build   # load extension/dist unpacked
 ```
 
 ## Rules

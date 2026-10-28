@@ -51,6 +51,15 @@ export type GenerationResponse =
   | { status: "cached"; items: Item[] }
   | { status: "queued"; run_id: number };
 
+/** GET /api/v1/generations/:id — what a run has produced so far, for catching up after (re)connecting. */
+export interface GenerationRunState {
+  run_id: number;
+  status: "queued" | "running" | "completed" | "declined" | "failed";
+  /** Stored copies of the broadcast events; "question" events carry item_id instead of the item. */
+  events: (Exclude<GenerationEvent, { stage: "question" }> | { stage: "question"; index: number; item_id: string })[];
+  items: Item[];
+}
+
 export interface AttemptResponse {
   correct: boolean;
   rated: boolean;

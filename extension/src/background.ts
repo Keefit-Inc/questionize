@@ -13,7 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== "questionize-selection" || !tab) return;
+  if (info.menuItemId !== "questionize-selection" || !tab?.id) return;
   // open() must run synchronously inside the user gesture, before any await.
   const opening = chrome.sidePanel.open({ tabId: tab.id });
   await chrome.storage.session.set({

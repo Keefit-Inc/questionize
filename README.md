@@ -41,20 +41,25 @@ A question is marked **✓ Verified** only when the blind solver independently r
 ## Repository layout
 
 ```
-extension/          Chrome extension (Manifest V3, no build step)
-  background.js       toolbar + right-click "Questionize this passage"
-  sidepanel/          study UI: settings, live agent log, question cards, stats
-  content/            page extraction (Readability) and in-article highlighting
-  vendor/             Mozilla Readability (Apache-2.0)
+extension/          Chrome extension (Manifest V3, Vue 3 + TypeScript, built with Vite into dist/)
+  src/background.ts   toolbar + right-click "Questionize this passage"
+  src/sidepanel/      side panel: live agent log, question cards, answers through the Rails API
+  src/page-tools.ts   page extraction (Readability) and in-article highlighting
+  public/vendor/      Mozilla Readability (Apache-2.0)
+api/                Rails 8 API: users, question bank, attempts and ratings, knowledge model, jobs, Action Cable
+web/                Vue 3 web app (served by Rails in production)
 ai/                 FastAPI AI service with the agent pipeline (internal only)
   questionize/
-    pipeline.py       Analyst → Writer → Solver → Critic → Reviser loop
+    pipeline.py       Analyst → Writer → Solver → Critic → Argument Judge → Reviser loop
+    judge.py          Argument Judge: per-option measurements with uncertainty
     prompts.py        agent instructions
     schemas.py        structured-output contracts (Pydantic → JSON Schema)
     llm.py            clients: OpenAI-compatible (Meta Model API / Baseten) and Anthropic
-    app.py            /health and the token-guarded NDJSON endpoint /v1/generate
-  tests/              offline tests with a scripted model
-packages/shared/    TypeScript types and helpers shared by web and extension
+    app.py            /health and the token-guarded endpoints /v1/generate and /v1/judge
+  eval/               gold-set format for scoring the Argument Judge
+  tests/              offline tests with scripted models
+packages/shared/    TypeScript types, API client, Action Cable helpers and shared Vue components
+docs/               architecture, knowledge model, deployment
 ```
 
 ## Run it locally
@@ -71,13 +76,26 @@ uvicorn questionize.app:app --reload --port 8000
 
 Check it: `curl localhost:8000/health`
 
-**2. Extension**
+**2. Rails API** (needs PostgreSQL)
+
+```bash
+cd api
+bin/setup --skip-server
+AI_SERVICE_URL=http://localhost:8000 AI_INTERNAL_TOKEN=<same as ai/.env INTERNAL_TOKEN> bin/rails server
+```
+
+**3. Extension**
+
+```bash
+pnpm install
+pnpm --filter @questionize/extension build    # or: pnpm --filter @questionize/extension dev (rebuilds on change)
+```
 
 1. Open `chrome://extensions`, turn on **Developer mode**.
-2. **Load unpacked** → select the `extension/` folder.
+2. **Load unpacked** → select the `extension/dist/` folder.
 3. Pin Questionize, open an article, click the icon.
 
-The side panel talks to `http://localhost:8000` by default. Under ⚙ Settings, set the server URL and paste your local `INTERNAL_TOKEN` as the dev token (a stopgap until the panel talks to the Rails API).
+The side panel talks to `https://questionize.org` by default. For local development, open ⚙ Settings and set the server to `http://localhost:3000`. The panel registers an anonymous device on first use; it never talks to the AI service directly.
 
 You can also highlight a paragraph, right-click, and choose **Questionize this passage** to focus questions there.
 
@@ -85,6 +103,7 @@ You can also highlight a paragraph, right-click, and choose **Questionize this p
 
 ```bash
 cd ai && pip install -r requirements-dev.txt && pytest
+cd api && bin/rails test
 pnpm install && pnpm -r test
 ```
 
@@ -113,4 +132,4 @@ See [`ai/.env.example`](ai/.env.example). Key settings:
 
 ## License
 
-Code is MIT. The knowledge model and question bank are CC BY-SA 4.0; numeric data (aggregate statistics, judge measurements) is CC0. Mozilla Readability is included under Apache-2.0 (`extension/vendor/Readability.LICENSE.md`).
+Code is MIT. The knowledge model and question bank are CC BY-SA 4.0; numeric data (aggregate statistics, judge measurements) is CC0. Mozilla Readability is included under Apache-2.0 (`extension/public/vendor/Readability.LICENSE.md`).

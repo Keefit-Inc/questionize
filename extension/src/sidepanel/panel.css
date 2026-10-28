@@ -1,0 +1,4 @@
+:root { color-scheme: light dark; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; }
+body { margin: 0; padding: 12px 14px 32px; }
+button { font: inherit; }
+.qz-choices button, .primary { font-size: 14px !important; }
