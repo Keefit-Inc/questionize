@@ -17,12 +17,16 @@ jobs:
     strategy:
       matrix:
         include:
+          # Kamal manages (and prunes) images labeled with its service name, so only the app
+          # image carries the label; the AI accessory image must not, or pruning tries to delete it.
           - name: questionize
             context: .
             dockerfile: api/Dockerfile
+            labels: service=questionize
           - name: questionize-ai
             context: ai
             dockerfile: ai/Dockerfile
+            labels: ""
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -41,7 +45,6 @@ jobs:
           tags: |
             ghcr.io/keefit-inc/${{ matrix.name }}:${{ github.sha }}
             ghcr.io/keefit-inc/${{ matrix.name }}:latest
-          labels: |
-            service=questionize
+          labels: ${{ matrix.labels }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

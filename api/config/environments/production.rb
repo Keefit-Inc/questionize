@@ -79,6 +79,9 @@ Rails.application.configure do
   # Enable DNS rebinding protection and other `Host` header attacks.
   config.hosts = ENV.fetch("APP_HOSTS", "questionize.org,www.questionize.org").split(",")
 
+  # WebSocket clients: the web app and the Chrome extension.
+  config.action_cable.allowed_request_origins = [ %r{\Ahttps://(www\.)?questionize\.org\z}, %r{\Achrome-extension://[a-p]{32}\z} ]
+
   # Skip DNS rebinding protection for the default health check endpoint.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

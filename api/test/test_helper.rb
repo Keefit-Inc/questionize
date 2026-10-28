@@ -10,6 +10,32 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
+    setup { Rails.cache.clear }
+
+    ARTICLE_TEXT = ("City officials said new bike lanes cut accidents by 30 percent, so the mayor wants them citywide. " * 4).freeze
+
+    def auth_headers(user)
+      { "Authorization" => "Bearer #{user.api_token}" }
+    end
+
+    # The shape of a "question" event from the AI service's /v1/generate stream.
+    def generated_question(correct: "B", verified: true, type: "CR", subtype: "weaken")
+      {
+        "id" => SecureRandom.hex(6),
+        "question" => {
+          "type" => type, "subtype" => subtype,
+          "passage" => "Accidents fell after bike lanes were added, so bike lanes will make every street safer.",
+          "stem" => "Which of the following, if true, most seriously weakens the argument?",
+          "choices" => ItemVersion::LABELS.map { |l| { "label" => l, "text" => "Option #{l}" } },
+          "correct_label" => correct, "explanation" => "#{correct} names an alternative cause.",
+          "choice_rationales" => ItemVersion::LABELS.map { |l| { "label" => l, "rationale" => "Why #{l}", "trap" => l == correct ? "correct" : "irrelevant" } },
+          "skill" => "Alternative causes", "source_anchor" => "cut accidents by 30 percent"
+        },
+        "verification" => { "verified" => verified, "attempts" => 1, "solver_model" => "fake", "solver_answer" => correct,
+                             "solver_confidence" => 0.9, "critic_verdict" => "pass", "distractor_quality" => 4, "issues" => [], "copied_words" => 3 }
+      }
+    end
+
     def create_item(family: "CR", subtype: "assumption", difficulty: "medium", correct_label: "B")
       item = Item.create!(family: family, subtype: subtype, rating: Item.start_rating(difficulty))
       version = item.versions.create!(
