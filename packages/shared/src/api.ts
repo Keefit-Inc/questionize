@@ -70,10 +70,62 @@ export interface AttemptResponse {
 
 /** Broadcast on GenerationChannel; mirrors the AI stream with items stored and hidden. */
 export type GenerationEvent =
-  | { stage: "analyze" | "plan" | "write" | "solve" | "critic" | "judge" | "revise" | "error"; message: string; index?: number; attempt?: number }
+  | { stage: "analyze" | "mapping" | "plan" | "write" | "solve" | "critic" | "judge" | "revise" | "error"; message: string; index?: number; attempt?: number }
   | { stage: "verdict"; index: number; attempt: number; passed: boolean; message: string; judge?: { verdict: string; measure: string | null; margin: number; key_first_rate: number } }
   | { stage: "analyzed"; message: string; content_flags: string[] }
   | { stage: "question"; index: number; item: HiddenItem }
+  | { stage: "map"; map: ArgumentMapPayload }
   | { stage: "done"; count: number }
   | { stage: "declined"; reason: string; message: string }
   | { stage: "failed"; message: string };
+
+// ------------------------------------------------------------------ Map → Challenge
+
+export interface MapMeasurement {
+  value: number;
+  ci_low: number;
+  ci_high: number;
+}
+
+export interface MapElement {
+  id: string;
+  text: string;
+  anchor: string;
+  support_delta: MapMeasurement;
+  necessity: MapMeasurement;
+}
+
+export type ChallengeKind = "weaken" | "assumption" | "strengthen";
+
+export interface ChallengeOption {
+  label: Label;
+  text: string;
+  support_delta?: MapMeasurement;
+  necessity?: MapMeasurement;
+}
+
+export interface MapChallenge {
+  index: number;
+  kind: ChallengeKind;
+  question: string;
+  options: ChallengeOption[];
+  chosen: Label | null;
+  revealed: boolean;
+  judged?: { label: Label; measure: "support_delta" | "necessity"; first_rate: number; margin: number; runner_up: Label };
+  crowd?: Record<Label, number>;
+}
+
+/** GET /api/v1/maps/:id. Judged answers stay hidden per challenge until the reader answers it. */
+export interface ArgumentMapPayload {
+  run_id: number;
+  reconstruction: true;
+  judge_version: string;
+  scheme: string;
+  conclusion: { text: string; anchor: string };
+  premises: MapElement[];
+  assumptions: MapElement[];
+  largest_gap: string;
+  challenges: MapChallenge[];
+}
+
+export type MapResponse = { status: "cached"; map: ArgumentMapPayload } | { status: "queued"; run_id: number };

@@ -14,6 +14,10 @@ module AiService
       stream("/v1/generate", payload, &block)
     end
 
+    def map(payload, &block)
+      stream("/v1/map", payload, &block)
+    end
+
     private
 
     def stream(path, payload)

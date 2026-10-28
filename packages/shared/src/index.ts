@@ -7,3 +7,5 @@ export * from "./labels";
 export { default as QuestionCard } from "./components/QuestionCard.vue";
 export { default as JudgeMeter } from "./components/JudgeMeter.vue";
 export { default as ChoiceDistribution } from "./components/ChoiceDistribution.vue";
+export { default as ArgumentMap } from "./components/ArgumentMap.vue";
+export { default as ChallengeCard } from "./components/ChallengeCard.vue";

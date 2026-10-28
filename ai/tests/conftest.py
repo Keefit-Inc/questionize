@@ -130,3 +130,25 @@ def flat_scores(**overrides):
     table = {label: (0.0, 0.1) for label in "ABCDE"}
     table.update(overrides)
     return table
+
+
+class TextJudgeLLM:
+    """Plays an Argument Judge that rates each displayed option by its text: {text: (support_delta, necessity)}."""
+
+    def __init__(self, table, model: str = "judge-model", default=(0.0, 0.1)):
+        self.model = model
+        self.table = table
+        self.default = default
+        self.calls = 0
+
+    async def complete(self, system, user, schema, *, temperature=0.4):
+        import re
+
+        from questionize.schemas import JudgeRatings, OptionRating
+
+        self.calls += 1
+        ratings = [
+            OptionRating(option=letter, support_delta=self.table.get(text, self.default)[0], necessity=self.table.get(text, self.default)[1])
+            for letter, text in re.findall(r"^\(([A-H])\) (.+)$", user, re.M)
+        ]
+        return JudgeRatings(ratings=ratings)

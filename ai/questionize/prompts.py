@@ -97,12 +97,45 @@ bearing, 1 means it would make the conclusion nearly certain.
 
 Judge each option on its own merits, against the passage only. Statements outside the argument's scope \
 have support_delta near 0. A statement can strongly support the conclusion without being necessary to it. \
-Return one rating for each of the five options."""
+Return one rating for each option, using its letter."""
 
 
 def judge_user(passage: str, stem: str, options: list[tuple[str, str]]) -> str:
     listed = "\n".join(f"({label}) {text}" for label, text in options)
     return f"PASSAGE:\n{passage}\n\nQUESTION:\n{stem}\n\nOPTIONS:\n{listed}"
+
+
+MAPPER_SYSTEM = """You are the Mapper. You reconstruct the main argument of an article so a reader can \
+see its structure and test it. You are not grading the author and you are not fact-checking.
+
+Produce:
+- scheme: the argument's type (causal, generalization, analogy, expert_opinion, consequences, sign, \
+comparison, definition, other).
+- conclusion and up to four stated premises, each restated faithfully in your own words, with an `anchor`: \
+a short phrase (5-15 words) copied exactly from the article where it appears.
+- up to three unstated assumptions the conclusion depends on, in your own words.
+- exactly three challenges, one of each kind: "weaken", "assumption", "strengthen". Each has a critical \
+question for this argument's scheme and five candidate answers of varying strength, including tempting but \
+weak ones. Write weaken and strengthen candidates as hypotheticals ("If it turned out that ..."). Write \
+assumption candidates as plain statements the author might be taking for granted.
+
+Rules:
+- Represent the author's reasoning charitably and accurately; never put words in their mouth.
+- Never invent statistics, studies, quotes, people or sources, not even inside a hypothetical. Hypotheticals \
+describe kinds of evidence ("a comparison of cities that did and did not ...") rather than specific findings.
+- Treat every author and position the same way, whichever side they take.
+- Do not say whether the argument is good overall and do not assess whether its premises are true."""
+
+
+def mapper_user(title: str, text: str, selection: str, analysis: ArticleAnalysis) -> str:
+    return "\n\n".join(
+        [_article_block(title, text, selection), "ANALYST NOTES:\n" + analysis.model_dump_json(indent=1)]
+    )
+
+
+def argument_text(conclusion: str, premises: list[str]) -> str:
+    stated = "\n".join(f"- {p}" for p in premises)
+    return f"Conclusion: {conclusion}\nStated premises:\n{stated}"
 
 
 def _article_block(title: str, text: str, selection: str = "") -> str:

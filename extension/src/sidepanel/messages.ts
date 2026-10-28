@@ -21,6 +21,7 @@ export function errorMessage(error: unknown, server: string): string {
 const AGENTS: Partial<Record<GenerationEvent["stage"], string>> = {
   analyze: "Analyst",
   analyzed: "Analyst",
+  mapping: "Mapper",
   plan: "Planner",
   write: "Writer",
   solve: "Solver",
@@ -32,7 +33,7 @@ const AGENTS: Partial<Record<GenerationEvent["stage"], string>> = {
 };
 
 export function eventLine(event: GenerationEvent): { who: string; text: string; ok?: boolean } | null {
-  if (event.stage === "question" || event.stage === "done") return null;
+  if (event.stage === "question" || event.stage === "map" || event.stage === "done") return null;
   const question = "index" in event && typeof event.index === "number" ? ` Q${event.index + 1}` : "";
   const who = `${AGENTS[event.stage] ?? event.stage}${question}`;
   const ok = event.stage === "verdict" ? event.passed : event.stage === "error" || event.stage === "failed" ? false : undefined;

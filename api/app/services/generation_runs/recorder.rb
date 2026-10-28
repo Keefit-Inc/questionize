@@ -14,6 +14,7 @@ module GenerationRuns
         case event["stage"]
         when "analyzed" then analyzed(event)
         when "question" then question(event)
+        when "map" then argument_map(event)
         when "done" then finish("completed", { "stage" => "done", "count" => @run.items.count })
         when "declined" then finish("declined", event.slice("stage", "reason", "message"))
         when "failed" then finish("failed", event.slice("stage", "message"))
@@ -37,6 +38,11 @@ module GenerationRuns
     def question(event)
       item = persist(event.fetch("question"))
       { "stage" => "question", "index" => event["index"], "item" => ItemPayload.new(item, revealed: false).as_json }
+    end
+
+    def argument_map(event)
+      @run.update!(result: event.fetch("map"))
+      { "stage" => "map", "map" => MapPayload.new(@run, user: @run.user).as_json }
     end
 
     def persist(generated)
@@ -94,7 +100,8 @@ module GenerationRuns
     end
 
     def remember(payload)
-      compact = payload.except("item").merge(payload["item"] ? { "item_id" => payload.dig("item", :id) } : {})
+      # Stored events are a progress log; items and maps are read from their own records.
+      compact = payload.except("item", "map").merge(payload["item"] ? { "item_id" => payload.dig("item", :id) } : {})
       @run.events = (@run.events + [ compact ]).last(MAX_STORED_EVENTS)
       @run.save!
     end

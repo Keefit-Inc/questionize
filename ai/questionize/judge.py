@@ -31,6 +31,7 @@ SUBTYPE_MEASURES: dict[str, tuple[str, str]] = {
 }
 
 BOOTSTRAP_ROUNDS = 400
+DISPLAY_LETTERS = "ABCDEFGH"
 
 Sample = dict[str, tuple[float, float]]  # label -> (support_delta, necessity)
 
@@ -60,37 +61,38 @@ class ArgumentJudge:
 
     async def judge(self, q: Question) -> JudgeResult:
         measure, direction = SUBTYPE_MEASURES.get(q.subtype, (None, None))
-        samples = await self._sample(q, self.samples_per_judge)
+        options = [(c.label, c.text) for c in q.choices]
+        samples = await self.sample(q.passage, q.stem, options)
         result = self._summarize(q, samples, measure, direction)
         if result.verdict == "ambiguous" and result.key_first_rate >= 0.5:
             # Close call: look again before deciding.
-            samples += await self._sample(q, self.samples_per_judge)
+            samples += await self.sample(q.passage, q.stem, options)
             result = self._summarize(q, samples, measure, direction)
         return result
 
-    async def _sample(self, q: Question, per_judge: int) -> list[Sample]:
-        tasks = [self._one(judge, q) for judge in self.judges for _ in range(per_judge)]
-        return list(await asyncio.gather(*tasks))
+    async def sample(self, passage: str, stem: str, options: list[tuple[str, str]]) -> list[Sample]:
+        """Ratings for any 2-8 labeled statements, keyed by the caller's labels, from every judge."""
+        tasks = [self._one(judge, passage, stem, options) for judge in self.judges for _ in range(self.samples_per_judge)]
+        samples = [s for s in await asyncio.gather(*tasks) if len(s) == len(options)]
+        if not samples:
+            raise ValueError("Argument Judge returned no complete samples")
+        return samples
 
-    async def _one(self, judge: StructuredLLM, q: Question) -> Sample:
-        order = list(LABELS)
+    async def _one(self, judge: StructuredLLM, passage: str, stem: str, options: list[tuple[str, str]]) -> Sample:
+        order = list(options)
         self.rng.shuffle(order)
-        # Displayed letter -> original label.
-        shown = dict(zip(LABELS, order))
-        texts = {c.label: c.text for c in q.choices}
+        letters = DISPLAY_LETTERS[: len(order)]
+        # Displayed letter -> caller's label.
+        shown = {letter: label for letter, (label, _) in zip(letters, order)}
         out = await judge.complete(
             prompts.JUDGE_SYSTEM,
-            prompts.judge_user(q.passage, q.stem, [(letter, texts[shown[letter]]) for letter in LABELS]),
+            prompts.judge_user(passage, stem, [(letter, text) for letter, (_, text) in zip(letters, order)]),
             JudgeRatings,
             temperature=0.7,
         )
         return {shown[r.option]: (r.support_delta, r.necessity) for r in out.ratings if r.option in shown}
 
     def _summarize(self, q: Question, samples: list[Sample], measure: str | None, direction: str | None) -> JudgeResult:
-        samples = [s for s in samples if set(s) == set(LABELS)]
-        if not samples:
-            raise ValueError("Argument Judge returned no complete samples")
-
         options = [
             OptionJudgement(
                 label=label,
@@ -151,3 +153,29 @@ def judge_feedback(result: JudgeResult) -> str:
         f"(key first in {result.key_first_rate:.0%} of resamples). Widen the gap: make {result.runner_up} "
         "clearly weaker on that dimension or the key clearly stronger."
     )
+
+
+def measurements(samples: list[Sample], label: str, rng: random.Random) -> tuple[Measurement, Measurement]:
+    """(support_delta, necessity) with intervals for one label."""
+    return (
+        _measurement([s[label][0] for s in samples], rng),
+        _measurement([s[label][1] for s in samples], rng),
+    )
+
+
+def rank(samples: list[Sample], measure: str, direction: str, rng: random.Random) -> tuple[str, float, float, str]:
+    """The best label by a measure, the share of resamples where it stays best, its margin and the runner-up."""
+    index = 0 if measure == "support_delta" else 1
+    sign = 1.0 if direction == "max" else -1.0
+    labels = list(samples[0])
+    mean = {label: sign * statistics.fmean(s[label][index] for s in samples) for label in labels}
+    best = max(labels, key=mean.__getitem__)
+    runner_up = max((label for label in labels if label != best), key=mean.__getitem__)
+    first, margins = 0, []
+    for _ in range(BOOTSTRAP_ROUNDS):
+        draw = [rng.choice(samples) for _ in samples]
+        score = {label: sign * statistics.fmean(s[label][index] for s in draw) for label in labels}
+        other = max(score[label] for label in labels if label != best)
+        margins.append(score[best] - other)
+        first += score[best] > other
+    return best, round(first / BOOTSTRAP_ROUNDS, 3), round(statistics.median(margins), 3), runner_up

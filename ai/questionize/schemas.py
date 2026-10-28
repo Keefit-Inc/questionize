@@ -124,7 +124,7 @@ class JudgeRequest(BaseModel):
 class OptionRating(BaseModel):
     """One judge sample's reading of one option (docs/ARCHITECTURE.md §4.5)."""
 
-    option: Label
+    option: str = Field(..., description="The option's letter as shown")
     support_delta: float = Field(
         ..., ge=-1, le=1, description="How far, and which way, the conclusion's likelihood moves if this option is true"
     )
@@ -132,7 +132,7 @@ class OptionRating(BaseModel):
 
 
 class JudgeRatings(BaseModel):
-    ratings: list[OptionRating] = Field(..., min_length=5, max_length=5)
+    ratings: list[OptionRating] = Field(..., min_length=2, max_length=8)
 
 
 class Measurement(BaseModel):
@@ -218,3 +218,81 @@ class CriticResult(BaseModel):
 
 
 GenerateResponse.model_rebuild()
+
+
+# ------------------------------------------------------------- Argument map (Map → Challenge)
+
+ArgumentScheme = Literal[
+    "causal", "generalization", "analogy", "expert_opinion", "consequences", "sign", "comparison", "definition", "other"
+]
+ChallengeKind = Literal["weaken", "assumption", "strengthen"]
+
+
+class MapClaim(BaseModel):
+    text: str = Field(..., description="The claim in your own words, faithful to the author")
+    anchor: str = Field("", description="A short verbatim phrase (5-15 words) from the article where it appears")
+
+
+class ChallengeDraft(BaseModel):
+    kind: ChallengeKind
+    question: str = Field(..., description="A critical question a careful reader should ask of this argument")
+    options: list[str] = Field(
+        ..., min_length=5, max_length=5,
+        description='Five candidate answers, each a conditional ("If it turned out that ...") or a plain unstated premise',
+    )
+
+
+class MapDraft(BaseModel):
+    scheme: ArgumentScheme
+    conclusion: MapClaim
+    premises: list[MapClaim] = Field(..., min_length=1, max_length=4)
+    assumptions: list[str] = Field(..., min_length=1, max_length=3, description="Unstated assumptions, in your own words")
+    challenges: list[ChallengeDraft] = Field(..., min_length=3, max_length=3)
+
+
+class MapElement(BaseModel):
+    id: str
+    text: str
+    anchor: str = ""
+    support_delta: Measurement
+    necessity: Measurement
+
+
+class ChallengeOption(BaseModel):
+    label: Label
+    text: str
+    support_delta: Measurement
+    necessity: Measurement
+
+
+class JudgedAnswer(BaseModel):
+    label: Label
+    measure: str
+    first_rate: float
+    margin: float
+    runner_up: Label
+
+
+class Challenge(BaseModel):
+    index: int
+    kind: ChallengeKind
+    question: str
+    options: list[ChallengeOption]
+    judged: JudgedAnswer
+
+
+class ArgumentMap(BaseModel):
+    judge_version: str
+    scheme: ArgumentScheme
+    conclusion: MapClaim
+    premises: list[MapElement]
+    assumptions: list[MapElement]
+    largest_gap: str = Field(..., description="Id of the unstated assumption the argument leans on most")
+    challenges: list[Challenge]
+
+
+class MapRequest(BaseModel):
+    text: str = Field(..., min_length=200)
+    title: str = ""
+    url: str = ""
+    selection: str = ""

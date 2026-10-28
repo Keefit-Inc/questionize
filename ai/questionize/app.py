@@ -2,6 +2,7 @@
 
 GET  /health        -> liveness and configured models (no auth)
 POST /v1/judge      -> Argument Judge measurements for an argument and its options
+POST /v1/map        -> NDJSON stream ending with {"stage": "map", "map": {...}} then {"stage": "done"}
 POST /v1/generate   -> NDJSON stream of agent events, ending with {"stage": "done", ...},
                        {"stage": "declined", ...} for an unsuitable page, or {"stage": "failed", ...}
 
@@ -24,8 +25,9 @@ from . import __version__
 from .config import Settings, load_settings
 from .llm import LLMError, make_llm
 from .judge import ArgumentJudge
+from .mapper import MapPipeline
 from .pipeline import ArticleDeclined, QuestionPipeline
-from .schemas import GenerateRequest, JudgeRequest, JudgeResult
+from .schemas import GenerateRequest, JudgeRequest, JudgeResult, MapRequest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("questionize")
@@ -74,7 +76,7 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
                 raise HTTPException(status_code=503, detail=str(e)) from e
         return state["pipeline"]
 
-    def clip(req: GenerateRequest) -> GenerateRequest:
+    def clip(req):
         if len(req.text) > settings.max_article_chars:
             req = req.model_copy(update={"text": req.text[: settings.max_article_chars]})
         return req
@@ -103,35 +105,59 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
         pipeline = get_pipeline()
         req = clip(req)
 
-        async def events() -> AsyncIterator[bytes]:
-            queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+        async def run(emit) -> list[dict[str, Any]]:
+            result = await pipeline.run(req, emit)
+            return [{"stage": "done", "result": result.model_dump()}]
 
-            async def emit(event: dict[str, Any]) -> None:
-                await queue.put(event)
+        return stream(run)
 
-            async def worker() -> None:
-                try:
-                    result = await pipeline.run(req, emit)
-                    await queue.put({"stage": "done", "result": result.model_dump()})
-                except ArticleDeclined as e:
-                    await queue.put({"stage": "declined", "reason": e.reason, "message": e.message})
-                except Exception as e:  # surfaced to the client as a final event
-                    log.exception("pipeline failed")
-                    await queue.put({"stage": "failed", "message": str(e)})
-                finally:
-                    await queue.put(None)
+    @v1.post("/map")
+    async def map_argument(req: MapRequest) -> StreamingResponse:
+        pipeline = get_pipeline()
+        if pipeline.judge is None:
+            raise HTTPException(status_code=503, detail="Argument Judge is disabled (JUDGE_ENABLED=false)")
+        mapper = MapPipeline(pipeline.primary, pipeline.judge)
+        req = clip(req)
 
-            task = asyncio.create_task(worker())
-            try:
-                while (event := await queue.get()) is not None:
-                    yield (json.dumps(event) + "\n").encode()
-            finally:
-                task.cancel()
+        async def run(emit) -> list[dict[str, Any]]:
+            argument_map = await mapper.run(req, emit)
+            return [{"stage": "map", "map": argument_map.model_dump()}, {"stage": "done"}]
 
-        return StreamingResponse(events(), media_type="application/x-ndjson")
+        return stream(run)
 
     app.include_router(v1)
     return app
+
+
+def stream(run) -> StreamingResponse:
+    """Runs `run(emit)` and streams its progress events, then its final events, as NDJSON."""
+
+    async def events() -> AsyncIterator[bytes]:
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        async def emit(event: dict[str, Any]) -> None:
+            await queue.put(event)
+
+        async def worker() -> None:
+            try:
+                for event in await run(emit):
+                    await queue.put(event)
+            except ArticleDeclined as e:
+                await queue.put({"stage": "declined", "reason": e.reason, "message": e.message})
+            except Exception as e:  # surfaced to the client as a final event
+                log.exception("pipeline failed")
+                await queue.put({"stage": "failed", "message": str(e)})
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(worker())
+        try:
+            while (event := await queue.get()) is not None:
+                yield (json.dumps(event) + "\n").encode()
+        finally:
+            task.cancel()
+
+    return StreamingResponse(events(), media_type="application/x-ndjson")
 
 
 app = create_app()

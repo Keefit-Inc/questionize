@@ -17,6 +17,7 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
       @events.each { |event| yield event }
       raise @error if @error
     end
+    alias_method :map, :generate
   end
 
   setup do
@@ -105,5 +106,25 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     run_with(client)
     assert_equal "failed", @run.status
     assert_empty client.payloads
+  end
+
+  test "a map run stores the map and broadcasts it with judged answers hidden" do
+    @run.update!(kind: "map")
+    client = FakeClient.new(events: [
+      { "stage" => "analyze", "message" => "Reading the argument" },
+      { "stage" => "mapping", "message" => "Reconstructing the conclusion" },
+      { "stage" => "map", "map" => sample_map },
+      { "stage" => "done" }
+    ])
+    broadcasts = capture_broadcasts(GenerationChannel.broadcasting_for(@run)) { run_with(client) }
+
+    assert_equal "completed", @run.status
+    assert_equal "A1", @run.result["largest_gap"]
+    assert_not client.payloads.first.key?("types"), "map requests carry only the article"
+    map_event = broadcasts.find { _1["stage"] == "map" }
+    assert_equal false, map_event.dig("map", "challenges", 0, "revealed")
+    assert_not map_event.dig("map", "challenges", 0).key?("judged")
+    assert_equal %w[analyze mapping map done], @run.events.map { _1["stage"] }
+    assert_not @run.events.third.key?("map"), "the progress log does not duplicate the map"
   end
 end

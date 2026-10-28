@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -58,6 +58,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000003) do
     t.datetime "updated_at", null: false
     t.index ["competency_id"], name: "index_blueprints_on_competency_id"
     t.index ["key"], name: "index_blueprints_on_key", unique: true
+  end
+
+  create_table "challenge_answers", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "generation_run_id", null: false
+    t.integer "challenge_index", null: false
+    t.string "choice", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["generation_run_id"], name: "index_challenge_answers_on_generation_run_id"
+    t.index ["user_id", "generation_run_id", "challenge_index"], name: "index_challenge_answers_one_per_user", unique: true
+    t.index ["user_id"], name: "index_challenge_answers_on_user_id"
   end
 
   create_table "choice_tallies", force: :cascade do |t|
@@ -128,6 +140,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000003) do
     t.jsonb "token_usage", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "kind", default: "questions", null: false
+    t.jsonb "result"
+    t.index ["source_id", "kind", "status"], name: "index_generation_runs_on_source_id_and_kind_and_status"
     t.index ["source_id"], name: "index_generation_runs_on_source_id"
     t.index ["user_id"], name: "index_generation_runs_on_user_id"
   end
@@ -303,6 +318,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000003) do
   add_foreign_key "blueprint_versions", "blueprints"
   add_foreign_key "blueprints", "blueprint_versions", column: "current_version_id"
   add_foreign_key "blueprints", "competencies"
+  add_foreign_key "challenge_answers", "generation_runs"
+  add_foreign_key "challenge_answers", "users"
   add_foreign_key "choice_tallies", "item_versions"
   add_foreign_key "competency_edges", "competencies"
   add_foreign_key "competency_edges", "competencies", column: "prerequisite_id"

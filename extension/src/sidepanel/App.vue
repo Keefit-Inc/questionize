@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef } from "vue";
 import {
   ApiClient,
   ApiError,
+  ArgumentMap,
+  ChallengeCard,
   QuestionCard,
   eventKey,
   replayRunState,
   subscribeToGeneration,
+  type ArgumentMapPayload,
   type GenerationEvent,
   type Item,
   type Label,
@@ -27,13 +30,18 @@ interface Entry {
 
 const settings = reactive<Settings>({ server: DEFAULT_SERVER, types: ["CR", "RC"], difficulty: "medium", count: 1 });
 const showSettings = ref(false);
-const client = ref<ApiClient | null>(null);
+const client = shallowRef<ApiClient | null>(null);
 const sourceTitle = ref("Open an article, then generate.");
 const pendingSelection = ref<{ tabId: number; text: string } | null>(null);
 const running = ref(false);
 const log = ref<{ who: string; text: string; ok?: boolean }[]>([]);
 const error = ref("");
 const entries = ref<Entry[]>([]);
+// Map → Challenge is the default view; practice questions are the second tab.
+const mode = ref<"map" | "questions">("map");
+const argMap = ref<ArgumentMapPayload | null>(null);
+const mapTabId = ref<number | null>(null);
+const challengeBusy = ref<number | null>(null);
 let closeStream: (() => void) | null = null;
 // Events can arrive twice (live, and again when catching up from the stored run); handle each once.
 const seen = new Set<string>();
@@ -85,13 +93,88 @@ function onEvent(event: GenerationEvent, tabId: number) {
   if (seen.has(key)) return;
   seen.add(key);
   if (event.stage === "question") addEntries([event.item], tabId);
+  if (event.stage === "map") {
+    argMap.value = event.map;
+    mapTabId.value = tabId;
+  }
   const line = eventLine(event);
   if (line) log.value.push(line);
   if (event.stage === "declined") error.value = `Skipped this page: ${event.message}`;
   if (event.stage === "failed") error.value = event.message;
   if (event.stage === "done" || event.stage === "declined" || event.stage === "failed") {
     running.value = false;
-    if (event.stage === "done" && event.count === 0) error.value = "No questions came back. Try another article.";
+    if (event.stage === "done" && event.count === 0 && mode.value === "questions") error.value = "No questions came back. Try another article.";
+  }
+}
+
+function follow(api: ApiClient, runId: number, tabId: number, loadStored: () => Promise<GenerationEvent[]>) {
+  closeStream?.();
+  seen.clear();
+  closeStream = subscribeToGeneration(api.cableUrl(), runId, (e) => onEvent(e, tabId), {
+    // Anything broadcast before the subscription was confirmed is only in the stored run.
+    onConnected: async () => {
+      for (const e of await loadStored()) onEvent(e, tabId);
+    },
+    onRejected: () => {
+      error.value = "Couldn't follow this run's progress. Reopen the panel and try again.";
+      running.value = false;
+    },
+  });
+}
+
+async function mapArgument() {
+  if (running.value) return;
+  error.value = "";
+  argMap.value = null;
+  log.value = [{ who: "Analyst", text: "Reading the page" }];
+  running.value = true;
+  try {
+    const tab = await activeTab();
+    if (!tab?.id || !/^https?:/.test(tab.url || "")) throw new Error("Open a regular web article first.");
+    const tabId = tab.id;
+    const page = await readPage(tabId);
+    const selection = pendingSelection.value?.tabId === tabId ? pendingSelection.value.text : page.selection;
+    const api = client.value ?? (await connect());
+    const res = await api.createMap({ url: page.url, title: page.title, text: page.text, selection });
+    if (res.status === "cached") {
+      log.value.push({ who: "Bank", text: "This article's argument is already mapped", ok: true });
+      argMap.value = res.map;
+      mapTabId.value = tabId;
+      running.value = false;
+    } else {
+      follow(api, res.run_id, tabId, async () => {
+        const state = await api.getRun(res.run_id);
+        const stored = replayRunState(state);
+        if (state.status === "completed") stored.push({ stage: "map", map: await api.getMap(res.run_id) });
+        return stored;
+      });
+    }
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) await saveToken(settings.server, "");
+    error.value = errorMessage(e, settings.server);
+    running.value = false;
+  }
+}
+
+async function answerChallenge(index: number, label: Label) {
+  if (!client.value || !argMap.value) return;
+  challengeBusy.value = index;
+  try {
+    const updated = await client.value.answerChallenge(argMap.value.run_id, index, label);
+    argMap.value.challenges = argMap.value.challenges.map((c) => (c.index === index ? updated : c));
+  } catch (e) {
+    error.value = errorMessage(e, settings.server);
+  } finally {
+    challengeBusy.value = null;
+  }
+}
+
+async function locateAnchor(anchor: string) {
+  if (mapTabId.value === null) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: mapTabId.value }, func: highlightPhrase, args: [anchor] });
+  } catch {
+    error.value = "Couldn't highlight that passage on the page.";
   }
 }
 
@@ -125,20 +208,7 @@ async function generate() {
       addEntries(res.items, tabId);
       running.value = false;
     } else {
-      closeStream?.();
-      seen.clear();
-      const runId = res.run_id;
-      closeStream = subscribeToGeneration(api.cableUrl(), runId, (e) => onEvent(e, tabId), {
-        // Anything broadcast before the subscription was confirmed is only in the stored run.
-        onConnected: async () => {
-          const state = await api.getRun(runId);
-          for (const e of replayRunState(state)) onEvent(e, tabId);
-        },
-        onRejected: () => {
-          error.value = "Couldn't follow this run's progress. Reopen the panel and try again.";
-          running.value = false;
-        },
-      });
+      follow(api, res.run_id, tabId, async () => replayRunState(await api.getRun(res.run_id)));
     }
     pendingSelection.value = null;
     await chrome.storage.session.remove("pendingSelection");
@@ -225,9 +295,21 @@ onBeforeUnmount(() => {
     <p class="hint">{{ client ? "Connected" : "Not connected" }} · use http://localhost:3000 for local development</p>
   </section>
 
+  <nav class="tabs" role="tablist">
+    <button role="tab" :aria-selected="mode === 'map'" :class="{ on: mode === 'map' }" @click="mode = 'map'">Map &amp; challenge</button>
+    <button role="tab" :aria-selected="mode === 'questions'" :class="{ on: mode === 'questions' }" @click="mode = 'questions'">Practice questions</button>
+  </nav>
+
   <section class="controls">
     <p class="source"><span class="muted">Reading</span> {{ sourceTitle }}</p>
     <p v-if="selectionNote" class="selection">{{ selectionNote }}</p>
+  </section>
+
+  <section v-if="mode === 'map'" class="controls">
+    <button class="primary" :disabled="running" @click="mapArgument">{{ running ? "Working…" : "Map this argument" }}</button>
+  </section>
+
+  <section v-else class="controls">
     <fieldset class="types">
       <label v-for="f in FAMILIES" :key="f.value" class="chip">
         <input v-model="settings.types" type="checkbox" :value="f.value" @change="applySettings" /><span>{{ f.label }}</span>
@@ -260,7 +342,19 @@ onBeforeUnmount(() => {
 
   <p v-if="error" class="error" role="alert">{{ error }}</p>
 
-  <section>
+  <section v-if="mode === 'map' && argMap">
+    <ArgumentMap :map="argMap" @locate="locateAnchor" />
+    <p class="section-head">Challenge the argument</p>
+    <ChallengeCard
+      v-for="c in argMap.challenges"
+      :key="c.index"
+      :challenge="c"
+      :busy="challengeBusy === c.index"
+      @answer="(l) => answerChallenge(c.index, l)"
+    />
+  </section>
+
+  <section v-if="mode === 'questions'">
     <div v-for="entry in entries" :key="entry.item.id">
       <QuestionCard :item="entry.item" :chosen="entry.chosen" :busy="entry.busy" @answer="(l) => answer(entry, l)" @locate="(a) => locate(entry, a)" />
       <p v-if="entry.note" class="note">{{ entry.note }}</p>
@@ -290,4 +384,8 @@ h1 { font-size: 18px; margin: 0; }
 .log .fail { color: #d0563b; }
 .error { color: #d0563b; font-size: 13px; }
 .note { margin: -6px 0 10px; font-size: 12px; opacity: 0.8; }
+.tabs { display: flex; gap: 4px; margin: 8px 0; }
+.tabs button { flex: 1; padding: 6px; border-radius: 8px; border: 1px solid rgba(127, 127, 127, 0.3); background: transparent; color: inherit; cursor: pointer; }
+.tabs button.on { background: rgba(59, 111, 208, 0.12); border-color: #3b6fd0; font-weight: 600; }
+.section-head { font-weight: 700; margin: 16px 0 4px; }
 </style>

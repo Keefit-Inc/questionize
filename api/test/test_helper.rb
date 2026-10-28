@@ -44,6 +44,30 @@ module ActiveSupport
       }
     end
 
+    # The shape of the "map" event payload from the AI service's /v1/map stream.
+    def sample_map
+      measure = ->(v) { { "value" => v, "ci_low" => v - 0.1, "ci_high" => v + 0.1 } }
+      challenge = lambda do |index, kind, best|
+        {
+          "index" => index, "kind" => kind, "question" => "Question #{index}",
+          "options" => ItemVersion::LABELS.map { |l| { "label" => l, "text" => "#{kind} #{l}", "support_delta" => measure.(l == best ? -0.7 : 0.0), "necessity" => measure.(0.2) } },
+          "judged" => { "label" => best, "measure" => "support_delta", "first_rate" => 1.0, "margin" => 0.6, "runner_up" => "C" }
+        }
+      end
+      {
+        "judge_version" => "aj-0.1:fake", "scheme" => "causal",
+        "conclusion" => { "text" => "Lanes make streets safer", "anchor" => "make all streets safer" },
+        "premises" => [ { "id" => "P1", "text" => "Accidents fell", "anchor" => "reduced traffic accidents", "support_delta" => measure.(0.6), "necessity" => measure.(0.8) } ],
+        "assumptions" => [ { "id" => "A1", "text" => "Nothing else changed", "anchor" => "", "support_delta" => measure.(0.5), "necessity" => measure.(0.9) } ],
+        "largest_gap" => "A1",
+        "challenges" => [ challenge.(0, "weaken", "B"), challenge.(1, "assumption", "D"), challenge.(2, "strengthen", "A") ]
+      }
+    end
+
+    def create_map_run(source: nil, user: User.create!)
+      GenerationRun.create!(user: user, source: source, kind: "map", status: "completed", result: sample_map)
+    end
+
     def create_item(family: "CR", subtype: "assumption", difficulty: "medium", correct_label: "B")
       item = Item.create!(family: family, subtype: subtype, rating: Item.start_rating(difficulty))
       version = item.versions.create!(

@@ -1,5 +1,14 @@
 // Thin client for the Rails API (api/app/controllers/api/v1). Used by the extension and the web app.
-import type { AttemptResponse, DeviceResponse, GenerationResponse, GenerationRunState, Item } from "./api";
+import type {
+  ArgumentMapPayload,
+  AttemptResponse,
+  DeviceResponse,
+  GenerationResponse,
+  GenerationRunState,
+  Item,
+  MapChallenge,
+  MapResponse,
+} from "./api";
 import type { Difficulty, QuestionType } from "./types";
 
 export class ApiError extends Error {
@@ -38,6 +47,18 @@ export class ApiClient {
 
   generate(body: GenerationRequest): Promise<GenerationResponse> {
     return this.request("POST", "/api/v1/generations", body);
+  }
+
+  createMap(body: Pick<GenerationRequest, "url" | "title" | "text" | "selection">): Promise<MapResponse> {
+    return this.request("POST", "/api/v1/maps", body);
+  }
+
+  getMap(id: number): Promise<ArgumentMapPayload> {
+    return this.request("GET", `/api/v1/maps/${id}`);
+  }
+
+  answerChallenge(mapId: number, index: number, choice: string): Promise<MapChallenge> {
+    return this.request("POST", `/api/v1/maps/${mapId}/challenges/${index}/answer`, { choice });
   }
 
   getRun(id: number): Promise<GenerationRunState> {
