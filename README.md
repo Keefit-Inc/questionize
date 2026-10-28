@@ -113,4 +113,4 @@ See [`ai/.env.example`](ai/.env.example). Key settings:
 
 ## License
 
-MIT. Mozilla Readability is included under Apache-2.0 (`extension/vendor/Readability.LICENSE.md`).
+Code is MIT. The knowledge model and question bank are CC BY-SA 4.0; numeric data (aggregate statistics, judge measurements) is CC0. Mozilla Readability is included under Apache-2.0 (`extension/vendor/Readability.LICENSE.md`).

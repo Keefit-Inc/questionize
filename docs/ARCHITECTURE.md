@@ -10,6 +10,7 @@ This document describes the **target architecture**. The current code (`extensio
 
 | Capability | Summary |
 |---|---|
+| Map and challenge | On any argumentative page, show the argument's structure (conclusion, premises, unstated assumptions) anchored to the text, the Argument Judge's measurements, and critical questions the reader answers before the judged answers are revealed (§5.0). |
 | Generate | From the page a reader is on, generate and verify questions (Analyst → Writer → Blind Solver → Critic → Reviser). |
 | Shared bank | Every verified question is stored once and served to anyone who opens the same article or browses the bank. |
 | Diagnose | Each attempt updates a per-skill rating for the user and a difficulty rating for the item (Elo-style). Users see absolute ratings and per-skill percentile rankings. |
@@ -94,6 +95,8 @@ Stateless FastAPI app reachable only on the private Docker network. Every reques
 
 | Endpoint | Purpose |
 |---|---|
+| `POST /v1/map` | Article → argument map and critical questions, each with Argument Judge measurements. |
+| `POST /v1/judge` | Argument + candidate statements → Argument Judge measurements (§4.5). |
 | `POST /v1/generate` | Article → verified questions. NDJSON event stream (existing pipeline). |
 | `POST /v1/review` | Item version + flags/suggestions/crowd stats → critic verdict and, if needed, a revised version. |
 | `POST /v1/extract-pattern` | Image or text → abstract reasoning pattern (family, sub-type, flaw/assumption type, distractor traps, difficulty cues). Returns no verbatim text. |
@@ -112,7 +115,48 @@ Routes: `/` (practice feed), `/q/:publicId` (question), `/s/:sourceId` (question
 
 Manifest V3, side panel built with Vite (multi-entry: side panel, service worker). Extraction (Readability) and in-article highlighting stay as injected functions. It talks only to Rails, never to the AI service.
 
+### 4.5 Argument Judge
+
+In critical reasoning there is no answer to compute: a statement makes a conclusion stronger or weaker by degrees, and the keyed answer is the one that does so *most*. The Argument Judge measures those degrees. It is the core of the AI service: item verification, the argument map and critical questions all rest on it.
+
+**Measurements** (each a probability with an uncertainty interval):
+
+| Measure | Question it answers | Used for |
+|---|---|---|
+| `support_delta` | If this statement were true, how far and in which direction would the conclusion's likelihood move? | strengthen, weaken, evaluate |
+| `necessity` | If this statement were false, would the argument fall apart? | assumption |
+| `sufficiency` | Would the premises plus this statement guarantee the conclusion? | sufficient assumption |
+| `scope` | Is the statement within the argument's scope? | trap typing |
+| `entailment` | Does the passage support this statement? | reading inference |
+
+**Method.** Two independent judges (Muse Spark and Muse Spark Open) each sample several times. Options are compared in pairs with their order shuffled, and the comparisons are aggregated into scores with uncertainty (Bradley–Terry). When the judges disagree or the uncertainty is wide, the case escalates to a deeper pass (longer reasoning, more samples) instead of being accepted.
+
+**Item gate.** An item passes only if, across bootstrap resamples, the key ranks first in at least 90 % of them with a margin over the runner-up above a threshold, and each distractor's measurements match its intended trap (a strengthener posing as an assumption shows high `support_delta` and low `necessity`). The margin also predicts difficulty. Measurements are stored per option as the trap's quantitative signature in the knowledge model.
+
+**Calibration.** A number is only meaningful if it is calibrated. The judge is scored against a human-adjudicated gold set and, over time, against learner evidence (do learners actually fall for what the judge rates as a strong trap?). Accuracy and calibration error are reported per judge version.
+
+**Versioning and reporting.** Every measurement records `judge_version`. A single command reproduces the judge's results on the gold set, and a public report lists accuracy, calibration curves, gold-set size and known limits for each version. The improvement path is: human adjudication → calibration → learner evidence → fine-tuning an open-weight judge on the accumulated judgments.
+
 ## 5. Key flows
+
+### 5.0 Read → Map → Challenge → Practice
+
+The default experience on an argumentative page:
+
+1. **Map.** The argument's conclusion, premises and unstated assumptions, each highlighted in the page, with the judge's view of how strongly each premise supports the conclusion and where the largest gap is.
+2. **Challenge.** Critical questions for the argument's scheme: what would most weaken it, what it must assume, what would strengthen it. The reader answers or picks first; then the judged answers are revealed ("If it turned out that …, the conclusion would weaken substantially"), alongside what other readers chose.
+3. **Practice.** Verified, rated questions built from the same argument.
+
+Readers' answers to challenges are learner evidence for the judge and the knowledge model.
+
+Safeguards:
+
+- **No overall score.** Neither the argument nor its author gets a grade.
+- **Structure, not truth.** The map shows how far the conclusion follows *if* the premises hold and what would move it. It does not fact-check claims.
+- **Anchored and correctable.** The map is labeled as a reconstruction, every element links to the text it comes from, and readers can flag a misreading.
+- **Hypotheticals stay hypothetical.** Challenge answers are conditionals ("if it turned out that …") and never invent statistics, studies or sources.
+- **Think first.** Judged answers are revealed only after the reader commits to their own.
+- **Even-handed.** Every page is treated the same way regardless of who wrote it or which side it takes.
 
 ### 5.1 Generate from an article
 
@@ -232,7 +276,7 @@ erDiagram
 - Uploaded images are never stored or published (5.5).
 - Recalled or leaked live-exam content is not accepted.
 - **Availability:** the service launches in the United States. Users confirm their country and age (13+) on first run, checked against an IP-based estimate. Uploads and knowledge extraction are US-only; public item pages and share links stay viewable everywhere.
-- Question-bank data is published under **CC BY-SA 4.0**; code under MIT.
+- **Licenses:** code under MIT; the knowledge model and items (descriptive content) under **CC BY-SA 4.0**; numeric data (aggregate statistics, judge measurements, calibration results) under **CC0**, so it can be combined freely with other open datasets.
 
 ## 8. Deployment (Kamal 2)
 
