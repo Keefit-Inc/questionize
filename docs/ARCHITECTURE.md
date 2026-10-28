@@ -17,7 +17,8 @@ This document describes the **target architecture**. The current code (`extensio
 | Crowd answers | After answering, users see how everyone else answered (A 12% · B 8% · C 61% …), like a poll that unlocks after voting. |
 | Share | Every question has a public page with a social preview card so it can be posted and solved in the comments. |
 | Improve | Users rate items, flag problems (wrong key, two defensible answers, typo) and suggest edits. Signals trigger an automatic re-review that produces a new item version. |
-| Contribute | Users contribute their own questions, or a photo from which only an abstract reasoning pattern is extracted to seed a brand-new original item. |
+| Error log | While studying from a book they own, a learner photographs one question they missed. They get a private error-log entry (location, their answer, the trap and misconception behind it) and new practice items on the same trap; the photo is discarded and only abstract patterns reach the knowledge model (KNOWLEDGE_MODEL §9). |
+| Contribute | Users contribute their own original questions, which go through the same verification loop. |
 
 ## 2. System overview
 

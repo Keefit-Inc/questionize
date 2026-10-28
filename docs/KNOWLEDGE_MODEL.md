@@ -245,22 +245,30 @@ The knowledge domain never sees an individual learner. Evidence crosses the boun
 
 Learner-domain features are designed to double as measurement. A game where learners name the trap behind each wrong option trains metacognition and, in aggregate, tests whether a trap pattern reads the way the model says it does; rated challenges put many learners on the same items, which calibrates them quickly.
 
-## 9. Personal and commons layers for uploaded material
+## 9. Error log: personal and commons layers for uploaded material
 
-When a learner uploads material they own (a photo of a practice question they are stuck on), one pass produces two outputs:
+Learners bring their own study material through an **error log**. While working in a book they own, a learner photographs one question they got wrong (or are stuck on). The original never stays with us; what stays is where the question lives and what went wrong. One pass produces two outputs:
 
-1. **Personal layer:** for that learner only. What the question measures, the misconception behind their answer, new practice items generated from the matching blueprint (never the original item), and an updated roadmap. Not shared, not published.
-2. **Commons layer:** abstract observations only (§3.9), through the leak checks in §6, entering the knowledge model as hypotheses and published only after corroboration.
+1. **Personal layer**, for that learner only:
+   - an error-log entry that records the question's *location* (book title or ISBN, page, question number), the learner's choice, and the diagnosis, but none of the question's text;
+   - what the question measures, the trap behind the chosen option and the misconception it points to;
+   - new practice items generated from the matching blueprint that target the same trap (never the original item);
+   - an updated weakness map and review schedule across everything the learner has logged.
+
+   To see the original again, the learner opens their own book. Entries are private and never shared or published.
+2. **Commons layer:** abstract observations only (§3.9), through the leak checks in §6, entering the knowledge model as hypotheses and published only after corroboration. Questions people actually miss, and the options they actually pick, are the densest evidence the knowledge model gets.
 
 Rules:
 
-- Processing starts from the learner's own action on their own material; the service does not scan or collect material on anyone's behalf.
-- The original image, transcription and options are discarded when the request ends.
+- One question per capture, started by the learner on material they own. There is no bulk or whole-book upload, and the service does not scan or collect material on anyone's behalf.
+- The original image, transcription and options are discarded when the request ends. Only the location reference, the learner's answer and the abstract diagnosis are stored.
+- No feature reproduces, re-displays or imitates a specific publication (no "show me page 123 again", no "more questions like chapter 7 of book X"). The feature only works alongside the learner's own copy.
+- Material from test makers' official guides is flagged and handled conservatively; live or recalled exam content is rejected.
 - Contributing observations to the commons is explained up front, and the learner can see the knowledge nodes their contributions helped corroborate.
 - Personal data in an image (names, handwriting, school details) is not extracted.
-- No feature reproduces or imitates a specific publication (no "more questions like chapter 7 of book X").
-- Live or recalled exam content is rejected.
-- At launch, uploads and extraction are available in the United States only, to users 13 and older.
+- At launch, captures are available in the United States only, to users 13 and older.
+
+This is the intake pattern for every subject pack (§10): Critical Reasoning first, the same error-log flow for each subject added later.
 
 ## 10. Subject packs, with Critical Reasoning as the reference
 
