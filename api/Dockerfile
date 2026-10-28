@@ -1,14 +1,23 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t api .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name api api
+# Production image for the Rails app plus the built Vue web app.
+# The build context is the repository root:
+#   docker build -f api/Dockerfile -t questionize .
 
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
-
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.3.6
+ARG NODE_VERSION=22
+
+# Build the web app (pnpm workspace: web + packages/shared)
+FROM docker.io/library/node:$NODE_VERSION-slim AS web
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages ./packages
+COPY web ./web
+RUN pnpm install --frozen-lockfile --filter @questionize/web... && \
+    pnpm --filter @questionize/web build
+
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
@@ -36,8 +45,8 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install application gems
-COPY vendor/* ./vendor/
-COPY Gemfile Gemfile.lock ./
+COPY api/vendor/* ./vendor/
+COPY api/Gemfile api/Gemfile.lock ./
 
 RUN bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
@@ -45,17 +54,16 @@ RUN bundle install && \
     bundle exec bootsnap precompile -j 1 --gemfile
 
 # Copy application code
-COPY . .
+COPY api/ .
 
 # Precompile bootsnap code for faster boot times.
-# -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
+# Precompile assets without real secrets
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
-
-
+# The web app is served as static files from public/
+COPY --from=web /src/web/dist/ ./public/
 
 # Final stage for app image
 FROM base

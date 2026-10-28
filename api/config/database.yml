@@ -87,6 +87,7 @@ test:
 production:
   primary: &primary_production
     <<: *default
+    host: <%= ENV.fetch("DB_HOST", "localhost") %>
     database: questionize_production
     username: questionize
     password: <%= ENV["QUESTIONIZE_DATABASE_PASSWORD"] %>

@@ -1,0 +1,68 @@
+# Deploying Questionize
+
+One Linux server runs everything through [Kamal 2](https://kamal-deploy.org): the Rails app (`web` and `job` roles behind kamal-proxy with Let's Encrypt TLS), PostgreSQL (`db` accessory) and the AI service (`ai` accessory, no public port). GitHub Actions builds both images on every push to `main` and pushes them to GHCR; you deploy from your own machine.
+
+Nothing environment-specific is committed: the server address and every secret come from your shell environment.
+
+## 1. Prepare the server (once)
+
+1. Create or rebuild a server with **Ubuntu 24.04** and add your SSH public key. A 2 vCPU / 2 GB machine is enough to start; resize to 4 GB if memory gets tight.
+2. Firewall: allow inbound TCP **22** (ideally only from your IP), **80** and **443**, plus ICMP. Nothing else; PostgreSQL is bound to localhost.
+3. Add swap, which helps a 2 GB machine absorb spikes:
+
+   ```bash
+   ssh root@$KAMAL_HOST 'fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab'
+   ```
+
+Kamal installs Docker itself on the first `kamal setup`.
+
+## 2. DNS
+
+Point the domain at the server before the first deploy so the TLS certificate can be issued:
+
+| Type | Name | Value |
+|---|---|---|
+| A | `@` | server IPv4 |
+| AAAA | `@` | server IPv6 |
+| CNAME | `www` | `questionize.org` |
+
+If the DNS provider proxies traffic (e.g. Cloudflare), keep the proxy off until the certificate is issued.
+
+## 3. Environment on your machine
+
+Install Ruby 3.3 and run `bundle install` in `api/`. Then export (for example from a password manager or a local, untracked file you `source`):
+
+```bash
+export KAMAL_HOST=...                     # server IPv4
+export KAMAL_REGISTRY_USERNAME=...        # your GitHub username
+export KAMAL_REGISTRY_PASSWORD=...        # GitHub token with read:packages (write:packages to build locally)
+export SECRET_KEY_BASE=...                # bin/rails secret
+export QUESTIONIZE_DATABASE_PASSWORD=...  # openssl rand -hex 24
+export AI_INTERNAL_TOKEN=...              # openssl rand -hex 32
+export MODEL_API_KEY=...                  # Meta Model API
+export BASETEN_API_KEY=                   # optional
+export ANTHROPIC_API_KEY=                 # optional, development provider
+```
+
+`api/.kamal/secrets` only references these variables; never write values into it.
+
+## 4. Deploy
+
+Wait for the **Images** workflow on the commit you want to finish, then from `api/`:
+
+```bash
+# First time: installs Docker, starts kamal-proxy, the accessories and the app
+bin/kamal setup --skip-push --version $(git rev-parse HEAD)
+
+# Every later deploy
+bin/kamal deploy --skip-push --version $(git rev-parse HEAD)
+```
+
+The AI service accessory runs the `latest` image; after an AI change, refresh it with `bin/kamal accessory reboot ai`.
+
+Useful commands: `bin/kamal logs`, `bin/kamal console`, `bin/kamal accessory logs ai`, `bin/kamal app details`.
+
+## 5. Check
+
+- `https://questionize.org/up` returns 200.
+- `bin/kamal accessory exec ai "python -c \"import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read())\""` shows the configured models.

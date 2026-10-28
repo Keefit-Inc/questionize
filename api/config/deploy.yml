@@ -1,0 +1,91 @@
+# Kamal 2 deployment (docs/ARCHITECTURE.md §8).
+# The server address and all secrets come from your shell environment; see docs/DEPLOY.md.
+service: questionize
+
+# Built by GitHub Actions on every push to main; see .github/workflows/images.yml.
+image: keefit-inc/questionize
+
+servers:
+  web:
+    - <%= ENV.fetch("KAMAL_HOST") %>
+  job:
+    hosts:
+      - <%= ENV.fetch("KAMAL_HOST") %>
+    cmd: bin/jobs
+
+proxy:
+  ssl: true
+  hosts:
+    - questionize.org
+    - www.questionize.org
+  app_port: 80
+  healthcheck:
+    path: /up
+
+registry:
+  server: ghcr.io
+  username: <%= ENV.fetch("KAMAL_REGISTRY_USERNAME") %>
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  secret:
+    - SECRET_KEY_BASE
+    - QUESTIONIZE_DATABASE_PASSWORD
+    - AI_INTERNAL_TOKEN
+  clear:
+    DB_HOST: questionize-db
+    AI_SERVICE_URL: http://questionize-ai:8000
+    # Keep memory low on a small server.
+    WEB_CONCURRENCY: 1
+    RAILS_MAX_THREADS: 3
+    JOB_CONCURRENCY: 1
+    RAILS_LOG_TO_STDOUT: "1"
+
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "bash"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
+
+volumes:
+  - "questionize_storage:/rails/storage"
+
+asset_path: /rails/public/assets
+
+# Local builds use the repository root as context (the image also builds web/).
+# The usual path is to deploy an image GitHub Actions already pushed:
+#   bin/kamal deploy --skip-push --version <git sha>
+builder:
+  arch: amd64
+  context: ..
+  dockerfile: Dockerfile
+
+accessories:
+  db:
+    image: postgres:17
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    # Bound to localhost only; Rails reaches it over the private Docker network.
+    port: "127.0.0.1:5432:5432"
+    env:
+      clear:
+        POSTGRES_USER: questionize
+        POSTGRES_DB: questionize_production
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data
+
+  ai:
+    image: ghcr.io/keefit-inc/questionize-ai:latest
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    # No published port: only Rails, on the same Docker network, can reach it.
+    env:
+      clear:
+        LLM_PROVIDER: meta
+        MAX_REVISIONS: "2"
+      secret:
+        - INTERNAL_TOKEN
+        - MODEL_API_KEY
+        - BASETEN_API_KEY
+        - ANTHROPIC_API_KEY

@@ -280,6 +280,8 @@ erDiagram
 
 ## 8. Deployment (Kamal 2)
 
+Step-by-step instructions are in [`DEPLOY.md`](DEPLOY.md).
+
 Initial footprint is a single cloud server; the layout lets the database move to its own server later.
 
 | Kamal unit | Image | Notes |
