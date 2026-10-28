@@ -10,6 +10,7 @@ import {
   replayRunState,
   subscribeToGeneration,
   type ArgumentMapPayload,
+  type FlagReason,
   type GenerationEvent,
   type Item,
   type Label,
@@ -237,6 +238,15 @@ async function answer(entry: Entry, label: Label) {
   }
 }
 
+async function flag(entry: Entry, reason: FlagReason, comment: string) {
+  try {
+    const res = await client.value?.feedback(entry.item.id, { kind: "flag", reason, comment });
+    if (res?.review_started) entry.note = "Your report started an automatic re-review of this question.";
+  } catch (e) {
+    error.value = errorMessage(e, settings.server);
+  }
+}
+
 async function locate(entry: Entry, anchor: string) {
   try {
     await chrome.scripting.executeScript({ target: { tabId: entry.tabId }, func: highlightPhrase, args: [anchor] });
@@ -356,7 +366,7 @@ onBeforeUnmount(() => {
 
   <section v-if="mode === 'questions'">
     <div v-for="entry in entries" :key="entry.item.id">
-      <QuestionCard :item="entry.item" :chosen="entry.chosen" :busy="entry.busy" @answer="(l) => answer(entry, l)" @locate="(a) => locate(entry, a)" />
+      <QuestionCard :item="entry.item" :chosen="entry.chosen" :busy="entry.busy" @answer="(l) => answer(entry, l)" @locate="(a) => locate(entry, a)" @flag="(r, c) => flag(entry, r, c)" />
       <p v-if="entry.note" class="note">{{ entry.note }}</p>
     </div>
   </section>

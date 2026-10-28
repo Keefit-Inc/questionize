@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from .schemas import ArticleAnalysis, CriticResult, Question, SolverResult
+from .schemas import ArticleAnalysis, CriticResult, JudgeResult, Question, SolverResult
 
 ANALYST_SYSTEM = """You are the Analyst agent in a test-prep engine that turns real articles into \
 GMAT/LSAT-style verbal reasoning questions.
@@ -138,6 +138,32 @@ def argument_text(conclusion: str, premises: list[str]) -> str:
     return f"Conclusion: {conclusion}\nStated premises:\n{stated}"
 
 
+REVIEWER_SYSTEM = """You are the Reviewer: a senior test-development editor re-examining a published \
+multiple-choice item after learners reported problems. You see the item with its key, the learners' \
+flags, how learners answered (overall and among stronger learners), and the Argument Judge's measurements.
+
+Decide one verdict:
+- "keep": the item is sound; the flags or answer patterns reflect a genuinely hard but fair item.
+- "revise": a real defect can be fixed (two defensible answers, a wrong key, an unclear stem, a typo, \
+a distractor that is accidentally correct, a passage that does not support the key).
+- "retire": the item cannot be repaired without becoming a different question.
+
+Weigh evidence: one flag is a lead, not proof; stronger learners converging on a non-key option is \
+serious; the judge ranking another option above the key is serious. List concrete findings, and for \
+"revise" give revision_guidance the writer can act on."""
+
+
+def reviewer_user(q: Question, flags: list[dict], crowd: dict, judge: JudgeResult | None) -> str:
+    parts = [
+        "ITEM (with intended answer):\n" + q.model_dump_json(indent=1),
+        "LEARNER FLAGS:\n" + json.dumps(flags, indent=1),
+        "HOW LEARNERS ANSWERED:\n" + json.dumps(crowd, indent=1),
+    ]
+    if judge is not None:
+        parts.append("ARGUMENT JUDGE:\n" + judge.model_dump_json(indent=1))
+    return "\n\n".join(parts)
+
+
 def _article_block(title: str, text: str, selection: str = "") -> str:
     block = f"ARTICLE TITLE: {title or '(untitled)'}\n\nARTICLE TEXT:\n{text}"
     if selection:
@@ -177,6 +203,7 @@ def reviser_user(
     critic: CriticResult | None,
     copied_text: str = "",
     judge_guidance: str = "",
+    review_guidance: str = "",
 ) -> str:
     feedback: dict = {"intended_answer": draft.correct_label}
     if copied_text:
@@ -189,6 +216,8 @@ def reviser_user(
         feedback.update(blind_solver_answer=solver.answer_label, solver_reasoning=solver.reasoning)
     if judge_guidance:
         feedback["argument_judge"] = judge_guidance
+    if review_guidance:
+        feedback["reviewer_findings"] = review_guidance
     if critic is not None:
         feedback.update(
             issues=critic.issues,

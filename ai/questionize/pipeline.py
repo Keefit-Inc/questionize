@@ -154,12 +154,41 @@ class QuestionPipeline:
             qtype,
         )
 
+        return await self.verify(idx, req.title, req.text, draft, qtype, emit)
+
+    async def verify(
+        self,
+        idx: int,
+        title: str,
+        text: str,
+        draft: Question,
+        qtype: str,
+        emit: Emit,
+        first_guidance: str = "",
+    ) -> VerifiedQuestion:
+        """Solve, critique and judge a draft, revising until it passes or revisions run out.
+
+        `text` is the source the passage must not copy from (empty when there is none), and
+        `first_guidance` is reviewer guidance to apply before the first check (re-reviews).
+        """
+        if first_guidance:
+            await emit({"stage": "revise", "index": idx, "attempt": 0, "message": "Revising with reviewer findings"})
+            draft = normalize_question(
+                await self.primary.complete(
+                    prompts.WRITER_SYSTEM,
+                    prompts.reviser_user(title, text or draft.passage, draft, None, None, review_guidance=first_guidance),
+                    Question,
+                    temperature=0.5,
+                ),
+                qtype,
+            )
+
         attempts = 1
         solver_result: SolverResult | None = None
         critic: CriticResult | None = None
         judged = None
         while True:
-            copied, copied_text = longest_copied_run(draft.passage, req.text)
+            copied, copied_text = longest_copied_run(draft.passage, text)
             if copied > self.max_copied_words:
                 # Not worth a solver call: this passage can't ship either way.
                 solver_result, critic, judged, passed = None, None, None, False
@@ -178,7 +207,7 @@ class QuestionPipeline:
                 draft = normalize_question(
                     await self.primary.complete(
                         prompts.WRITER_SYSTEM,
-                        prompts.reviser_user(req.title, req.text, draft, None, None, copied_text),
+                        prompts.reviser_user(title, text, draft, None, None, copied_text),
                         Question,
                         temperature=0.5,
                     ),
@@ -197,7 +226,7 @@ class QuestionPipeline:
                 await emit({"stage": "critic", "index": idx, "attempt": attempts, "message": "Critic checking uniqueness and distractors"})
                 critic = await self.primary.complete(
                     prompts.CRITIC_SYSTEM,
-                    prompts.critic_user(req.title, req.text, draft, solver_result),
+                    prompts.critic_user(title, text, draft, solver_result),
                     CriticResult,
                     temperature=0.0,
                 )
@@ -226,7 +255,7 @@ class QuestionPipeline:
                 await self.primary.complete(
                     prompts.WRITER_SYSTEM,
                     prompts.reviser_user(
-                        req.title, req.text, draft, solver_result, critic,
+                        title, text, draft, solver_result, critic,
                         judge_guidance=judge_feedback(judged) if judged and not passed else "",
                     ),
                     Question,

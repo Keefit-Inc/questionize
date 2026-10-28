@@ -10,6 +10,7 @@ class Item < ApplicationRecord
   belongs_to :current_version, class_name: "ItemVersion", optional: true
   has_many :versions, -> { order(:version) }, class_name: "ItemVersion", dependent: :destroy
   has_many :attempts, class_name: "Learning::Attempt", dependent: :destroy
+  has_many :reviews, class_name: "ItemReview", dependent: :destroy
 
   validates :family, inclusion: { in: FAMILIES }
   validates :subtype, presence: true
@@ -21,7 +22,7 @@ class Item < ApplicationRecord
 
   # Public items are in the feed and on share pages. Held (sensitive) items are reachable only by
   # link, from the article they came from. Private (unverified) items belong to their creator.
-  scope :listed, -> { where(visibility: "public") }
+  scope :listed, -> { where(visibility: "public", status: "verified") }
 
   def self.accessible_by(user)
     where(visibility: %w[public held]).or(where(generation_run_id: GenerationRun.where(user: user).select(:id)))

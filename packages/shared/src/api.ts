@@ -12,6 +12,9 @@ interface ItemBase {
   family: QuestionType;
   subtype: string;
   verified: boolean;
+  status: "verified" | "unverified" | "flagged" | "under_review" | "retired";
+  /** Increases when a re-review replaces the item with a revised version. */
+  version: number;
   passage: string;
   stem: string;
   choices: Choice[];
@@ -41,6 +44,13 @@ export interface RevealedItem extends ItemBase {
 type Measurement = JudgeResult["options"][number]["support_delta"];
 
 export type Item = HiddenItem | RevealedItem;
+
+export type FlagReason = "wrong_key" | "two_answers" | "unclear" | "typo" | "offensive" | "other";
+
+export interface FeedbackResponse {
+  recorded: "up" | "down" | "flag";
+  review_started: boolean;
+}
 
 export interface FeedPage {
   items: Item[];

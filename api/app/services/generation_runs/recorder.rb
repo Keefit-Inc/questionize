@@ -47,8 +47,7 @@ module GenerationRuns
 
     def persist(generated)
       q = generated.fetch("question")
-      verification = generated.fetch("verification")
-      verified = verification["verified"] == true
+      verified = generated.dig("verification", "verified") == true
 
       Item.transaction do
         item = Item.create!(
@@ -57,34 +56,10 @@ module GenerationRuns
           content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
           published_at: verified && @content_flags.empty? ? Time.current : nil
         )
-        version = item.versions.create!(
-          version: 1, passage: q.fetch("passage"), stem: q.fetch("stem"), choices: q.fetch("choices"),
-          correct_label: q.fetch("correct_label"), explanation: q.fetch("explanation"),
-          rationales: q.fetch("choice_rationales").map { |r| r.slice("label", "rationale", "trap") },
-          skill: q["skill"], source_anchor: q["source_anchor"],
-          verification: verification.merge("judge" => judge_summary(generated["judge"])).compact
-        )
-        store_judge_measurements(version, generated["judge"])
+        version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)
         item.update!(current_version: version)
         item
       end
-    end
-
-    def judge_summary(judge)
-      judge&.slice("judge_version", "verdict", "measure", "direction", "margin", "key_first_rate", "runner_up", "judges", "samples")
-    end
-
-    def store_judge_measurements(version, judge)
-      return unless judge
-
-      rows = Array(judge["options"]).flat_map do |option|
-        %w[support_delta necessity].filter_map do |measure|
-          m = option[measure] or next
-          { item_version_id: version.id, label: option["label"], measure: measure, value: m["value"],
-            ci_low: m["ci_low"], ci_high: m["ci_high"], judge_version: judge["judge_version"] }
-        end
-      end
-      JudgeMeasurement.insert_all!(rows) if rows.any?
     end
 
     # Unverified items stay with their creator; sensitive ones wait for review before the public feed.

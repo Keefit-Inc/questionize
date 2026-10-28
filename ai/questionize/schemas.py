@@ -296,3 +296,37 @@ class MapRequest(BaseModel):
     title: str = ""
     url: str = ""
     selection: str = ""
+
+
+# ------------------------------------------------------------- Re-review (quality loop)
+
+
+class Flag(BaseModel):
+    reason: Literal["wrong_key", "two_answers", "unclear", "typo", "offensive", "other"]
+    comment: str = ""
+
+
+class CrowdStats(BaseModel):
+    attempts: int = 0
+    tally: dict[str, int] = Field(default_factory=dict)
+    # Among learners rated above the item: their most chosen option and its share.
+    strong_top_choice: str | None = None
+    strong_top_share: float | None = None
+
+
+class ReviewRequest(BaseModel):
+    question: Question
+    flags: list[Flag] = Field(default_factory=list)
+    crowd: CrowdStats = Field(default_factory=CrowdStats)
+
+
+class ReviewDecision(BaseModel):
+    verdict: Literal["keep", "revise", "retire"]
+    findings: list[str]
+    revision_guidance: str
+
+
+class ReviewResult(BaseModel):
+    decision: ReviewDecision
+    judge: JudgeResult | None = None
+    revised: VerifiedQuestion | None = None

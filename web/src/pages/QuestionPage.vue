@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { ApiError, QuestionCard, subscribeToItem, type Item, type Label } from "@questionize/shared";
+import { ApiError, QuestionCard, subscribeToItem, type FlagReason, type Item, type Label } from "@questionize/shared";
 import { api, withDevice } from "../api";
 
 const props = defineProps<{ id: string }>();
@@ -59,6 +59,15 @@ async function answer(label: Label) {
   }
 }
 
+async function flag(reason: FlagReason, comment: string) {
+  try {
+    const res = await withDevice((client) => client.feedback(props.id, { kind: "flag", reason, comment }));
+    if (res.review_started) note.value = "Your report started an automatic re-review of this question.";
+  } catch {
+    error.value = "Couldn't send your report. Please try again.";
+  }
+}
+
 async function copyLink() {
   try {
     await navigator.clipboard.writeText(shareUrl.value);
@@ -80,7 +89,7 @@ onBeforeUnmount(() => stopTally?.());
       Written from <a :href="item.source.url" target="_blank" rel="noopener noreferrer">{{ item.source.title || item.source.domain }}</a>
       <span class="muted"> · passage adapted, not quoted</span>
     </p>
-    <QuestionCard :item="item" :chosen="chosen" :busy="busy" :locatable="false" @answer="answer" />
+    <QuestionCard :item="item" :chosen="chosen" :busy="busy" :locatable="false" @answer="answer" @flag="flag" />
     <p v-if="note" class="note">{{ note }}</p>
     <div class="share">
       <button type="button" @click="copyLink">{{ copied ? "Link copied" : "Copy link" }}</button>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -131,6 +131,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000004) do
     t.index ["subject_type", "subject_id"], name: "index_evidence_snapshots_on_subject"
   end
 
+  create_table "feedbacks", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "item_version_id", null: false
+    t.string "kind", null: false
+    t.string "reason"
+    t.text "comment"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["item_version_id"], name: "index_feedbacks_on_item_version_id"
+    t.index ["user_id", "item_version_id", "kind"], name: "index_feedbacks_on_user_id_and_item_version_id_and_kind", unique: true
+    t.index ["user_id"], name: "index_feedbacks_on_user_id"
+  end
+
   create_table "generation_runs", force: :cascade do |t|
     t.bigint "user_id"
     t.bigint "source_id"
@@ -145,6 +158,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000004) do
     t.index ["source_id", "kind", "status"], name: "index_generation_runs_on_source_id_and_kind_and_status"
     t.index ["source_id"], name: "index_generation_runs_on_source_id"
     t.index ["user_id"], name: "index_generation_runs_on_user_id"
+  end
+
+  create_table "item_reviews", force: :cascade do |t|
+    t.bigint "item_id", null: false
+    t.bigint "from_version_id", null: false
+    t.bigint "to_version_id"
+    t.string "trigger", null: false
+    t.string "status", default: "queued", null: false
+    t.string "verdict"
+    t.jsonb "findings", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_version_id"], name: "index_item_reviews_on_from_version_id"
+    t.index ["item_id"], name: "index_item_reviews_on_item_id"
+    t.index ["to_version_id"], name: "index_item_reviews_on_to_version_id"
   end
 
   create_table "item_versions", force: :cascade do |t|
@@ -325,8 +353,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000004) do
   add_foreign_key "competency_edges", "competencies", column: "prerequisite_id"
   add_foreign_key "competency_misconceptions", "competencies"
   add_foreign_key "competency_misconceptions", "misconceptions"
+  add_foreign_key "feedbacks", "item_versions"
+  add_foreign_key "feedbacks", "users"
   add_foreign_key "generation_runs", "sources"
   add_foreign_key "generation_runs", "users"
+  add_foreign_key "item_reviews", "item_versions", column: "from_version_id"
+  add_foreign_key "item_reviews", "item_versions", column: "to_version_id"
+  add_foreign_key "item_reviews", "items"
   add_foreign_key "item_versions", "blueprint_versions"
   add_foreign_key "item_versions", "item_versions", column: "parent_version_id"
   add_foreign_key "item_versions", "items"

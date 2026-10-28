@@ -17,6 +17,8 @@ class ItemPayload
       family: @item.family,
       subtype: @item.subtype,
       verified: @item.status == "verified",
+      status: @item.status,
+      version: @version.version,
       passage: @version.passage,
       stem: @version.stem,
       choices: @version.choices,

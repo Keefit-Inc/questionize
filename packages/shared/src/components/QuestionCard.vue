@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { Item } from "../api";
+import type { FlagReason, Item } from "../api";
 import type { Label } from "../types";
 import { FAMILY_LABELS, TRAP_LABELS, passageSegments, subtypeLabel } from "../labels";
 import ChoiceDistribution from "./ChoiceDistribution.vue";
@@ -12,7 +12,26 @@ const props = withDefaults(defineProps<{ item: Item; chosen?: Label | null; busy
   busy: false,
   locatable: true,
 });
-const emit = defineEmits<{ answer: [label: Label]; locate: [anchor: string] }>();
+const emit = defineEmits<{ answer: [label: Label]; locate: [anchor: string]; flag: [reason: FlagReason, comment: string] }>();
+
+const FLAG_REASONS: { value: FlagReason; label: string }[] = [
+  { value: "two_answers", label: "More than one answer is defensible" },
+  { value: "wrong_key", label: "The keyed answer is wrong" },
+  { value: "unclear", label: "The question is unclear" },
+  { value: "typo", label: "Typo or wording error" },
+  { value: "offensive", label: "Offensive or inappropriate" },
+  { value: "other", label: "Something else" },
+];
+const reporting = ref(false);
+const flagReason = ref<FlagReason>("two_answers");
+const flagComment = ref("");
+const flagged = ref(false);
+
+function sendFlag() {
+  emit("flag", flagReason.value, flagComment.value.trim());
+  flagged.value = true;
+  reporting.value = false;
+}
 
 const picked = ref<Label | null>(null);
 const selected = computed(() => props.chosen ?? picked.value);
@@ -38,7 +57,10 @@ function check() {
     <header class="qz-card-head">
       <span class="qz-tag">{{ FAMILY_LABELS[item.family] }}</span>
       <span class="qz-tag">{{ subtypeLabel(item.subtype) }}</span>
-      <span class="qz-badge" :class="item.verified ? 'verified' : 'unverified'">{{ item.verified ? "✓ Verified" : "⚠ Unverified" }}</span>
+      <span v-if="item.version > 1" class="qz-tag revised" title="Replaced by a re-review after reader reports">v{{ item.version }} · revised</span>
+      <span class="qz-badge" :class="item.verified ? 'verified' : 'unverified'">
+        {{ item.status === "under_review" ? "⟳ Under review" : item.verified ? "✓ Verified" : "⚠ Unverified" }}
+      </span>
     </header>
 
     <p class="qz-passage">
@@ -89,7 +111,18 @@ function check() {
         </ul>
       </details>
 
-      <button v-if="locatable && revealed.source_anchor" type="button" class="qz-ghost" @click="emit('locate', revealed.source_anchor!)">Show in article</button>
+      <div class="qz-row">
+        <button v-if="locatable && revealed.source_anchor" type="button" class="qz-ghost" @click="emit('locate', revealed.source_anchor!)">Show in article</button>
+        <button v-if="!flagged" type="button" class="qz-ghost" @click="reporting = !reporting">Report a problem</button>
+        <span v-else class="qz-small">Thanks. Reports like yours trigger an automatic re-review.</span>
+      </div>
+      <form v-if="reporting" class="qz-report" @submit.prevent="sendFlag">
+        <select v-model="flagReason" aria-label="What is wrong?">
+          <option v-for="r in FLAG_REASONS" :key="r.value" :value="r.value">{{ r.label }}</option>
+        </select>
+        <textarea v-model="flagComment" maxlength="1000" rows="2" placeholder="Optional: what did you notice?"></textarea>
+        <button type="submit" class="qz-primary">Send report</button>
+      </form>
     </div>
   </article>
 </template>
@@ -121,4 +154,9 @@ function check() {
 .qz-rationales li.key { color: #2e9d5b; }
 .qz-trap { font-style: normal; font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid currentColor; opacity: 0.75; }
 .qz-small { font-size: 12px; opacity: 0.85; }
+.qz-tag.revised { background: rgba(59, 111, 208, 0.15); }
+.qz-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.qz-row .qz-ghost { margin-top: 0; }
+.qz-report { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.qz-report select, .qz-report textarea { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid rgba(127, 127, 127, 0.4); background: transparent; color: inherit; }
 </style>

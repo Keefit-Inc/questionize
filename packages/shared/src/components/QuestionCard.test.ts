@@ -10,6 +10,8 @@ const hidden: HiddenItem = {
   family: "CR",
   subtype: "weaken",
   verified: true,
+  status: "verified",
+  version: 1,
   passage: "Accidents fell after bike lanes, so <b>lanes</b> make streets [[safer]].",
   stem: "Which most weakens the argument?",
   choices: labels.map((label) => ({ label, text: `Option ${label}` })),
@@ -77,5 +79,17 @@ describe("QuestionCard", () => {
     const wrapper = mount(QuestionCard, { props: { item: revealed, chosen: "B" } });
     await wrapper.find(".qz-ghost").trigger("click");
     expect(wrapper.emitted("locate")).toEqual([["accidents fell"]]);
+  });
+
+  it("lets a reader report a problem after answering", async () => {
+    const wrapper = mount(QuestionCard, { props: { item: { ...revealed, version: 2 }, chosen: "B" } });
+    expect(wrapper.find(".qz-tag.revised").text()).toBe("v2 · revised");
+    const report = wrapper.findAll("button").find((b) => b.text() === "Report a problem")!;
+    await report.trigger("click");
+    await wrapper.find(".qz-report select").setValue("wrong_key");
+    await wrapper.find(".qz-report textarea").setValue("  D is right  ");
+    await wrapper.find(".qz-report").trigger("submit");
+    expect(wrapper.emitted("flag")).toEqual([["wrong_key", "D is right"]]);
+    expect(wrapper.text()).toContain("automatic re-review");
   });
 });

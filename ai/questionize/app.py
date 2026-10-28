@@ -2,6 +2,7 @@
 
 GET  /health        -> liveness and configured models (no auth)
 POST /v1/judge      -> Argument Judge measurements for an argument and its options
+POST /v1/review     -> re-review of a published item: keep, revise (with a verified revision) or retire
 POST /v1/map        -> NDJSON stream ending with {"stage": "map", "map": {...}} then {"stage": "done"}
 POST /v1/generate   -> NDJSON stream of agent events, ending with {"stage": "done", ...},
                        {"stage": "declined", ...} for an unsuitable page, or {"stage": "failed", ...}
@@ -27,7 +28,8 @@ from .llm import LLMError, make_llm
 from .judge import ArgumentJudge
 from .mapper import MapPipeline
 from .pipeline import ArticleDeclined, QuestionPipeline
-from .schemas import GenerateRequest, JudgeRequest, JudgeResult, MapRequest
+from .reviewer import review
+from .schemas import GenerateRequest, JudgeRequest, JudgeResult, MapRequest, ReviewRequest, ReviewResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("questionize")
@@ -97,6 +99,13 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             raise HTTPException(status_code=503, detail="Argument Judge is disabled (JUDGE_ENABLED=false)")
         try:
             return await pipeline.judge.judge(req)
+        except LLMError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+
+    @v1.post("/review", response_model=ReviewResult)
+    async def review_item(req: ReviewRequest) -> ReviewResult:
+        try:
+            return await review(get_pipeline(), req)
         except LLMError as e:
             raise HTTPException(status_code=502, detail=str(e)) from e
 

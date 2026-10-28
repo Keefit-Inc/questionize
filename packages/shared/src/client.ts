@@ -9,6 +9,8 @@ import type {
   Item,
   MapChallenge,
   Me,
+  FeedbackResponse,
+  FlagReason,
   MapResponse,
 } from "./api";
 import type { Difficulty, QuestionType } from "./types";
@@ -82,6 +84,10 @@ export class ApiClient {
 
   attempt(id: string, label: string, timeMs?: number): Promise<AttemptResponse> {
     return this.request("POST", `/api/v1/items/${encodeURIComponent(id)}/attempts`, { label, time_ms: timeMs });
+  }
+
+  feedback(id: string, body: { kind: "up" | "down" | "flag"; reason?: FlagReason; comment?: string }): Promise<FeedbackResponse> {
+    return this.request("POST", `/api/v1/items/${encodeURIComponent(id)}/feedback`, body);
   }
 
   /** WebSocket URL for Action Cable, authenticated by the same bearer token. */

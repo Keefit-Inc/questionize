@@ -10,6 +10,7 @@ module Api
         result = Learning::RecordAttempt.call(user: current_user, item: item, chosen_label: label, time_ms: params[:time_ms]&.to_i)
         item.reload
         ItemChannel.broadcast_tally(item)
+        Quality::Triggers.check(item) if result.attempt.rated
         render json: {
           correct: result.attempt.correct,
           rated: result.attempt.rated,

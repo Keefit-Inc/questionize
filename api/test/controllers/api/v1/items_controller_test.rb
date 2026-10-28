@@ -84,6 +84,25 @@ class Api::V1::ItemsControllerTest < ActionDispatch::IntegrationTest
     assert body["ratings"].all? { _1["provisional"] }
   end
 
+  test "flags need an answer first and can start a review" do
+    post api_v1_item_feedback_path(@item.public_id), params: { kind: "flag", reason: "typo" }, headers: auth_headers(@user), as: :json
+    assert_response :forbidden
+
+    2.times do
+      other = User.create!
+      Learning::RecordAttempt.call(user: other, item: @item, chosen_label: "A")
+      Feedback.create!(user: other, item_version: @item.current_version, kind: "flag", reason: "two_answers")
+    end
+    Learning::RecordAttempt.call(user: @user, item: @item, chosen_label: "A")
+    post api_v1_item_feedback_path(@item.public_id), params: { kind: "flag", reason: "two_answers", comment: "D works too" }, headers: auth_headers(@user), as: :json
+    assert_response :created
+    assert response.parsed_body["review_started"]
+    assert_equal "under_review", @item.reload.status
+
+    post api_v1_item_feedback_path(@item.public_id), params: { kind: "flag", reason: "nonsense" }, headers: auth_headers(@user), as: :json
+    assert_response :unprocessable_entity
+  end
+
   test "rejects labels outside A-E" do
     post api_v1_item_attempts_path(@item.public_id), params: { label: "Z" }, headers: auth_headers(@user), as: :json
     assert_response :unprocessable_entity

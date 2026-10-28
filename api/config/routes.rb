@@ -17,6 +17,7 @@ Rails.application.routes.draw do
       resource :me, only: :show, controller: "me"
       resources :items, only: %i[index show] do
         resources :attempts, only: :create
+        resource :feedback, only: :create
       end
     end
   end
