@@ -2,6 +2,9 @@ Rails.application.routes.draw do
   # Health check for kamal-proxy and uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # The web app's shell, never cached (see SpaController).
+  root "spa#show"
+
   # Shared question links get social preview tags.
   get "q/:public_id", to: "share_pages#show", as: :share_page
 

@@ -28,23 +28,15 @@ onMounted(() => load(true));
 </script>
 
 <template>
-  <section class="hero">
-    <h1>Practice reasoning on what people are actually reading.</h1>
-    <p>
-      Every question here was written from a real article and checked by an independent solver and the Argument Judge,
-      which measures how strongly each option bears on the argument. Answer first; then see the judge's numbers and how
-      everyone else answered.
-    </p>
-  </section>
-
-  <div class="filters" role="tablist">
+  <p class="intro">Questions written from real articles, checked by an independent solver and the Argument Judge. Answer first, then see how everyone answered.</p>
+  <div class="filters" role="group" aria-label="Question type">
     <button v-for="f in ['', 'CR', 'RC'] as const" :key="f" :class="{ on: family === f }" @click="family = f; load(true)">
       {{ f ? FAMILY_LABELS[f] : "All" }}
     </button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
-  <p v-else-if="!loading && !items.length" class="muted">No questions yet. They appear here as readers generate them.</p>
+  <p v-else-if="!loading && !items.length" class="muted">No shared questions yet. They appear here as readers generate them.</p>
 
   <ul class="feed">
     <li v-for="item in items" :key="item.id">
@@ -65,9 +57,8 @@ onMounted(() => load(true));
 </template>
 
 <style scoped>
-.hero h1 { font-size: 26px; line-height: 1.2; margin: 8px 0; }
-.hero p { line-height: 1.5; opacity: 0.85; }
-.filters { display: flex; gap: 6px; margin: 16px 0; }
+.intro { margin: 0; font-size: 14px; opacity: 0.75; line-height: 1.5; }
+.filters { display: flex; gap: 6px; margin: 12px 0; }
 .filters button { padding: 6px 12px; border-radius: 16px; border: 1px solid rgba(127, 127, 127, 0.35); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .filters button.on { border-color: #3b6fd0; background: rgba(59, 111, 208, 0.12); font-weight: 600; }
 .feed { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }

@@ -62,7 +62,7 @@ const lines = computed(() => {
       if (e.competency) out.push({ t: stamp(i++), text: `skill: ${e.competency}` });
     } else if (e.stage === "practice") out.push({ t: stamp(i++), text: "writing new questions on the same trap" });
     else if ("index" in e && typeof e.index === "number" && "message" in e) out.push({ t: stamp(i++), text: `P${e.index + 1} ${e.stage}: ${e.message}`, tone: e.stage === "verdict" ? ("passed" in e && e.passed ? "good" : "bad") : undefined });
-    else if (e.stage === "diagnosis") out.push({ t: stamp(i++), text: "analysis stored in your error log", tone: "good" });
+    else if (e.stage === "diagnosis") out.push({ t: stamp(i++), text: "saved to My misses", tone: "good" });
   }
   return out.slice(-9);
 });
@@ -131,7 +131,7 @@ const optionStart = computed(() => Math.max(0, boxes.value.length - 5));
   <div class="lab" role="dialog" aria-modal="true" aria-label="Analyzing your question">
     <div class="lab-inner">
       <header class="lab-top">
-        <span class="lab-mark">QZ·LAB</span>
+        <span class="lab-mark">Miss Lab</span>
         <span class="lab-status" :class="{ done: finished, fail: failed }">{{ failed ? "Analysis stopped" : finished ? "Analysis complete" : "Analyzing" }}</span>
         <span class="lab-clock" aria-hidden="true">{{ clock }}</span>
       </header>

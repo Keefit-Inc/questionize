@@ -64,6 +64,7 @@ RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
 # The web app is served as static files from public/
 COPY --from=web /src/web/dist/ ./public/
+RUN mv public/index.html public/app.html
 
 # Final stage for app image
 FROM base

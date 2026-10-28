@@ -45,7 +45,7 @@ async function flag(id: string, reason: FlagReason, comment: string) {
 
 <template>
   <section class="entry">
-    <RouterLink to="/error-log" class="back">← Error log</RouterLink>
+    <RouterLink to="/questions" class="back">← My misses</RouterLink>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <template v-if="entry">
       <DiagnosisReport :entry="entry" :photo-url="photo" />

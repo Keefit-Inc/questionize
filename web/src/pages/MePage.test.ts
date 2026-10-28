@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createMemoryHistory, createRouter } from "vue-router";
 
 vi.mock("../api", () => ({
   withDevice: async (call: (api: unknown) => unknown) =>
@@ -13,14 +14,39 @@ vi.mock("../api", () => ({
           { skill: "overall", rating: 1510, attempts: 3, correct: 2, provisional: true },
         ],
       }),
+      listErrorLog: async () => ({
+        eligible: true,
+        weaknesses: { traps: { irrelevant: 2, too_extreme: 1 }, misconceptions: { keyword_matching: 2 } },
+        entries: [1, 2].map((id) => ({
+          id,
+          practice: [],
+          diagnosis: { family: "CR", subtype: "weaken", difficulty: id + 2, learning_objectives: ["Separate a correlation from its cause"] },
+        })),
+      }),
     }),
 }));
 
+async function mountAt(path: string) {
+  const { default: MePage } = await import("./MePage.vue");
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: "/me", component: MePage }, { path: "/snap", component: MePage }] });
+  await router.push(path);
+  const wrapper = mount(MePage, { global: { plugins: [router] } });
+  await flushPromises();
+  return wrapper;
+}
+
 describe("MePage", () => {
-  it("lists overall first, labels skills and marks provisional ratings", async () => {
-    const { default: MePage } = await import("./MePage.vue");
-    const wrapper = mount(MePage);
-    await flushPromises();
+  it("Analysis shows recurring traps, misconceptions, missed types and what to practice", async () => {
+    const text = (await mountAt("/me")).text();
+    expect(text).toContain("Irrelevant");
+    expect(text).toContain("keyword matching");
+    expect(text).toContain("Critical Reasoning · weaken");
+    expect(text).toContain("3.5");
+    expect(text).toContain("Separate a correlation from its cause");
+  });
+
+  it("Stats lists overall first, labels skills and marks provisional ratings", async () => {
+    const wrapper = await mountAt("/me?view=stats");
     const rows = wrapper.findAll("tbody tr").map((r) => r.text());
     expect(rows[0]).toContain("Overall");
     expect(rows[1]).toContain("Critical Reasoning · assumption");

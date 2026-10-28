@@ -1,4 +1,4 @@
-# Serves the Vue web app's index.html for client-side routes (/me, /feed, ...).
+# Serves the Vue web app's shell for client-side routes (/, /snap, /questions, /me, ...).
 # Share pages (/q/:id) go through SharePagesController to get social preview tags first.
 class SpaController < ActionController::Base
   FALLBACK = <<~HTML.freeze
@@ -13,8 +13,11 @@ class SpaController < ActionController::Base
 
   private
 
+  # The image ships the shell as app.html so the static file server (which caches for a year)
+  # never answers "/" with it: a stale shell would point at assets the next deploy removed.
   def index_html
-    path = Rails.public_path.join("index.html")
-    path.exist? ? path.read : FALLBACK
+    response.headers["Cache-Control"] = "no-cache"
+    path = [ "app.html", "index.html" ].map { Rails.public_path.join(_1) }.find(&:exist?)
+    path ? path.read : FALLBACK
   end
 end

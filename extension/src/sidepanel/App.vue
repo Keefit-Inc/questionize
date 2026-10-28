@@ -310,7 +310,7 @@ onBeforeUnmount(() => {
   <nav class="tabs" role="tablist">
     <button role="tab" :aria-selected="mode === 'map'" :class="{ on: mode === 'map' }" @click="mode = 'map'">Map &amp; challenge</button>
     <button role="tab" :aria-selected="mode === 'questions'" :class="{ on: mode === 'questions' }" @click="mode = 'questions'">Practice questions</button>
-    <button role="tab" :aria-selected="mode === 'errors'" :class="{ on: mode === 'errors' }" @click="mode = 'errors'">Error log</button>
+    <button role="tab" :aria-selected="mode === 'errors'" :class="{ on: mode === 'errors' }" @click="mode = 'errors'">My misses</button>
   </nav>
 
   <ErrorLog v-if="mode === 'errors'" :connect="connect" :server="settings.server" />

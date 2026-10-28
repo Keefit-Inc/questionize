@@ -210,7 +210,7 @@ onBeforeUnmount(() => closeStream?.());
       />
     </template>
   </article>
-  <p v-if="page?.eligible && !page.entries.length && !running" class="small">Your error log is empty. Photograph a question you got wrong to start it.</p>
+  <p v-if="page?.eligible && !page.entries.length && !running" class="small">Nothing here yet. Photograph a question you got wrong to start.</p>
 </template>
 
 <style scoped>
