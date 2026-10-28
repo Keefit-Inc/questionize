@@ -47,7 +47,7 @@ extension/          Chrome extension (Manifest V3, Vue 3 + TypeScript, built wit
   src/page-tools.ts   page extraction (Readability) and in-article highlighting
   public/vendor/      Mozilla Readability (Apache-2.0)
 api/                Rails 8 API: users, question bank, attempts and ratings, knowledge model, jobs, Action Cable
-web/                Vue 3 web app (served by Rails in production)
+web/                Vue 3 web app (served by Rails in production): question feed, share pages, and the error log (photograph a missed question, see it analyzed, practice the same trap)
 ai/                 FastAPI AI service with the agent pipeline (internal only)
   questionize/
     pipeline.py       Analyst → Writer → Solver → Critic → Argument Judge → Reviser loop

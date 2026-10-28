@@ -4,6 +4,7 @@ import type {
   AttemptResponse,
   DeviceResponse,
   ErrorLogCapture,
+  ErrorLogEntry,
   ErrorLogPage,
   GenerationResponse,
   GenerationRunState,
@@ -87,6 +88,10 @@ export class ApiClient {
 
   listErrorLog(): Promise<ErrorLogPage> {
     return this.request("GET", "/api/v1/error_log");
+  }
+
+  getErrorLogEntry(id: number): Promise<ErrorLogEntry> {
+    return this.request("GET", `/api/v1/error_log/${id}`);
   }
 
   captureErrorLog(body: ErrorLogCapture): Promise<{ status: "queued"; run_id: number }> {

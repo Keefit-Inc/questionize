@@ -74,7 +74,11 @@ module ActiveSupport
           "family" => "CR", "subtype" => "weaken", "competency" => "Spot an alternative cause", "key_guess" => "C",
           "chosen_label" => "A", "chosen_correct" => false, "chosen_trap" => chosen_trap,
           "misconception" => { "mechanism_family" => "attention", "mechanism_type" => "keyword_matching", "statement" => "Picked the on-topic option" },
-          "explanation" => "The key offers another cause; the chosen option is on topic but irrelevant."
+          "explanation" => "The key offers another cause; the chosen option is on topic but irrelevant.",
+          "difficulty" => 3, "difficulty_drivers" => [ "the rival cause is stated indirectly" ],
+          "intent" => "Tests whether the learner can find a rival explanation",
+          "learning_objectives" => [ "Separate a correlation from its cause" ],
+          "option_reviews" => %w[A B C D E].map { |l| { "label" => l, "trap" => l == "C" ? "correct" : "irrelevant", "reason" => "Reason for #{l}" } }
         },
         "observation" => observation ? { "family" => "CR", "subtype" => "weaken", "competency" => "Spot an alternative cause", "stimulus_features" => [],
                                          "key_rule" => "Names another cause", "distractor_traps" => [ "irrelevant" ], "difficulty_drivers" => [], "stated_level" => "graduate" } : nil,

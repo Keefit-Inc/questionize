@@ -4,9 +4,11 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import {
   ApiClient,
+  DiagnosisReport,
   QuestionCard,
   TRAP_LABELS,
   eventKey,
+  preparePhoto,
   replayRunState,
   subscribeToGeneration,
   type ErrorLogEntry,
@@ -18,7 +20,6 @@ import {
   type TrapType,
 } from "@questionize/shared";
 import { errorMessage, eventLine } from "./messages";
-import { photoDataUrl } from "./photo";
 
 const props = defineProps<{ connect: () => Promise<ApiClient>; server: string }>();
 
@@ -101,7 +102,7 @@ async function capture() {
   running.value = true;
   try {
     const api = await props.connect();
-    const image = await photoDataUrl(file.value);
+    const image = (await preparePhoto(file.value)).dataUrl;
     const res = await api.captureErrorLog({
       image,
       book: form.book || undefined,
@@ -146,11 +147,6 @@ async function flag(p: Practice, reason: FlagReason, comment: string) {
   } catch (e) {
     error.value = errorMessage(e, props.server);
   }
-}
-
-function where(entry: ErrorLogEntry): string {
-  const parts = [entry.book, entry.page && `p. ${entry.page}`, entry.number && `#${entry.number}`].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "Photographed question";
 }
 
 onMounted(load);
@@ -200,15 +196,7 @@ onBeforeUnmount(() => closeStream?.());
   </section>
 
   <article v-for="entry in page?.entries ?? []" :key="entry.id" class="card">
-    <p class="head">{{ where(entry) }}</p>
-    <p class="small">
-      {{ entry.diagnosis.competency }}
-      <template v-if="entry.chosen_label"> · you chose {{ entry.chosen_label }}</template>
-      <template v-if="entry.diagnosis.key_guess"> · likely answer {{ entry.diagnosis.key_guess }}</template>
-    </p>
-    <p v-if="entry.diagnosis.misconception" class="why">{{ entry.diagnosis.misconception.statement }}</p>
-    <p>{{ entry.diagnosis.explanation }}</p>
-    <p v-if="entry.contributed" class="small">This pattern (no wording from your book) now helps improve questions for everyone.</p>
+    <DiagnosisReport :entry="entry" />
     <p v-if="entry.practice.length" class="sub">Practice the same trap</p>
     <template v-for="item in entry.practice" :key="item.id">
       <QuestionCard
@@ -231,7 +219,6 @@ onBeforeUnmount(() => closeStream?.());
 .head { font-weight: 700; }
 .sub { font-weight: 600; margin-top: 6px !important; }
 .small { font-size: 12px; opacity: 0.75; }
-.why { font-style: italic; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .check { font-size: 13px; display: flex; gap: 6px; align-items: center; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

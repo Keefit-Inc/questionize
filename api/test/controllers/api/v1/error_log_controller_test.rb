@@ -55,4 +55,18 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
     assert_equal({ "irrelevant" => 2 }, body.dig("weaknesses", "traps"))
     assert_equal({ "keyword_matching" => 2 }, body.dig("weaknesses", "misconceptions"))
   end
+
+  test "show returns one of the user's own entries with the full analysis" do
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: { "page" => "42", "chosen_label" => "A" })
+    GenerationRuns::Recorder.new(run).record(diagnosis_event)
+    entry = @user.error_log_entries.sole
+
+    get api_v1_error_log_path(entry), headers: auth_headers(@user)
+    body = response.parsed_body
+    assert_equal [ 3, "C" ], [ body.dig("diagnosis", "difficulty"), body.dig("diagnosis", "key_guess") ]
+    assert_equal 5, body.dig("diagnosis", "option_reviews").size
+
+    get api_v1_error_log_path(entry), headers: auth_headers(User.create!)
+    assert_response :not_found
+  end
 end

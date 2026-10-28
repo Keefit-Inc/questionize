@@ -356,6 +356,15 @@ class MisconceptionGuess(BaseModel):
     statement: str = Field(..., description="What the learner likely believed or did, in one sentence")
 
 
+class OptionReview(BaseModel):
+    label: Label
+    trap: TrapType = Field(..., description='"correct" for the key; otherwise the trap this option sets')
+    reason: str = Field(..., description="Why this option is right or wrong, in your own words, under 30 words, no quotes")
+
+
+DifficultyLevel = Literal[1, 2, 3, 4, 5]
+
+
 class PhotoReading(BaseModel):
     readable: bool
     kind: Literal["practice_question", "live_exam_suspected", "not_a_question"]
@@ -366,6 +375,10 @@ class PhotoReading(BaseModel):
     chosen_trap: TrapType | None = Field(None, description="The trap the learner's chosen option sets, if they chose wrong")
     misconception: MisconceptionGuess | None = None
     explanation: str = Field(..., description="Why the key is right and the chosen option is not, in your own words, no quotes")
+    difficulty: DifficultyLevel = Field(..., description="1 = easy warm-up, 3 = typical test item, 5 = among the hardest on the real test")
+    intent: str = Field(..., description="What the question writer set out to test, in one sentence of general terms")
+    learning_objectives: list[str] = Field(..., min_length=1, max_length=3, description="Skills to practice, each starting with a verb")
+    option_reviews: list[OptionReview] = Field(default_factory=list, description="One review per option A-E")
 
 
 class DiagnoseRequest(BaseModel):
@@ -383,3 +396,8 @@ class Diagnosis(BaseModel):
     chosen_trap: TrapType | None
     misconception: MisconceptionGuess | None
     explanation: str
+    difficulty: DifficultyLevel
+    difficulty_drivers: list[str]
+    intent: str
+    learning_objectives: list[str]
+    option_reviews: list[OptionReview]

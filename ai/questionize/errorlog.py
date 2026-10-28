@@ -42,6 +42,21 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     explanation_copied, _ = longest_copied_run(explanation, transcript)
     if explanation_copied > MAX_FIELD_COPIED_WORDS:
         explanation = "We couldn't explain this one without quoting it; open your book alongside the practice questions below."
+    # The learner reads these next to their own book, so they may be specific, but never quote it.
+    private_copied = 0
+
+    def own_words(text: str) -> str:
+        nonlocal private_copied
+        copied, _ = longest_copied_run(text, transcript)
+        private_copied = max(private_copied, copied)
+        return "" if copied > MAX_FIELD_COPIED_WORDS else text
+
+    intent = own_words(reading.intent)
+    objectives = [o for o in (own_words(o) for o in reading.learning_objectives) if o]
+    reviews = sorted(
+        (r.model_copy(update={"reason": own_words(r.reason)}) for r in {r.label: r for r in reading.option_reviews}.values()),
+        key=lambda r: r.label,
+    )
 
     chosen_correct = None if req.chosen_label is None or reading.key_guess is None else req.chosen_label == reading.key_guess
     diagnosis = Diagnosis(
@@ -49,8 +64,13 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         chosen_label=req.chosen_label, chosen_correct=chosen_correct,
         chosen_trap=None if chosen_correct else reading.chosen_trap,
         misconception=None if chosen_correct else reading.misconception, explanation=explanation,
+        difficulty=reading.difficulty, difficulty_drivers=[d for d in pattern.difficulty_drivers if d],
+        intent=intent, learning_objectives=objectives, option_reviews=reviews,
     )
-    await emit({"stage": "diagnosed", "message": f"Measures: {pattern.competency}"})
+    # The analysis screen animates from these: what the question measures, how hard it is, the verdict.
+    await emit({"stage": "diagnosed", "message": f"Measures: {pattern.competency}", "competency": pattern.competency,
+                "family": pattern.family, "subtype": pattern.subtype, "difficulty": reading.difficulty,
+                "key_guess": reading.key_guess, "chosen_correct": chosen_correct})
 
     await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
     topics = rng.sample(TOPICS, PRACTICE_ITEMS)
@@ -64,10 +84,10 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     # something new: practice items that copy the photo would mean the design leaks the source.
     practice_copied = max((r.verification.copied_words for r in results if not isinstance(r, BaseException)), default=0)
     leak_checks = {
-        "max_field_copied_words": max(field_copied, explanation_copied),
+        "max_field_copied_words": max(field_copied, explanation_copied, private_copied),
         "max_practice_copied_words": practice_copied,
         "personal_data_present": reading.personal_data_present,
-        "passed": field_copied <= MAX_FIELD_COPIED_WORDS and practice_copied <= pipeline.max_copied_words,
+        "passed": max(field_copied, private_copied) <= MAX_FIELD_COPIED_WORDS and practice_copied <= pipeline.max_copied_words,
     }
     return {
         "stage": "diagnosis",

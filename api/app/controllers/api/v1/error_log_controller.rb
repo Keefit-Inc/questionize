@@ -17,6 +17,12 @@ module Api
         }
       end
 
+      # GET /api/v1/error_log/:id
+      def show
+        entry = current_user.error_log_entries.find(params[:id])
+        render json: ErrorLogPayload.new(entry, user: current_user).as_json
+      end
+
       # POST /api/v1/error_log {image, book, page, number, chosen_label}
       def create
         return render(json: { error: "not_available" }, status: :forbidden) unless current_user.error_log_eligible?

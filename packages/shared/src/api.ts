@@ -104,7 +104,8 @@ export type GenerationEvent =
   | { stage: "analyzed"; message: string; content_flags: string[] }
   | { stage: "question"; index: number; item: HiddenItem }
   | { stage: "map"; map: ArgumentMapPayload }
-  | { stage: "reading" | "diagnosed" | "practice"; message: string }
+  | { stage: "reading" | "practice"; message: string }
+  | { stage: "diagnosed"; message: string; competency?: string; family?: string; subtype?: string; difficulty?: number; key_guess?: Label | null; chosen_correct?: boolean | null }
   | { stage: "diagnosis"; entry: ErrorLogEntry }
   | { stage: "done"; count: number }
   | { stage: "declined"; reason: string; message: string }
@@ -163,6 +164,12 @@ export type MapResponse = { status: "cached"; map: ArgumentMapPayload } | { stat
 
 // ------------------------------------------------------------------ Error log
 
+export interface OptionReview {
+  label: Label;
+  trap: TrapType;
+  reason: string;
+}
+
 export interface Diagnosis {
   family: string;
   subtype: string;
@@ -173,6 +180,13 @@ export interface Diagnosis {
   chosen_trap: string | null;
   misconception: { mechanism_family: string; mechanism_type: string; statement: string } | null;
   explanation: string;
+  /** 1 = easy warm-up, 3 = typical, 5 = among the hardest on the real test. Older entries lack these fields. */
+  difficulty?: number;
+  difficulty_drivers?: string[];
+  /** What the question writer set out to test. */
+  intent?: string;
+  learning_objectives?: string[];
+  option_reviews?: OptionReview[];
 }
 
 /** One photographed question: where it lives in the learner's own book, our diagnosis, and new practice. */

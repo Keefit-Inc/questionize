@@ -177,7 +177,15 @@ like a recalled or leaked question from a real, live exam (e.g. described as fro
 makes it hard. Never include the question's wording, names, numbers or scenario.
 - key_guess: your own answer. chosen_trap and misconception: why the learner's choice was tempting, if \
 it was wrong.
-- explanation: in your own words and under 120 words; do not quote the question."""
+- explanation: in your own words and under 120 words; do not quote the question.
+- difficulty: 1-5 against the real test (1 easy warm-up, 3 typical, 5 among the hardest); say what drives \
+it in pattern.difficulty_drivers.
+- intent: what the question writer set out to test, in one general sentence.
+- learning_objectives: one to three skills to practice, each starting with a verb ("Separate a correlation \
+from its cause").
+- option_reviews: one per option, A to E: the trap it sets ("correct" for the key) and why it is right or \
+wrong in under 30 words of your own. Describe options by what they do ("names a second cause"); never \
+copy their wording."""
 
 PATTERN_WRITER_SYSTEM = """You are the Item Writer. Write one ORIGINAL five-option question that follows the \
 abstract design you are given, on a completely different everyday topic. Reuse nothing from any source: \

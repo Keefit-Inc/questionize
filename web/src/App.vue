@@ -7,6 +7,7 @@ import { RouterLink, RouterView } from "vue-router";
     <RouterLink to="/" class="brand">Questionize</RouterLink>
     <nav>
       <RouterLink to="/">Questions</RouterLink>
+      <RouterLink to="/error-log">Error log</RouterLink>
       <RouterLink to="/me">My ratings</RouterLink>
     </nav>
   </header>
@@ -27,7 +28,8 @@ a { color: #3b6fd0; }
 .nav { max-width: 44rem; margin: 0 auto; padding: 16px; display: flex; align-items: center; justify-content: space-between; }
 .nav nav { display: flex; gap: 16px; }
 .nav a { text-decoration: none; }
-.nav a.router-link-exact-active { font-weight: 700; }
+.nav a.router-link-active:not(.brand) { font-weight: 700; }
+.nav a.brand.router-link-active { font-weight: 800; }
 .brand { font-weight: 800; font-size: 18px; color: inherit !important; }
 .foot { max-width: 44rem; margin: 0 auto; padding: 24px 16px; font-size: 12px; opacity: 0.7; }
 </style>

@@ -8,7 +8,7 @@ from questionize.app import create_app
 from questionize.config import ProviderConfig, Settings
 from questionize.errorlog import diagnose
 from questionize.pipeline import Declined, QuestionPipeline
-from questionize.schemas import DiagnoseRequest, MisconceptionGuess, PatternObservation, PhotoReading
+from questionize.schemas import DiagnoseRequest, MisconceptionGuess, OptionReview, PatternObservation, PhotoReading
 
 IMAGE = "data:image/png;base64,iVBORw0KGgo="
 TRANSCRIPT = (
@@ -30,6 +30,9 @@ def reading(**overrides) -> PhotoReading:
         chosen_trap="irrelevant",
         misconception=MisconceptionGuess(mechanism_family="attention", mechanism_type="keyword_matching", statement="Picked the option that repeats the topic"),
         explanation="The right answer offers another cause for the improvement; the option chosen is on topic but does not bear on the cause.",
+        difficulty=3, intent="Tests whether the learner can find a rival explanation for a claimed cause",
+        learning_objectives=["Separate a correlation from its cause", "Look for a second change at the same time"],
+        option_reviews=[OptionReview(label=l, trap="correct" if l == "C" else "irrelevant", reason=f"Option {l} reason in our words") for l in "EDCBA"],
     )
     return base.model_copy(update=overrides)
 
@@ -58,6 +61,21 @@ async def test_diagnosis_practice_and_observation():
     writer_prompt = [u for name, u in primary.calls if name == "Question"][0]
     assert "practice_trap: irrelevant" in writer_prompt
     assert [e["stage"] for e in events][:3] == ["reading", "diagnosed", "practice"]
+    assert (events[1]["difficulty"], events[1]["key_guess"], events[1]["chosen_correct"]) == (3, "C", False)
+    assert (d["difficulty"], d["learning_objectives"][0]) == (3, "Separate a correlation from its cause")
+    assert [r["label"] for r in d["option_reviews"]] == list("ABCDE")
+
+
+async def test_reviews_that_quote_the_photo_lose_their_text_and_keep_the_design_private():
+    quoting = reading()
+    reviews = [r.model_copy(update={"reason": "because the new library opened downtown, reading scores at Lincoln School rose"}) if r.label == "A" else r
+               for r in quoting.option_reviews]
+    pipeline, _ = pipeline_with(quoting.model_copy(update={"option_reviews": reviews, "intent": TRANSCRIPT}))
+    out = await diagnose(pipeline, DiagnoseRequest(image=IMAGE, chosen_label="A"), lambda e: _noop(), seed=3)
+
+    d = out["diagnosis"]
+    assert d["intent"] == "" and d["option_reviews"][0]["reason"] == "" and d["option_reviews"][1]["reason"]
+    assert out["observation"] is None, "a reader that quotes is not trusted with the commons either"
 
 
 async def test_fields_that_copy_the_photo_are_blanked_and_keep_the_design_out_of_the_commons():
