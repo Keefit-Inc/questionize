@@ -1,0 +1,301 @@
+{
+ "note": "Abstract designs written for Questionize from the Common Core RI.x.8 progression. No test or textbook wording. CC BY-NC-SA 4.0.",
+ "designs": [
+  {
+   "family": "CR",
+   "subtype": "strengthen",
+   "competency": "Pick the fact that gives a reason more support",
+   "stimulus_features": [
+    "a character gives one reason for an opinion",
+    "an everyday situation at home or school"
+   ],
+   "key_rule": "The answer adds evidence that the reason really leads to the conclusion",
+   "distractor_traps": [
+    "irrelevant",
+    "out_of_scope",
+    "reversal"
+   ],
+   "difficulty_drivers": [
+    "one distractor repeats a word from the argument"
+   ],
+   "stated_level": "grades 3-6",
+   "levels": [
+    "elementary",
+    "middle"
+   ],
+   "practice_trap": "irrelevant",
+   "standard": "RI.4.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "weaken",
+   "competency": "Spot a different reason that could explain what happened",
+   "stimulus_features": [
+    "someone notices a change and names one cause",
+    "a before-and-after observation"
+   ],
+   "key_rule": "The answer points to something else that changed at the same time",
+   "distractor_traps": [
+    "irrelevant",
+    "too_extreme",
+    "reversal"
+   ],
+   "difficulty_drivers": [
+    "the other cause is mentioned briefly"
+   ],
+   "stated_level": "grades 4-8",
+   "levels": [
+    "elementary",
+    "middle",
+    "high"
+   ],
+   "practice_trap": "irrelevant",
+   "standard": "RI.5.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "weaken",
+   "competency": "Notice when one example is used to prove a rule about everyone",
+   "stimulus_features": [
+    "a claim about all members of a group based on one or two cases"
+   ],
+   "key_rule": "The answer shows a case where the rule does not hold, or that the examples were unusual",
+   "distractor_traps": [
+    "too_extreme",
+    "out_of_scope",
+    "irrelevant"
+   ],
+   "difficulty_drivers": [
+    "the overgeneralization sounds natural"
+   ],
+   "stated_level": "grades 3-6",
+   "levels": [
+    "elementary",
+    "middle"
+   ],
+   "practice_trap": "too_extreme",
+   "standard": "RI.4.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "inference",
+   "competency": "Tell what must be true from the facts given",
+   "stimulus_features": [
+    "two or three plain facts about the same situation",
+    "no opinion words"
+   ],
+   "key_rule": "The answer follows from combining the facts, without adding anything new",
+   "distractor_traps": [
+    "unsupported",
+    "too_extreme",
+    "out_of_scope"
+   ],
+   "difficulty_drivers": [
+    "one option is likely but not certain"
+   ],
+   "stated_level": "grades 3-8",
+   "levels": [
+    "elementary",
+    "middle",
+    "high"
+   ],
+   "practice_trap": "unsupported",
+   "standard": "RI.3.8"
+  },
+  {
+   "family": "RC",
+   "subtype": "main_idea",
+   "competency": "Find what a short passage is mostly about",
+   "stimulus_features": [
+    "a short informational passage with a topic sentence and supporting details"
+   ],
+   "key_rule": "The answer covers the whole passage, not just one detail",
+   "distractor_traps": [
+    "half_right",
+    "too_extreme",
+    "out_of_scope"
+   ],
+   "difficulty_drivers": [
+    "one option names a vivid detail"
+   ],
+   "stated_level": "grades 3-6",
+   "levels": [
+    "elementary",
+    "middle"
+   ],
+   "practice_trap": "half_right",
+   "standard": "RI.4.2"
+  },
+  {
+   "family": "RC",
+   "subtype": "detail",
+   "competency": "Find the sentence that supports a point",
+   "stimulus_features": [
+    "an informational passage where a point is backed by a specific fact"
+   ],
+   "key_rule": "The answer is the fact the passage actually uses to support the point",
+   "distractor_traps": [
+    "distortion",
+    "unsupported",
+    "irrelevant"
+   ],
+   "difficulty_drivers": [
+    "a distractor uses the passage's words with a changed meaning"
+   ],
+   "stated_level": "grades 4-6",
+   "levels": [
+    "elementary",
+    "middle"
+   ],
+   "practice_trap": "distortion",
+   "standard": "RI.5.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "assumption",
+   "competency": "Find the unstated idea an argument needs",
+   "stimulus_features": [
+    "a student or club makes a recommendation from one reason",
+    "a gap between the reason and the recommendation"
+   ],
+   "key_rule": "The answer is the missing link: if it were false, the argument would fall apart",
+   "distractor_traps": [
+    "irrelevant",
+    "too_extreme",
+    "half_right"
+   ],
+   "difficulty_drivers": [
+    "a distractor strengthens the argument without being needed"
+   ],
+   "stated_level": "grades 6-9",
+   "levels": [
+    "middle",
+    "high"
+   ],
+   "practice_trap": "half_right",
+   "standard": "RI.7.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "weaken",
+   "competency": "Judge whether evidence is enough for a claim",
+   "stimulus_features": [
+    "a survey or small study used to support a broad claim"
+   ],
+   "key_rule": "The answer shows the evidence was not representative or not enough",
+   "distractor_traps": [
+    "irrelevant",
+    "reversal",
+    "out_of_scope"
+   ],
+   "difficulty_drivers": [
+    "the sample problem is implied, not stated"
+   ],
+   "stated_level": "grades 7-10",
+   "levels": [
+    "middle",
+    "high",
+    "college"
+   ],
+   "practice_trap": "irrelevant",
+   "standard": "RI.8.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "strengthen",
+   "competency": "Tell relevant evidence from evidence that only sounds related",
+   "stimulus_features": [
+    "an argument about a school or town policy",
+    "several options mention the same topic"
+   ],
+   "key_rule": "The answer bears directly on the link between the evidence and the conclusion",
+   "distractor_traps": [
+    "irrelevant",
+    "out_of_scope",
+    "too_extreme"
+   ],
+   "difficulty_drivers": [
+    "several options share the argument's topic words"
+   ],
+   "stated_level": "grades 7-10",
+   "levels": [
+    "middle",
+    "high"
+   ],
+   "practice_trap": "irrelevant",
+   "standard": "RI.8.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "flaw",
+   "competency": "Name the mistake in reasoning",
+   "stimulus_features": [
+    "an argument that confuses correlation with cause, or attacks a person instead of a claim"
+   ],
+   "key_rule": "The answer describes the reasoning error in general terms",
+   "distractor_traps": [
+    "distortion",
+    "half_right",
+    "irrelevant"
+   ],
+   "difficulty_drivers": [
+    "two options describe real but different errors"
+   ],
+   "stated_level": "grades 9-12",
+   "levels": [
+    "high",
+    "college"
+   ],
+   "practice_trap": "half_right",
+   "standard": "RI.9-10.8"
+  },
+  {
+   "family": "RC",
+   "subtype": "author_purpose",
+   "competency": "Tell why the author included a detail",
+   "stimulus_features": [
+    "an informational passage where an example illustrates a broader point"
+   ],
+   "key_rule": "The answer names the role the detail plays in the passage's reasoning",
+   "distractor_traps": [
+    "distortion",
+    "too_extreme",
+    "half_right"
+   ],
+   "difficulty_drivers": [
+    "the detail is interesting for its own sake"
+   ],
+   "stated_level": "grades 6-10",
+   "levels": [
+    "middle",
+    "high"
+   ],
+   "practice_trap": "distortion",
+   "standard": "RI.6.8"
+  },
+  {
+   "family": "CR",
+   "subtype": "evaluate",
+   "competency": "Pick the question whose answer would test an argument",
+   "stimulus_features": [
+    "a plan justified by a predicted benefit"
+   ],
+   "key_rule": "The answer is information that would show whether the predicted benefit will happen",
+   "distractor_traps": [
+    "irrelevant",
+    "out_of_scope",
+    "half_right"
+   ],
+   "difficulty_drivers": [
+    "options ask about real but irrelevant details"
+   ],
+   "stated_level": "grades 10-12",
+   "levels": [
+    "high",
+    "college"
+   ],
+   "practice_trap": "irrelevant",
+   "standard": "RI.11-12.8"
+  }
+ ]
+}

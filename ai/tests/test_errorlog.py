@@ -116,3 +116,27 @@ def test_diagnose_endpoint_accepts_only_image_data_urls():
     r = client.post("/v1/diagnose", json={"images": [IMAGE, IMAGE], "chosen_label": "A"}, headers=headers)
     assert r.status_code == 200
     assert '"stage": "diagnosis"' in r.text
+
+
+async def test_a_design_is_repitched_for_another_level_or_skipped_when_out_of_scope():
+    from questionize.errorlog import practice_for_level
+    from questionize.schemas import PracticeRequest
+
+    design = reading().pattern
+    pipeline, primary = pipeline_with(reading())
+    out = await practice_for_level(pipeline, PracticeRequest(design=design, practice_trap="irrelevant", level="middle", count=2), seed=4)
+    assert out["skipped"] is None and len(out["practice"]) == 2
+    writer_prompt = [u for name, u in primary.calls if name == "Question"][0]
+    assert "AUDIENCE LEVEL: Grades 6-8" in writer_prompt and "practice_trap: irrelevant" in writer_prompt
+
+    flaw = design.model_copy(update={"subtype": "flaw"})
+    out = await practice_for_level(pipeline, PracticeRequest(design=flaw, level="elementary"))
+    assert out == {"level": "elementary", "skipped": "subtype_out_of_scope", "practice": []}
+
+
+def test_practice_endpoint():
+    p = ProviderConfig("meta", "http://x", "k", "m")
+    client = TestClient(create_app(Settings(primary=p, solver=p, internal_token="t"), pipeline_with(reading())[0]))
+    body = {"design": reading().pattern.model_dump(), "practice_trap": "irrelevant", "level": "high"}
+    r = client.post("/v1/practice", json=body, headers={"X-Internal-Token": "t"})
+    assert r.status_code == 200 and r.json()["level"] == "high" and len(r.json()["practice"]) == 1

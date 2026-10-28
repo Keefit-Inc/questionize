@@ -1,6 +1,6 @@
 class GenerationRun < ApplicationRecord
   STATUSES = %w[queued running completed declined failed].freeze
-  KINDS = %w[questions map error_log].freeze
+  KINDS = %w[questions map error_log practice].freeze
   TEXT_TTL = 1.hour
 
   belongs_to :user, optional: true

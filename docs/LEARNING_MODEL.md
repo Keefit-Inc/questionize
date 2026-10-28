@@ -64,6 +64,13 @@ A learner chooses who they study as. From then on everything written for them is
 
 **How it is enforced [built].** `ai/questionize/levels.py` turns the level into an audience brief (language, lengths, distractor style, explanation voice, standards) that goes to the writer, the critic (who must report a level mismatch), the reviser, the Snap reader and the practice writer. The slot planner only picks skills in scope for the level. Items store their level; the Bank filters by it.
 
+**Filling every level [built].** Two sources of questions for levels nobody is snapping at yet:
+
+- *Fan-out.* When a snapped question's abstract design passes the leak checks, background jobs write one practice question from the same design for each level in `PRACTICE_FANOUT_LEVELS` (default Grades 6–8, Grades 9–12, College & adult), besides the learner's own level. A design whose skill is out of scope for a level (an LSAT flaw question for Grades 3–5) is skipped, not forced. So a GMAT or LSAT learner's misses also stock the school levels.
+- *Seed designs.* `api/db/seeds/designs.json` holds twelve abstract designs written for Questionize from the Common Core RI.x.8 progression, with the reasoning patterns and traps typical of younger readers (one example taken as a rule, an on-topic but irrelevant fact, a vivid detail mistaken for the main idea). `bin/rails questionize:seed_designs` queues practice for each design at each of its levels (`LEVELS=` to limit, `COUNT=` per design and level).
+
+Designs taken only from adult tests carry adult traps; the seed designs cover what younger readers get wrong until their own answers can be measured. Released NAEP reading items (public domain) are the next source of school-level designs **[later]**.
+
 **Age.** Questionize is for people 13 and older. Grades 3–5 is offered for a parent or teacher using it with a child. Accounts for children under 13 need verifiable parental consent (COPPA) and wait for teacher and parent accounts **[later]**.
 
 **What a level does not change yet.** Every question still has five options. Three options for Grades 3–5 and four for SAT-style items need a schema change across the pipeline and the judge **[next]**.
@@ -120,5 +127,5 @@ Readability (Flesch–Kincaid grade) of passages and explanations, computed per 
 |---|---|---|---|
 | Assessment | Elo per skill, provisional flags, trap and misconception counts | Strength/weakness labels with evidence, trap rates with intervals, mastery | Rasch calibration per level |
 | Personalization | For you, same-trap practice, review list | Spaced review, level-up placement | Teacher-assigned sets |
-| Levels | 7 levels in prompts, item level, Bank filter, level choice | 3- and 4-option formats | Under-13 accounts with parental consent |
+| Levels | 7 levels in prompts, item level, Bank filter, level choice, fan-out from snapped designs, K-12 seed designs | 3- and 4-option formats | NAEP-derived designs; under-13 accounts with parental consent |
 | Quality | Pipeline gates, reports, re-review, votes | Item statistics dashboard, readability check, gold-set report | Cross-level equating |

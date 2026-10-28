@@ -410,6 +410,16 @@ class DiagnoseRequest(BaseModel):
     level: LevelId = "gmat"
 
 
+class PracticeRequest(BaseModel):
+    """New practice questions from an abstract design, for one level (a snapped question's design
+    re-pitched for other levels, or a hand-written seed design)."""
+
+    design: PatternObservation
+    practice_trap: TrapType | None = None
+    level: LevelId = "gmat"
+    count: int = Field(1, ge=1, le=3)
+
+
 class Diagnosis(BaseModel):
     family: QuestionType
     subtype: str

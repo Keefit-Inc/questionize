@@ -17,7 +17,7 @@ from typing import Any
 
 from . import levels, prompts
 from .pipeline import Declined, QuestionPipeline, longest_copied_run, normalize_question
-from .schemas import Diagnosis, DiagnoseRequest, PhotoReading, Question
+from .schemas import Diagnosis, DiagnoseRequest, PatternObservation, PhotoReading, PracticeRequest, Question
 
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -77,7 +77,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
     topics = rng.sample(TOPICS, PRACTICE_ITEMS)
     results = await asyncio.gather(
-        *(_practice(pipeline, i, pattern, diagnosis, transcript, topic, emit, req.level) for i, topic in enumerate(topics)),
+        *(_practice(pipeline, i, pattern, diagnosis.chosen_trap, transcript, topic, emit, req.level) for i, topic in enumerate(topics)),
         return_exceptions=True,
     )
     practice = [r for r in results if not isinstance(r, BaseException) and r.verification.copied_words <= pipeline.max_copied_words]
@@ -101,12 +101,31 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     }
 
 
-async def _practice(pipeline, index, pattern, diagnosis, transcript, topic, emit, level=None):
+async def practice_for_level(pipeline: QuestionPipeline, req: PracticeRequest, seed: int | None = None) -> dict[str, Any]:
+    """Verified practice from an abstract design at one level. A design whose skill is out of scope
+    for the level (an LSAT flaw question for Grades 3-5) is skipped rather than forced."""
+    if req.design.subtype not in levels.subtypes(req.level, req.design.family):
+        return {"level": req.level, "skipped": "subtype_out_of_scope", "practice": []}
+
+    async def quiet(_event):
+        return None
+
+    rng = random.Random(seed)
+    topics = rng.sample(TOPICS, req.count)
+    results = await asyncio.gather(
+        *(_practice(pipeline, i, req.design, req.practice_trap, "", topic, quiet, req.level) for i, topic in enumerate(topics)),
+        return_exceptions=True,
+    )
+    practice = [r for r in results if not isinstance(r, BaseException) and r.verification.verified]
+    return {"level": req.level, "skipped": None, "practice": [p.model_dump() for p in practice]}
+
+
+async def _practice(pipeline, index, pattern: PatternObservation, practice_trap, transcript, topic, emit, level=None):
     audience = levels.brief(level)
     draft = normalize_question(
         await pipeline.primary.complete(
             prompts.PATTERN_WRITER_SYSTEM,
-            prompts.pattern_writer_user(pattern.model_dump_json(indent=1), diagnosis.chosen_trap, "medium", topic, audience),
+            prompts.pattern_writer_user(pattern.model_dump_json(indent=1), practice_trap, "medium", topic, audience),
             Question,
             temperature=0.8,
         ),

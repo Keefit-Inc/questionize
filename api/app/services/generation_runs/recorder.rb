@@ -35,6 +35,24 @@ module GenerationRuns
       record("stage" => "failed", "message" => message)
     end
 
+    def persist(generated, origin: "generated")
+      q = generated.fetch("question")
+      verified = generated.dig("verification", "verified") == true
+
+      Item.transaction do
+        item = Item.create!(
+          source: @run.source, generation_run: @run, family: q.fetch("type"), subtype: q.fetch("subtype"),
+          status: verified ? "verified" : "unverified", visibility: visibility(verified), origin: origin,
+          content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
+          level: Level.valid?(@run.params["level"]) ? @run.params["level"] : Level.for(@run.user), scene: q["scene"].presence,
+          published_at: verified && @content_flags.empty? ? Time.current : nil
+        )
+        version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)
+        item.update!(current_version: version)
+        item
+      end
+    end
+
     private
 
     def analyzed(event)
@@ -66,6 +84,8 @@ module GenerationRuns
         )
         Array(event["practice"]).each { |generated| persist(generated, origin: "pattern") }
       end
+      # The same design, re-pitched for other levels in the background (docs/LEARNING_MODEL.md §4).
+      LevelPracticeJob.fan_out(entry.source_observation, learner_level: Level.for(@run.user)) if entry.source_observation
       # The printed question waits in the cache for the learner's device to fetch it once; it is
       # never stored with the entry, the run's events or the broadcast.
       question = event["source_question"]
@@ -91,23 +111,6 @@ module GenerationRuns
       OpenSSL::HMAC.hexdigest("SHA256", Rails.application.secret_key_base, location)
     end
 
-    def persist(generated, origin: "generated")
-      q = generated.fetch("question")
-      verified = generated.dig("verification", "verified") == true
-
-      Item.transaction do
-        item = Item.create!(
-          source: @run.source, generation_run: @run, family: q.fetch("type"), subtype: q.fetch("subtype"),
-          status: verified ? "verified" : "unverified", visibility: visibility(verified), origin: origin,
-          content_flags: @content_flags, rating: Item.start_rating(@run.params["difficulty"]),
-          level: Level.valid?(@run.params["level"]) ? @run.params["level"] : Level.for(@run.user), scene: q["scene"].presence,
-          published_at: verified && @content_flags.empty? ? Time.current : nil
-        )
-        version = ItemVersion.create_from_generated!(item: item, generated: generated, version: 1)
-        item.update!(current_version: version)
-        item
-      end
-    end
 
     # Unverified items stay with their creator; sensitive ones wait for review before the public feed.
     def visibility(verified)

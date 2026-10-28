@@ -13,7 +13,7 @@ Questionize is a reasoning tutor for Critical Reasoning and Reading Comprehensio
   - its difficulty (1–5), what the question writer set out to test, and the skills to practice;
   - why your answer was tempting: the trap it set and the belief behind your choice;
   - every option explained, in our own words;
-  - new practice questions on different topics that set the same trap. Once verified they join the shared bank for everyone.
+  - new practice questions on different topics that set the same trap. Once verified they join the shared bank for everyone, and the same design is re-pitched in the background for other levels (Grades 6–8, 9–12, College by default), so one GMAT miss also stocks the school levels.
 
   Photos are read once and deleted; the server keeps no copy of the book's text.
 - **Questions.** *My misses* collects the questions you snapped and the bank questions you missed, with previous / next and swipe between Question, Analysis and Practice; *Bank* is the shared, rated question bank with **For you** picks; *Archived* holds what you've mastered.

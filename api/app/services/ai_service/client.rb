@@ -23,15 +23,20 @@ module AiService
     end
 
     # POST /v1/review returns one JSON document.
-    def review(payload)
+    def review(payload) = json("/v1/review", payload)
+
+    # POST /v1/practice: verified practice from an abstract design at one level.
+    def practice(payload) = json("/v1/practice", payload)
+
+    private
+
+    def json(path, payload)
       body = +""
-      post("/v1/review", payload) { |response| response.read_body { |chunk| body << chunk } }
+      post(path, payload) { |response| response.read_body { |chunk| body << chunk } }
       JSON.parse(body)
     rescue JSON::ParserError => e
       raise Error, "AI service returned invalid JSON: #{e.message}"
     end
-
-    private
 
     def stream(path, payload)
       post(path, payload) do |response|
