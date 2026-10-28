@@ -5,7 +5,7 @@ Chrome extension + web app that turns articles into verified GMAT/LSAT-style rea
 ## Stack
 
 - `api/` — Rails 8 (PostgreSQL, Solid Queue/Cache/Cable, Minitest), deployed with Kamal 2
-- `ai/` — FastAPI AI service, stateless, internal only (currently still at `server/`)
+- `ai/` — FastAPI AI service, stateless, internal only
 - `web/` — Vue 3 + TypeScript + Vite (Pinia, Vue Router)
 - `extension/` — Chrome MV3; side panel moving to Vue 3 + TypeScript + Vite
 - `packages/shared/` — shared TS types, API client, Vue components (pnpm workspace)
@@ -14,14 +14,14 @@ Chrome extension + web app that turns articles into verified GMAT/LSAT-style rea
 
 ```bash
 # AI service
-cd server && pip install -r requirements-dev.txt && pytest
-uvicorn questionize.app:app --reload --port 8000   # needs MODEL_API_KEY in server/.env
+cd ai && pip install -r requirements-dev.txt && pytest
+uvicorn questionize.app:app --reload --port 8000   # needs INTERNAL_TOKEN and a provider key in ai/.env
 
 # Rails (once created)
 cd api && bin/setup && bin/rails test && bin/dev
 
-# Web / extension (once created)
-pnpm install && pnpm -r test && pnpm --filter web dev
+# TS workspace (packages/shared today; web and extension once created)
+pnpm install && pnpm -r test && pnpm -r typecheck
 ```
 
 ## Rules
@@ -37,6 +37,8 @@ pnpm install && pnpm -r test && pnpm --filter web dev
 - Every commit should keep `pytest`, `bin/rails test` and `pnpm -r test` green for the parts that exist.
 
 ## Models
+
+- The AI service defaults to the Meta Model API (`LLM_PROVIDER=meta`). Claude (`LLM_PROVIDER=anthropic`) remains available for development; the submitted demo must run on Meta models.
 
 - Meta Model API (OpenAI-compatible, `https://api.meta.ai/v1`), default `muse-spark-1.3`; structured output via `response_format: {type: "json_schema", ...}` on Chat Completions.
 - Muse Spark Open on Baseten: `meta-models/muse-spark-open-1026` (use this exact ID).

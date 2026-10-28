@@ -6,13 +6,17 @@
 
 The solver never sees the intended answer. A question ships as "verified"
 only when the solver independently reaches the keyed answer and the critic
-confirms a unique, source-faithful answer with good distractors.
+confirms a unique, source-faithful answer with good distractors. Before any
+of that, a passage that copies a long run of article text goes straight back
+for a rewrite, because shared items must not republish the source.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -34,18 +38,60 @@ from .schemas import (
 
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
+log = logging.getLogger(__name__)
+
+_WORD = re.compile(r"[\w']+")
+
 
 async def _noop(_: dict[str, Any]) -> None:
     return None
 
 
+class ArticleDeclined(Exception):
+    """The analyst judged the page unsuitable; no questions are written."""
+
+    def __init__(self, analysis: ArticleAnalysis):
+        super().__init__(analysis.suitability_reason)
+        self.reason = analysis.suitability
+        self.message = analysis.suitability_reason
+
+
 def normalize_question(q: Question, qtype: str) -> Question:
-    """Enforce invariants the model may slip on: family, A-E order, rationale order."""
+    """Enforce invariants the model may slip on: family, A-E order, rationale order, trap tags."""
     choices = sorted(q.choices, key=lambda c: c.label)
     rationales = sorted(q.choice_rationales, key=lambda r: r.label)
     if [c.label for c in choices] != list(LABELS) or [r.label for r in rationales] != list(LABELS):
         raise ValueError("Question must have exactly one option and one rationale for each of A-E")
-    return q.model_copy(update={"type": qtype, "choices": choices, "choice_rationales": rationales})
+    fixed = []
+    for r in rationales:
+        is_key = r.label == q.correct_label
+        if is_key != (r.trap == "correct"):
+            # The key decides; a stray tag would corrupt users' trap statistics.
+            log.warning("trap tag %r on option %s disagrees with key %s", r.trap, r.label, q.correct_label)
+            r = r.model_copy(update={"trap": "correct" if is_key else "unsupported"})
+        fixed.append(r)
+    return q.model_copy(update={"type": qtype, "choices": choices, "choice_rationales": fixed})
+
+
+def longest_copied_run(passage: str, article: str) -> tuple[int, str]:
+    """Longest run of consecutive words (case-insensitive) the passage shares with the article."""
+    p = _WORD.findall(passage.lower())
+    a = _WORD.findall(article.lower())
+
+    def first_shared(k: int) -> int | None:
+        grams = {tuple(a[i : i + k]) for i in range(len(a) - k + 1)}
+        return next((i for i in range(len(p) - k + 1) if tuple(p[i : i + k]) in grams), None)
+
+    # A shared run of k words contains shared runs of every shorter length, so binary search works.
+    lo, hi, at = 0, min(len(p), len(a)), None
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        i = first_shared(mid)
+        if i is None:
+            hi = mid - 1
+        else:
+            lo, at = mid, i
+    return lo, " ".join(p[at : at + lo]) if at is not None else ""
 
 
 def plan_slots(req: GenerateRequest, analysis: ArticleAnalysis, rng: random.Random) -> list[tuple[str, str]]:
@@ -63,10 +109,18 @@ def plan_slots(req: GenerateRequest, analysis: ArticleAnalysis, rng: random.Rand
 
 
 class QuestionPipeline:
-    def __init__(self, primary: StructuredLLM, solver: StructuredLLM, max_revisions: int = 2, seed: int | None = None):
+    def __init__(
+        self,
+        primary: StructuredLLM,
+        solver: StructuredLLM,
+        max_revisions: int = 2,
+        seed: int | None = None,
+        max_copied_words: int = 12,
+    ):
         self.primary = primary
         self.solver = solver
         self.max_revisions = max_revisions
+        self.max_copied_words = max_copied_words
         self.rng = random.Random(seed)
 
     async def analyze(self, req: GenerateRequest) -> ArticleAnalysis:
@@ -101,6 +155,34 @@ class QuestionPipeline:
         solver_result: SolverResult | None = None
         critic: CriticResult | None = None
         while True:
+            copied, copied_text = longest_copied_run(draft.passage, req.text)
+            if copied > self.max_copied_words:
+                # Not worth a solver call: this passage can't ship either way.
+                solver_result, critic, passed = None, None, False
+                await emit(
+                    {
+                        "stage": "verdict",
+                        "index": idx,
+                        "attempt": attempts,
+                        "passed": False,
+                        "message": f"Passage copies {copied} words from the article — rewriting in original words",
+                    }
+                )
+                if attempts > self.max_revisions:
+                    break
+                await emit({"stage": "revise", "index": idx, "attempt": attempts, "message": "Rewriting the passage"})
+                draft = normalize_question(
+                    await self.primary.complete(
+                        prompts.WRITER_SYSTEM,
+                        prompts.reviser_user(req.title, req.text, draft, None, None, copied_text),
+                        Question,
+                        temperature=0.5,
+                    ),
+                    qtype,
+                )
+                attempts += 1
+                continue
+
             await emit({"stage": "solve", "index": idx, "attempt": attempts, "message": "Blind solver attempting the item"})
             solver_result = await self.solver.complete(
                 prompts.SOLVER_SYSTEM, prompts.solver_user(draft), SolverResult, temperature=0.0
@@ -141,6 +223,12 @@ class QuestionPipeline:
             )
             attempts += 1
 
+        if critic:
+            issues = critic.issues
+        elif solver_result:
+            issues = [f"Blind solver chose {solver_result.answer_label}"]
+        else:
+            issues = [f"Passage copies {copied} consecutive words from the article"]
         return VerifiedQuestion(
             id=uuid.uuid4().hex[:12],
             question=draft,
@@ -148,17 +236,20 @@ class QuestionPipeline:
                 verified=passed,
                 attempts=attempts,
                 solver_model=self.solver.model,
-                solver_answer=solver_result.answer_label,
-                solver_confidence=solver_result.confidence,
+                solver_answer=solver_result.answer_label if solver_result else "",
+                solver_confidence=solver_result.confidence if solver_result else 0.0,
                 critic_verdict=critic.verdict if critic else "skipped",
                 distractor_quality=critic.distractor_quality if critic else 0,
-                issues=critic.issues if critic else [f"Blind solver chose {solver_result.answer_label}"],
+                issues=issues,
+                copied_words=copied,
             ),
         )
 
     async def run(self, req: GenerateRequest, emit: Emit = _noop) -> GenerateResponse:
         await emit({"stage": "analyze", "message": "Mapping the article's arguments"})
         analysis = await self.analyze(req)
+        if analysis.suitability != "suitable":
+            raise ArticleDeclined(analysis)
         await emit({"stage": "analyzed", "message": analysis.main_point, "analysis": analysis.model_dump()})
 
         slots = plan_slots(req, analysis, self.rng)

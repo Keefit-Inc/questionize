@@ -1,7 +1,10 @@
-"""HTTP API used by the Chrome extension.
+"""Internal HTTP API, called only by Rails jobs.
 
-POST /api/questions          -> full JSON result when everything is done
-POST /api/questions/stream   -> NDJSON stream of agent events, ending with {"stage": "done", ...}
+GET  /health        -> liveness and configured models (no auth)
+POST /v1/generate   -> NDJSON stream of agent events, ending with {"stage": "done", ...},
+                       {"stage": "declined", ...} for an unsuitable page, or {"stage": "failed", ...}
+
+Every /v1 request must carry the shared secret in the X-Internal-Token header.
 """
 
 from __future__ import annotations
@@ -9,42 +12,41 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import secrets
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from . import __version__
 from .config import Settings, load_settings
-from .llm import LLMError, OpenAICompatLLM
-from .pipeline import QuestionPipeline
-from .schemas import GenerateRequest, GenerateResponse
+from .llm import LLMError, make_llm
+from .pipeline import ArticleDeclined, QuestionPipeline
+from .schemas import GenerateRequest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("questionize")
 
 
 def build_pipeline(settings: Settings) -> QuestionPipeline:
-    primary = OpenAICompatLLM(settings.primary, timeout=settings.timeout_seconds)
-    solver = (
-        primary
-        if settings.solver == settings.primary
-        else OpenAICompatLLM(settings.solver, timeout=settings.timeout_seconds)
+    primary = make_llm(settings.primary, timeout=settings.timeout_seconds)
+    solver = primary if settings.solver == settings.primary else make_llm(settings.solver, timeout=settings.timeout_seconds)
+    return QuestionPipeline(
+        primary, solver, max_revisions=settings.max_revisions, max_copied_words=settings.max_copied_words
     )
-    return QuestionPipeline(primary, solver, max_revisions=settings.max_revisions)
 
 
 def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | None = None) -> FastAPI:
     settings = settings or load_settings()
-    app = FastAPI(title="Questionize", version=__version__)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
-    )
+    app = FastAPI(title="Questionize AI", version=__version__)
+
+    def require_internal_token(x_internal_token: str = Header("")) -> None:
+        expected = settings.internal_token
+        if not expected or not secrets.compare_digest(x_internal_token.encode(), expected.encode()):
+            raise HTTPException(status_code=401, detail="Missing or invalid X-Internal-Token")
+
+    v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_internal_token)])
 
     state: dict[str, QuestionPipeline | None] = {"pipeline": pipeline}
 
@@ -70,17 +72,8 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             "solver_model": settings.solver.model,
         }
 
-    @app.post("/api/questions", response_model=GenerateResponse)
-    async def generate(req: GenerateRequest) -> GenerateResponse:
-        try:
-            return await get_pipeline().run(clip(req))
-        except LLMError as e:
-            raise HTTPException(status_code=502, detail=str(e)) from e
-        except RuntimeError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-
-    @app.post("/api/questions/stream")
-    async def generate_stream(req: GenerateRequest) -> StreamingResponse:
+    @v1.post("/generate")
+    async def generate(req: GenerateRequest) -> StreamingResponse:
         pipeline = get_pipeline()
         req = clip(req)
 
@@ -94,6 +87,8 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
                 try:
                     result = await pipeline.run(req, emit)
                     await queue.put({"stage": "done", "result": result.model_dump()})
+                except ArticleDeclined as e:
+                    await queue.put({"stage": "declined", "reason": e.reason, "message": e.message})
                 except Exception as e:  # surfaced to the client as a final event
                     log.exception("pipeline failed")
                     await queue.put({"stage": "failed", "message": str(e)})
@@ -109,6 +104,7 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
 
         return StreamingResponse(events(), media_type="application/x-ndjson")
 
+    app.include_router(v1)
     return app
 
 

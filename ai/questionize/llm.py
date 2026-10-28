@@ -1,7 +1,8 @@
-"""Thin structured-output client over any OpenAI-compatible endpoint.
+"""Structured-output LLM clients.
 
 Both the Meta Model API and Baseten expose the OpenAI Chat Completions
 protocol, so one client covers Muse Spark (hosted) and Muse Spark Open.
+Claude runs through the Anthropic SDK as a stand-in provider.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import logging
 import re
 from typing import Protocol, TypeVar
 
+import anthropic
 import openai
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ValidationError
@@ -47,7 +49,7 @@ class OpenAICompatLLM:
     def __init__(self, provider: ProviderConfig, timeout: float = 120.0, max_retries: int = 4):
         if not provider.api_key:
             raise LLMError(
-                f"No API key for provider '{provider.name}'. Set it in server/.env (see .env.example)."
+                f"No API key for provider '{provider.name}'. Set it in ai/.env (see .env.example)."
             )
         self.model = provider.model
         self.provider = provider.name
@@ -113,3 +115,67 @@ class OpenAICompatLLM:
                     {"role": "user", "content": f"That JSON did not match the schema: {e}. Return corrected JSON only."},
                 ]
         raise LLMError(f"{self.provider} failed to return valid {schema.__name__}: {last_error}")
+
+
+class AnthropicLLM:
+    """Claude through the Anthropic SDK, with the reply constrained to the schema."""
+
+    # Re-runs a classifier-declined request on a fallback model inside the same call.
+    _FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+    def __init__(self, provider: ProviderConfig, timeout: float = 300.0, max_retries: int = 4):
+        if not provider.api_key:
+            raise LLMError("No API key for provider 'anthropic'. Set ANTHROPIC_API_KEY in ai/.env (see .env.example).")
+        self.model = provider.model
+        self.provider = provider.name
+        self._effort = provider.effort
+        # The SDK retries connection errors, 429 and 5xx itself.
+        self._client = anthropic.AsyncAnthropic(api_key=provider.api_key, timeout=timeout, max_retries=max_retries)
+        self._max_retries = max_retries
+
+    async def complete(self, system: str, user: str, schema: type[T], *, temperature: float = 0.4) -> T:
+        # Current Claude models fix sampling, so `temperature` is accepted for interface parity and not sent.
+        messages: list[dict] = [{"role": "user", "content": user}]
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                resp = await self._client.beta.messages.parse(
+                    model=self.model,
+                    max_tokens=16000,
+                    system=system,
+                    messages=messages,
+                    output_format=schema,
+                    output_config={"effort": self._effort} if self._effort else anthropic.omit,
+                    betas=[self._FALLBACK_BETA],
+                    fallbacks="default",
+                )
+            except anthropic.BadRequestError as e:
+                raise LLMError(f"anthropic rejected the request: {e}") from e
+            except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as e:
+                raise LLMError(f"anthropic unavailable after retries: {e}") from e
+            except anthropic.APIStatusError as e:
+                raise LLMError(f"anthropic error {e.status_code}: {e}") from e
+            except ValidationError as e:
+                # Schema constraints the API can't enforce (e.g. exactly five choices) are checked client-side.
+                last_error = e
+                log.warning("anthropic returned invalid %s (attempt %d)", schema.__name__, attempt + 1)
+                messages = [
+                    {"role": "user", "content": f"{user}\n\nA previous answer failed validation: {e}. Follow the schema exactly."}
+                ]
+                continue
+
+            if resp.stop_reason == "refusal":
+                category = resp.stop_details.category if resp.stop_details else None
+                raise LLMError(f"anthropic declined the request (category: {category})")
+            if resp.stop_reason == "max_tokens":
+                raise LLMError(f"anthropic ran out of output tokens writing {schema.__name__}")
+            if resp.parsed_output is None:
+                raise LLMError(f"anthropic returned no {schema.__name__}")
+            return resp.parsed_output
+        raise LLMError(f"anthropic failed to return valid {schema.__name__}: {last_error}")
+
+
+def make_llm(provider: ProviderConfig, timeout: float) -> StructuredLLM:
+    if provider.name == "anthropic":
+        return AnthropicLLM(provider, timeout=timeout)
+    return OpenAICompatLLM(provider, timeout=timeout)

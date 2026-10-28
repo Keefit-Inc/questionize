@@ -15,11 +15,24 @@ const AGENT_FOR_STAGE = {
   error: "Error",
 };
 
+const TRAP_LABELS = {
+  out_of_scope: "Out of scope",
+  too_extreme: "Too extreme",
+  reversal: "Reversal",
+  half_right: "Half right",
+  unsupported: "Unsupported",
+  irrelevant: "Irrelevant",
+  distortion: "Distortion",
+  grammar_error: "Grammar error",
+  changes_meaning: "Changes meaning",
+};
+
 const $ = (id) => document.getElementById(id);
 const els = {
   settingsToggle: $("settings-toggle"),
   settings: $("settings"),
   serverUrl: $("server-url"),
+  devToken: $("dev-token"),
   serverStatus: $("server-status"),
   sourceTitle: $("source-title"),
   sourceSel: $("source-sel"),
@@ -42,11 +55,13 @@ let running = false;
 async function loadSettings() {
   const s = await chrome.storage.sync.get({
     serverUrl: DEFAULT_SERVER,
-    types: ["RC", "CR"],
+    types: ["CR", "RC"],
     difficulty: "medium",
     count: "1",
   });
   els.serverUrl.value = s.serverUrl;
+  // Local-only stopgap until the panel talks to Rails; never synced across devices.
+  ({ devToken: els.devToken.value = "" } = await chrome.storage.local.get("devToken"));
   els.difficulty.value = s.difficulty;
   els.count.value = String(s.count);
   for (const box of document.querySelectorAll('input[name="type"]')) {
@@ -58,6 +73,7 @@ function currentOptions() {
   const types = [...document.querySelectorAll('input[name="type"]:checked')].map((b) => b.value);
   return {
     serverUrl: (els.serverUrl.value || DEFAULT_SERVER).replace(/\/+$/, ""),
+    devToken: els.devToken.value.trim(),
     types,
     difficulty: els.difficulty.value,
     count: Number(els.count.value),
@@ -67,6 +83,7 @@ function currentOptions() {
 async function saveSettings() {
   const o = currentOptions();
   await chrome.storage.sync.set({ serverUrl: o.serverUrl, types: o.types, difficulty: o.difficulty, count: String(o.count) });
+  await chrome.storage.local.set({ devToken: o.devToken });
 }
 
 async function checkServer() {
@@ -230,7 +247,10 @@ function renderQuestion(vq, tabId) {
 function revealAnswer(node, q, v, picked, correct) {
   const reveal = node.querySelector(".reveal");
   const verdict = reveal.querySelector(".verdict");
-  verdict.textContent = correct ? `Correct — ${q.correct_label}` : `Not quite. You chose ${picked}; the answer is ${q.correct_label}.`;
+  const pickedTrap = TRAP_LABELS[q.choice_rationales.find((r) => r.label === picked)?.trap];
+  verdict.textContent = correct
+    ? `Correct — ${q.correct_label}`
+    : `Not quite. You chose ${picked}${pickedTrap ? ` (trap: ${pickedTrap})` : ""}; the answer is ${q.correct_label}.`;
   verdict.className = `verdict ${correct ? "good" : "bad"}`;
   reveal.querySelector(".explanation").textContent = q.explanation;
 
@@ -241,7 +261,13 @@ function revealAnswer(node, q, v, picked, correct) {
     const l = document.createElement("strong");
     l.textContent = r.label;
     const t = document.createElement("span");
-    t.textContent = r.rationale;
+    if (TRAP_LABELS[r.trap]) {
+      const tag = document.createElement("em");
+      tag.className = "trap";
+      tag.textContent = TRAP_LABELS[r.trap];
+      t.append(tag, " ");
+    }
+    t.append(r.rationale);
     li.append(l, t);
     rl.append(li);
   }
@@ -346,9 +372,9 @@ async function generate() {
       pendingSelection && pendingSelection.tabId === tab.id ? pendingSelection.text : page.selection;
     if ((page.text || "").length < 200) throw new Error("Couldn't find enough article text on this page.");
 
-    const res = await fetch(`${opts.serverUrl}/api/questions/stream`, {
+    const res = await fetch(`${opts.serverUrl}/v1/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Internal-Token": opts.devToken },
       body: JSON.stringify({
         text: page.text,
         title: page.title,
@@ -369,6 +395,8 @@ async function generate() {
       if (ev.stage === "question") {
         renderQuestion(ev.question, tab.id);
         received += 1;
+      } else if (ev.stage === "declined") {
+        throw new Error(`Skipped this page: ${ev.message}`);
       } else if (ev.stage === "failed") {
         throw new Error(ev.message);
       } else if (ev.stage === "done") {
@@ -401,6 +429,7 @@ els.settingsToggle.addEventListener("click", () => {
   els.settingsToggle.setAttribute("aria-expanded", String(open));
   if (open) checkServer();
 });
+els.devToken.addEventListener("change", saveSettings);
 els.serverUrl.addEventListener("change", async () => {
   await saveSettings();
   checkServer();

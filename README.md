@@ -46,25 +46,26 @@ extension/          Chrome extension (Manifest V3, no build step)
   sidepanel/          study UI: settings, live agent log, question cards, stats
   content/            page extraction (Readability) and in-article highlighting
   vendor/             Mozilla Readability (Apache-2.0)
-server/             FastAPI backend with the agent pipeline
+ai/                 FastAPI AI service with the agent pipeline (internal only)
   questionize/
     pipeline.py       Analyst → Writer → Solver → Critic → Reviser loop
     prompts.py        agent instructions
     schemas.py        structured-output contracts (Pydantic → JSON Schema)
-    llm.py            OpenAI-compatible client for Meta Model API / Baseten
-    app.py            /api/questions and NDJSON streaming endpoint
+    llm.py            clients: OpenAI-compatible (Meta Model API / Baseten) and Anthropic
+    app.py            /health and the token-guarded NDJSON endpoint /v1/generate
   tests/              offline tests with a scripted model
+packages/shared/    TypeScript types and helpers shared by web and extension
 ```
 
 ## Run it locally
 
-**1. Server**
+**1. AI service**
 
 ```bash
-cd server
+cd ai
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example .env        # then paste your MODEL_API_KEY
+cp .env.example .env           # set INTERNAL_TOKEN and a provider key (MODEL_API_KEY by default)
 uvicorn questionize.app:app --reload --port 8000
 ```
 
@@ -76,29 +77,35 @@ Check it: `curl localhost:8000/health`
 2. **Load unpacked** → select the `extension/` folder.
 3. Pin Questionize, open an article, click the icon.
 
-The side panel talks to `http://localhost:8000` by default; change it under ⚙ Settings.
+The side panel talks to `http://localhost:8000` by default. Under ⚙ Settings, set the server URL and paste your local `INTERNAL_TOKEN` as the dev token (a stopgap until the panel talks to the Rails API).
 
 You can also highlight a paragraph, right-click, and choose **Questionize this passage** to focus questions there.
 
 **Tests**
 
 ```bash
-cd server && pip install -r requirements-dev.txt && pytest
+cd ai && pip install -r requirements-dev.txt && pytest
+pnpm install && pnpm -r test
 ```
 
 ## Configuration
 
-See [`.env.example`](.env.example). Key settings:
+See [`ai/.env.example`](ai/.env.example). Key settings:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LLM_PROVIDER` | `meta` | Provider for Analyst, Writer, Critic (`meta` or `baseten`) |
+| `INTERNAL_TOKEN` | — | Shared secret required in `X-Internal-Token` on every `/v1` request |
+| `LLM_PROVIDER` | `meta` | Provider for Analyst, Writer, Critic (`meta`, `baseten` or `anthropic`) |
 | `SOLVER_PROVIDER` | same as above | Provider for the Blind Solver — set differently for cross-model checks |
+| `SOLVER_MODEL` | provider default | Model override for the Blind Solver |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5-5` | Claude model ID |
 | `META_MODEL` | `muse-spark-1.3` | Meta Model API model ID |
 | `BASETEN_MODEL` | `meta-models/muse-spark-open-1026` | Muse Spark Open on Baseten |
 | `MAX_REVISIONS` | `2` | Revision rounds before an item ships as unverified |
 
 ## Roadmap
+
+- Logic games (analytical reasoning) whose rules are compiled to code, so a program enumerates every valid arrangement and proves the keyed answer is the only one
 
 - Adaptive difficulty from per-skill accuracy (stats are already tracked per sub-type)
 - Quant: data-sufficiency and problem-solving items from numbers in financial and science articles

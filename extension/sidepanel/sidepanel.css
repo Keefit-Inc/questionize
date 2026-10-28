@@ -167,6 +167,7 @@ summary { cursor: pointer; color: var(--accent); }
 .rationales ol { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .rationales li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; }
 .rationales li.key { color: var(--good); }
+.rationales .trap { font-style: normal; font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid currentColor; opacity: 0.75; }
 .verify-body { margin-top: 6px; color: var(--muted); font-size: 12.5px; }
 .verify-body ul { margin: 4px 0 0; padding-left: 18px; }
 

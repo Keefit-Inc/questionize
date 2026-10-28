@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import json
-
-from fastapi.testclient import TestClient
+import pytest
 
 from conftest import ARTICLE, ScriptedLLM, make_analysis, make_question, passing_critic, solver
-from questionize.app import create_app
-from questionize.config import ProviderConfig, Settings
-from questionize.pipeline import QuestionPipeline
+from questionize.pipeline import ArticleDeclined, QuestionPipeline, longest_copied_run, normalize_question
 from questionize.schemas import CriticResult, GenerateRequest
 
 
@@ -87,25 +83,71 @@ async def test_multiple_types_and_counts_run_in_parallel():
     assert [q.question.type for q in out.questions] == ["RC", "RC", "CR", "CR", "SC", "SC"]
 
 
-def test_stream_endpoint_emits_ndjson_and_done():
+def test_longest_copied_run_finds_shared_words():
+    article = "The mayor concluded that expanding bike lanes citywide will make all streets safer."
+    n, text = longest_copied_run("Officials say expanding bike lanes citywide will help.", article)
+    assert (n, text) == (5, "expanding bike lanes citywide will")
+    assert longest_copied_run("Nothing in common here.", article) == (0, "")
+
+
+async def test_copied_passage_is_rewritten_before_solving():
+    copied = make_question("B").model_copy(update={"passage": ARTICLE[:400]})
     primary = ScriptedLLM(
-        ArticleAnalysis=[make_analysis()], Question=[make_question("B")], CriticResult=[passing_critic()]
+        ArticleAnalysis=[make_analysis()], Question=[copied, make_question("B")], CriticResult=[passing_critic()]
     )
     blind = ScriptedLLM(SolverResult=[solver("B")])
-    p = ProviderConfig("meta", "http://x", "k", "m")
-    app = create_app(Settings(primary=p, solver=p), QuestionPipeline(primary, blind))
-    client = TestClient(app)
+    events = []
 
-    r = client.post("/api/questions/stream", json={"text": ARTICLE, "types": ["CR"]})
-    assert r.status_code == 200
-    events = [json.loads(line) for line in r.text.splitlines() if line]
-    assert events[-1]["stage"] == "done"
-    assert events[-1]["result"]["questions"][0]["verification"]["verified"] is True
+    async def emit(e):
+        events.append(e)
 
-    assert client.get("/health").json()["ok"] is True
+    out = await QuestionPipeline(primary, blind, max_copied_words=12).run(req(), emit)
+
+    v = out.questions[0].verification
+    assert v.verified and v.attempts == 2 and v.copied_words <= 12
+    # The solver only ever saw the rewritten passage.
+    assert len(blind.calls) == 1
+    reviser_prompt = [u for name, u in primary.calls if name == "Question"][1]
+    assert "copied_from_article" in reviser_prompt
+    assert any("copies" in e.get("message", "") for e in events if e["stage"] == "verdict")
 
 
-def test_rejects_too_short_text():
-    p = ProviderConfig("meta", "http://x", "k", "m")
-    client = TestClient(create_app(Settings(primary=p, solver=p), QuestionPipeline(ScriptedLLM(), ScriptedLLM())))
-    assert client.post("/api/questions", json={"text": "too short"}).status_code == 422
+async def test_passage_that_keeps_copying_ships_unverified():
+    copied = make_question("B").model_copy(update={"passage": ARTICLE[:400]})
+    primary = ScriptedLLM(ArticleAnalysis=[make_analysis()], Question=[copied])
+    blind = ScriptedLLM(SolverResult=[solver("B")])
+    out = await QuestionPipeline(primary, blind, max_revisions=1).run(req())
+    v = out.questions[0].verification
+    assert not v.verified and v.copied_words > 12 and v.solver_answer == ""
+    assert "consecutive words" in v.issues[0]
+    assert blind.calls == []
+
+
+def test_trap_tags_follow_the_key():
+    q = make_question("B")
+    rationales = [r.model_copy(update={"trap": "correct" if r.label == "D" else "too_extreme"}) for r in q.choice_rationales]
+    fixed = normalize_question(q.model_copy(update={"choice_rationales": rationales}), "CR")
+    traps = {r.label: r.trap for r in fixed.choice_rationales}
+    assert traps["B"] == "correct"
+    assert traps["D"] == "unsupported"
+    assert [t for t in traps.values()].count("correct") == 1
+
+
+async def test_content_flags_reach_the_result():
+    flagged = make_analysis().model_copy(update={"content_flags": ["sexual_violence"]})
+    primary = ScriptedLLM(ArticleAnalysis=[flagged], Question=[make_question("B")], CriticResult=[passing_critic()])
+    out = await QuestionPipeline(primary, ScriptedLLM(SolverResult=[solver("B")])).run(req())
+    assert out.analysis.content_flags == ["sexual_violence"]
+
+
+async def test_unsuitable_page_stops_before_writing():
+    thin = make_analysis().model_copy(
+        update={"suitability": "exam_material", "suitability_reason": "This page is a set of practice exam questions."}
+    )
+    primary = ScriptedLLM(ArticleAnalysis=[thin])
+    blind = ScriptedLLM()
+    with pytest.raises(ArticleDeclined) as exc:
+        await QuestionPipeline(primary, blind).run(req())
+    assert exc.value.reason == "exam_material"
+    assert [name for name, _ in primary.calls] == ["ArticleAnalysis"]
+    assert blind.calls == []

@@ -20,6 +20,10 @@
         <span>Server URL</span>
         <input id="server-url" type="url" placeholder="http://localhost:8000" />
       </label>
+      <label class="field">
+        <span>Dev token (INTERNAL_TOKEN)</span>
+        <input id="dev-token" type="password" autocomplete="off" />
+      </label>
       <p id="server-status" class="hint"></p>
     </section>
 
@@ -32,9 +36,8 @@
 
       <fieldset class="types">
         <legend>Question types</legend>
-        <label class="chip"><input type="checkbox" name="type" value="RC" checked /><span>Reading Comp</span></label>
         <label class="chip"><input type="checkbox" name="type" value="CR" checked /><span>Critical Reasoning</span></label>
-        <label class="chip"><input type="checkbox" name="type" value="SC" /><span>Sentence Correction</span></label>
+        <label class="chip"><input type="checkbox" name="type" value="RC" checked /><span>Reading Comp</span></label>
       </fieldset>
 
       <div class="row">

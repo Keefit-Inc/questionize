@@ -28,6 +28,8 @@ ARTICLE = (
 
 def make_analysis() -> ArticleAnalysis:
     return ArticleAnalysis(
+        suitability="suitable",
+        suitability_reason="A news report with a clear causal argument.",
         main_point="Bike lanes are credited with a drop in accidents.",
         author_purpose="To report a policy claim and its critics.",
         reading_level="medium",
@@ -41,6 +43,7 @@ def make_analysis() -> ArticleAnalysis:
         ],
         rc_focus_points=["Critics cite confounding factors."],
         sc_candidate_sentences=["City officials announced that the new bike lanes reduced accidents."],
+        content_flags=[],
     )
 
 
@@ -55,7 +58,10 @@ def make_question(correct: str = "B", qtype: str = "CR") -> Question:
         choices=[Choice(label=l, text=f"Option {l}") for l in reversed(labels)],
         correct_label=correct,
         explanation="B names an alternative cause.",
-        choice_rationales=[ChoiceRationale(label=l, rationale=f"Why {l}") for l in labels],
+        choice_rationales=[
+            ChoiceRationale(label=l, rationale=f"Why {l}", trap="correct" if l == correct else "out_of_scope")
+            for l in labels
+        ],
         skill="Alternative causes",
         source_anchor="reduced traffic accidents by 30 percent",
     )

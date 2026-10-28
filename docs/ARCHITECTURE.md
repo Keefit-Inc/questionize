@@ -2,7 +2,7 @@
 
 Questionize turns the articles people read into exam-style reasoning questions (GMAT/LSAT-style Reading Comprehension, Critical Reasoning, Sentence Correction), verifies them with a multi-agent pipeline, and collects them in an open, community-improved question bank.
 
-This document describes the **target architecture**. The current code (`extension/` + `server/`) is the first prototype; the migration plan is at the end.
+This document describes the **target architecture**. The current code (`extension/` + `ai/`) is the first prototype; the migration plan is at the end.
 
 ## 1. Product capabilities
 
@@ -60,7 +60,7 @@ flowchart LR
 ## 3. Repository layout (target)
 
 ```
-ai/                 FastAPI AI service (today: server/)
+ai/                 FastAPI AI service
 api/                Rails 8 app: API, share pages, jobs, channels, Kamal config
   config/deploy.yml   Kamal 2 configuration
 web/                Vue 3 + TypeScript + Vite web app
@@ -98,7 +98,7 @@ Stateless FastAPI app reachable only on the private Docker network. Every reques
 | `POST /v1/generate-from-pattern` | Pattern (+ optional article) → new original item, verified through the same loop. |
 | `GET /health` | Liveness and configured models. |
 
-Model routing stays configurable: Muse Spark on the Meta Model API for analysis, writing and critique; the blind solver can run on a different model (Muse Spark Open on Baseten) so two independent models must agree before an item ships.
+Model routing stays configurable (`LLM_PROVIDER`, `SOLVER_PROVIDER`, `SOLVER_MODEL`; Claude is available as a development provider): Muse Spark on the Meta Model API for analysis, writing and critique; the blind solver can run on a different model (Muse Spark Open on Baseten) so two independent models must agree before an item ships.
 
 ### 4.3 Web app (`web/`)
 
@@ -163,6 +163,8 @@ Elo-style rating with uncertainty-aware step sizes; upgrade path to Glicko-2.
 - `K_user` = 40 for the first 20 rated attempts in that skill, then 24, then 16 after 100. `K_item` = 32 until 30 attempts, then 12.
 - **Absolute view:** rating with a confidence band per skill. **Relative view:** percentile among users with ≥ 10 rated attempts in that skill. Ratings are an internal scale and are not presented as official test scores.
 
+Every distractor carries a `trap` tag (out of scope, too extreme, reversal, half right, unsupported, irrelevant, distortion; for SC, grammar error or changes meaning), so wrong answers also build a per-user profile of the traps they fall for.
+
 XP is separate from rating and rewards participation: answering, answering hard items correctly, accepted edit suggestions, verified contributions.
 
 ### 5.4 Quality loop
@@ -221,6 +223,8 @@ erDiagram
 ## 7. Content policy (built into the pipeline)
 
 - Shared items use **adapted** RC passages (rewritten, with a link to the source) rather than long verbatim excerpts; `source_anchor` is a short phrase used only for in-page highlighting.
+- The AI service enforces this: a passage that shares more than `MAX_COPIED_WORDS` (default 12) consecutive words with the article is sent back for a rewrite before the solver runs, and `verification.copied_words` records the longest shared run.
+- The analyst tags sensitive subject matter (`content_flags`: sexual violence, self-harm, graphic violence, harm to minors, hate or harassment, explicit sexual content). Flagged items stay out of the public feed until reviewed.
 - Uploaded images are never stored or published (5.5).
 - Recalled or leaked live-exam content is not accepted.
 - Question-bank data is published under **CC BY-SA 4.0**; code under MIT.
@@ -249,7 +253,7 @@ Initial footprint is a single cloud server; the layout lets the database move to
 
 ## 10. Migration from the prototype
 
-1. Move `server/` → `ai/`; add `X-Internal-Token` auth and the `/v1/*` routes.
+1. ~~Move `server/` → `ai/`; add `X-Internal-Token` auth and the `/v1/*` routes.~~ Done for `/v1/generate`; `/v1/review` and the pattern routes follow with their features.
 2. Create the Rails app in `api/` with the schema above; implement devices, generations, items, attempts.
 3. Rebuild the side panel in Vue against Rails instead of the AI service.
 4. Add the web app, share pages, quality loop and contributions.
