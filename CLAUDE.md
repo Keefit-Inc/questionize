@@ -17,7 +17,7 @@ Chrome extension + web app that turns articles into verified GMAT/LSAT-style rea
 cd ai && pip install -r requirements-dev.txt && pytest
 uvicorn questionize.app:app --reload --port 8000   # needs INTERNAL_TOKEN and a provider key in ai/.env
 
-# Rails (once created)
+# Rails (needs PostgreSQL)
 cd api && bin/setup && bin/rails test && bin/dev
 
 # TS workspace (packages/shared today; web and extension once created)
