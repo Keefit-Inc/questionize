@@ -8,7 +8,7 @@ from questionize.app import create_app
 from questionize.config import ProviderConfig, Settings
 from questionize.errorlog import diagnose
 from questionize.pipeline import Declined, QuestionPipeline
-from questionize.schemas import Choice, DiagnoseRequest, SourceQuestion, MisconceptionGuess, OptionReview, PatternObservation, PhotoReading
+from questionize.schemas import Choice, FlatPhotoReading, DiagnoseRequest, SourceQuestion, MisconceptionGuess, OptionReview, PatternObservation, PhotoReading
 
 IMAGE = "data:image/png;base64,iVBORw0KGgo="
 TRANSCRIPT = (
@@ -40,7 +40,7 @@ def reading(**overrides) -> PhotoReading:
 
 
 def pipeline_with(photo: PhotoReading) -> tuple[QuestionPipeline, ScriptedLLM]:
-    primary = ScriptedLLM(PhotoReading=[photo], Question=[make_question("B")], CriticResult=[passing_critic()])
+    primary = ScriptedLLM(FlatPhotoReading=[FlatPhotoReading.from_reading(photo)], Question=[make_question("B")], CriticResult=[passing_critic()])
     return QuestionPipeline(primary, ScriptedLLM(SolverResult=[solver("B")])), primary
 
 
@@ -63,7 +63,7 @@ async def test_diagnosis_practice_and_observation():
     assert "Lincoln School" not in str(out), "nothing else carries the printed wording"
     writer_prompt = [u for name, u in primary.calls if name == "Question"][0]
     assert "practice_trap: irrelevant" in writer_prompt
-    reader_prompt = [u for name, u in primary.calls if name == "PhotoReading"][0]
+    reader_prompt = [u for name, u in primary.calls if name == "FlatPhotoReading"][0]
     assert "AUDIENCE LEVEL: GMAT" in reader_prompt and "AUDIENCE LEVEL: GMAT" in writer_prompt
     assert [e["stage"] for e in events][:3] == ["reading", "diagnosed", "practice"]
     assert (events[1]["difficulty"], events[1]["key_guess"], events[1]["chosen_correct"]) == (3, "C", False)
@@ -104,7 +104,7 @@ async def test_live_exam_content_and_non_questions_are_declined(kind, reason):
     with pytest.raises(Declined) as exc:
         await diagnose(pipeline, DiagnoseRequest(images=[IMAGE]), lambda e: _noop())
     assert exc.value.reason == reason
-    assert [name for name, _ in primary.calls] == ["PhotoReading"]
+    assert [name for name, _ in primary.calls] == ["FlatPhotoReading"]
 
 
 def test_diagnose_endpoint_accepts_only_image_data_urls():
@@ -145,7 +145,7 @@ def test_practice_endpoint():
 async def _diagnose(photo, *, solver_answer="C", review_ok=None, **request):
     from questionize.schemas import KeyReview
 
-    queues = {"PhotoReading": [photo], "Question": [make_question("B")], "CriticResult": [passing_critic()]}
+    queues = {"FlatPhotoReading": [FlatPhotoReading.from_reading(photo)], "Question": [make_question("B")], "CriticResult": [passing_critic()]}
     if review_ok is not None:
         queues["KeyReview"] = [KeyReview(book_key_defensible=review_ok, reasoning="why")]
     primary = ScriptedLLM(**queues)
@@ -158,7 +158,7 @@ async def test_an_entered_key_that_matches_our_reading_is_simply_confirmed():
     out, primary, _ = await _diagnose(reading(), chosen_label="A", answer_key="C")
     check = out["diagnosis"]["key_check"]
     assert (check["verdict"], out["diagnosis"]["key_guess"]) == ("agrees", "C")
-    assert [n for n, _ in primary.calls].count("PhotoReading") == 1
+    assert [n for n, _ in primary.calls].count("FlatPhotoReading") == 1
 
 
 async def test_a_key_our_first_reading_missed_is_upheld_by_a_second_solver_and_explained():
@@ -166,7 +166,7 @@ async def test_a_key_our_first_reading_missed_is_upheld_by_a_second_solver_and_e
     out, primary, blind = await _diagnose(reading(), solver_answer="B", chosen_label="A", answer_key="B")
     d = out["diagnosis"]
     assert (d["key_check"]["verdict"], d["key_guess"], d["chosen_correct"]) == ("upheld", "B", False)
-    rereads = [u for n, u in primary.calls if n == "PhotoReading"]
+    rereads = [u for n, u in primary.calls if n == "FlatPhotoReading"]
     assert len(rereads) == 2 and "The correct answer is B" in rereads[1]
 
 
@@ -187,3 +187,16 @@ async def test_learn_only_captures_write_no_practice():
     out, primary, _ = await _diagnose(reading(), answer_key="C", practice_count=0)
     assert out["practice"] == [] and "Question" not in [n for n, _ in primary.calls]
     assert out["observation"] is not None
+
+
+def test_a_flat_reply_with_padded_keys_becomes_a_reading():
+    from questionize.llm import parse_structured
+
+    flat = FlatPhotoReading.from_reading(reading()).model_dump()
+    padded = {(k + " " if k.startswith("option") else k): v for k, v in flat.items()}
+    import json
+
+    parsed = parse_structured(json.dumps(padded), FlatPhotoReading).reading
+    assert parsed.question == reading().question and parsed.pattern == reading().pattern
+    assert parsed.option_reviews == sorted(reading().option_reviews, key=lambda o: o.label) and parsed.misconception == reading().misconception
+

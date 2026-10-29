@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 QuestionType = Literal["RC", "CR", "SC"]
 Difficulty = Literal["easy", "medium", "hard"]
@@ -402,6 +402,120 @@ class PhotoReading(BaseModel):
     intent: str = Field(..., description="What the question writer set out to test, in one sentence of general terms")
     learning_objectives: list[str] = Field(..., min_length=1, max_length=3, description="Skills to practice, each starting with a verb")
     option_reviews: list[OptionReview] = Field(default_factory=list, description="One review per option A-E")
+
+
+class FlatPhotoReading(BaseModel):
+    """What the reader model returns: PhotoReading with every nested object flattened into plain fields.
+    Muse's structured output breaks on arrays of objects (and on nested objects in long replies), while
+    flat string fields come back clean. Converted to PhotoReading on validation."""
+
+    readable: bool
+    kind: Literal["practice_question", "live_exam_suspected", "not_a_question"]
+    personal_data_present: bool = Field(False, description="Names, handwriting identifying a person, school or ID details")
+    passage: str = Field("", description="The passage or argument exactly as printed; empty if there is none")
+    stem: str = Field("", description="The question being asked, exactly as printed")
+    option_a: str = Field("", description="Option A exactly as printed")
+    option_b: str = ""
+    option_c: str = ""
+    option_d: str = ""
+    option_e: str = ""
+    key_guess: Label | None = Field(None, description="Your own answer to the question")
+    family: QuestionType = "CR"
+    subtype: str = ""
+    competency: str = Field("", description="What the question measures, in general terms")
+    stimulus_features: list[str] = Field(default_factory=list, description="Structural features of the passage, not its content")
+    key_rule: str = Field("", description="What makes the correct answer correct, in general terms")
+    distractor_traps: list[str] = Field(default_factory=list)
+    difficulty_drivers: list[str] = Field(default_factory=list)
+    stated_level: str = ""
+    chosen_trap: str = Field("", description="The trap the learner's chosen option sets, if they chose wrong")
+    misconception_family: str = Field("", description="knowledge, generalization, attention, logic, scope_language, processing or metacognitive")
+    misconception_type: str = Field("", description="e.g. necessary_vs_sufficient, scope_shift, keyword_matching")
+    misconception_statement: str = Field("", description="What the learner likely believed or did, in one sentence")
+    explanation: str = Field("", description="Why the key is right and the chosen option is not, in your own words, no quotes")
+    difficulty: int = Field(3, ge=1, le=5, description="1 = easy warm-up, 3 = typical test item, 5 = among the hardest on the real test")
+    intent: str = Field("", description="What the question writer set out to test, in one sentence of general terms")
+    learning_objectives: list[str] = Field(default_factory=list, description="One to three skills to practice, each starting with a verb")
+    trap_a: str = Field("", description='"correct" for the key; otherwise the trap option A sets')
+    trap_b: str = ""
+    trap_c: str = ""
+    trap_d: str = ""
+    trap_e: str = ""
+    review_a: str = Field("", description="Why option A is right or wrong, in your own words, under 30 words, no quotes")
+    review_b: str = ""
+    review_c: str = ""
+    review_d: str = ""
+    review_e: str = ""
+
+    _reading: PhotoReading | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _convert(self) -> FlatPhotoReading:
+        self._reading = self._to_reading()
+        return self
+
+    @property
+    def reading(self) -> PhotoReading:
+        assert self._reading is not None
+        return self._reading
+
+    def _to_reading(self) -> PhotoReading:
+        traps = set(get_args(TrapType))
+        options = [(label, getattr(self, f"option_{label.lower()}").strip()) for label in LABELS]
+        usable = self.readable and self.kind == "practice_question"
+        choices = [Choice(label=label, text=text) for label, text in options if text]
+        if usable and len(choices) < 2:
+            raise ValueError("a readable practice question needs option_a, option_b, … filled in")
+        misconception = None
+        if self.misconception_type.strip() and self.misconception_family in get_args(MechanismFamily):
+            misconception = MisconceptionGuess(
+                mechanism_family=self.misconception_family, mechanism_type=self.misconception_type, statement=self.misconception_statement
+            )
+        reviews = [
+            OptionReview(label=label, trap=getattr(self, f"trap_{label.lower()}").strip().lower(), reason=getattr(self, f"review_{label.lower()}"))
+            for label in LABELS
+            if getattr(self, f"trap_{label.lower()}").strip().lower() in traps and getattr(self, f"review_{label.lower()}").strip()
+        ]
+        return PhotoReading(
+            readable=self.readable,
+            kind=self.kind,
+            personal_data_present=self.personal_data_present,
+            question=SourceQuestion(passage=self.passage, stem=self.stem, choices=choices or [Choice(label="A", text="-"), Choice(label="B", text="-")]),
+            key_guess=self.key_guess,
+            pattern=PatternObservation(
+                family=self.family, subtype=self.subtype or "unknown", competency=self.competency, stimulus_features=self.stimulus_features,
+                key_rule=self.key_rule, distractor_traps=[t for t in self.distractor_traps if t in traps],
+                difficulty_drivers=self.difficulty_drivers, stated_level=self.stated_level,
+            ),
+            chosen_trap=self.chosen_trap.strip().lower() if self.chosen_trap.strip().lower() in traps else None,
+            misconception=misconception,
+            explanation=self.explanation,
+            difficulty=self.difficulty,
+            intent=self.intent,
+            learning_objectives=[o for o in self.learning_objectives if o.strip()][:3] or ([self.intent] if usable and self.intent else ["Review this question type"]),
+            option_reviews=reviews,
+        )
+
+    @classmethod
+    def from_reading(cls, r: PhotoReading) -> FlatPhotoReading:
+        """The flat form of a reading (tests and fixtures)."""
+        data: dict = {
+            "readable": r.readable, "kind": r.kind, "personal_data_present": r.personal_data_present,
+            "passage": r.question.passage, "stem": r.question.stem, "key_guess": r.key_guess,
+            "family": r.pattern.family, "subtype": r.pattern.subtype, "competency": r.pattern.competency,
+            "stimulus_features": r.pattern.stimulus_features, "key_rule": r.pattern.key_rule,
+            "distractor_traps": list(r.pattern.distractor_traps), "difficulty_drivers": r.pattern.difficulty_drivers,
+            "stated_level": r.pattern.stated_level, "chosen_trap": r.chosen_trap or "", "explanation": r.explanation,
+            "difficulty": r.difficulty, "intent": r.intent, "learning_objectives": r.learning_objectives,
+        }
+        for c in r.question.choices:
+            data[f"option_{c.label.lower()}"] = c.text
+        if r.misconception:
+            data |= {"misconception_family": r.misconception.mechanism_family, "misconception_type": r.misconception.mechanism_type,
+                     "misconception_statement": r.misconception.statement}
+        for o in r.option_reviews:
+            data[f"trap_{o.label.lower()}"], data[f"review_{o.label.lower()}"] = o.trap, o.reason
+        return cls.model_validate(data)
 
 
 class DiagnoseRequest(BaseModel):

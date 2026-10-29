@@ -179,23 +179,24 @@ like a recalled or leaked question from a real, live exam (e.g. described as fro
 "not_a_question" otherwise. Set readable=false if you cannot read it.
 - The photos are the parts of ONE question in reading order (for example the passage on one page and \
 the question on another). Read them together.
-- question: the passage, the question stem and every option exactly as printed, so the learner can \
-solve it again. Fix only obvious scanning breaks (hyphenation at line ends); keep underlining as \
+- passage, stem, option_a … option_e: the passage, the question stem and every option exactly as printed, \
+each in its own field, so the learner can solve it again. Fix only obvious scanning breaks (hyphenation at line ends); keep underlining as \
 [[double brackets]]. Leave out page numbers, headers and handwriting.
-- pattern: the question's design in general terms: what it measures, structural features of the passage \
-(not its topic or content), the rule that makes the key correct, the traps the wrong options set, and what \
-makes it hard. Never include the question's wording, names, numbers or scenario.
-- key_guess: your own answer. chosen_trap and misconception: why the learner's choice was tempting, if \
-it was wrong.
+- family, subtype, competency, stimulus_features, key_rule, distractor_traps, difficulty_drivers: the \
+question's design in general terms: what it measures, structural features of the passage (not its topic or \
+content), the rule that makes the key correct, the traps the wrong options set, and what makes it hard. Never include the question's wording, names, numbers or scenario.
+- key_guess: your own answer. chosen_trap and misconception_family, misconception_type, \
+misconception_statement: why the learner's choice was tempting, if it was wrong.
 - explanation: in your own words and under 120 words; do not quote the question.
 - difficulty: 1-5 against the real test (1 easy warm-up, 3 typical, 5 among the hardest); say what drives \
-it in pattern.difficulty_drivers.
+it in difficulty_drivers.
 - intent: what the question writer set out to test, in one general sentence.
 - learning_objectives: one to three skills to practice, each starting with a verb ("Separate a correlation \
 from its cause").
-- option_reviews: one per option, A to E: the trap it sets ("correct" for the key) and why it is right or \
-wrong in under 30 words of your own. Describe options by what they do ("names a second cause"); never \
+- trap_a … trap_e and review_a … review_e: for each option, the trap it sets ("correct" for the key) and \
+why it is right or wrong in under 30 words of your own. Describe options by what they do ("names a second cause"); never \
 copy their wording.
+- Every field is a plain value or a list of strings; never nest objects.
 - Write the explanation, intent, learning objectives, option reviews and misconception statement for \
 the AUDIENCE LEVEL given: its vocabulary and voice. Difficulty stays measured against the test the \
 question comes from."""
