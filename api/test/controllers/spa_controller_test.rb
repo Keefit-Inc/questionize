@@ -21,4 +21,12 @@ class SpaControllerTest < ActionDispatch::IntegrationTest
     get "/api/v1/nothing-here", headers: { "Accept" => "*/*" }
     assert_response :not_found
   end
+
+  test "the service worker is revalidated and has scope over the app" do
+    get "/sw.js"
+    assert_response :success
+    assert_equal "no-cache", response.headers["Cache-Control"]
+    assert_equal "/", response.headers["Service-Worker-Allowed"]
+    assert_includes response.body, "self.addEventListener"
+  end
 end

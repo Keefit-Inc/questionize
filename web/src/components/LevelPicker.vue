@@ -2,11 +2,14 @@
 // Choose who you're studying as. Everything written for you from then on (questions, explanations,
 // analyses) is pitched at that level, and the Bank opens on it.
 import { computed } from "vue";
-import { LEVELS, type LevelId } from "@questionize/shared";
+import type { LevelId } from "@questionize/shared";
+import { VISIBLE_LEVELS } from "../levels";
 
 const props = defineProps<{ current?: LevelId | null; busy?: boolean }>();
 const emit = defineEmits<{ pick: [level: LevelId] }>();
-const groups = computed(() => (["School", "College & adult", "Test prep"] as const).map((g) => ({ name: g, levels: LEVELS.filter((l) => l.group === g) })));
+const groups = computed(() => (["School", "College & adult", "Test prep"] as const)
+  .map((g) => ({ name: g, levels: VISIBLE_LEVELS.filter((l) => l.group === g) }))
+  .filter((g) => g.levels.length));
 const ICONS: Record<LevelId, string> = { elementary: "🎒", middle: "📓", high: "🎓", college: "📰", gmat: "📊", lsat: "⚖️", gre: "🔭" };
 </script>
 

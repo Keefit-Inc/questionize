@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-29T20:01:38.928455+00:00",
+  "capabilities": [
+    {
+      "id": "C1.1",
+      "name": "Capture: extract",
+      "bar": "items with every role right ≥ 98%; CER ≤ 1% scans, ≤ 2% photos",
+      "metric": "role_accuracy",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C1.2",
+      "name": "Capture: reconstruct",
+      "bar": "solvability equivalence ≥ 95% on items with figures",
+      "metric": "solvability_equivalence",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C2",
+      "name": "Understand the item",
+      "bar": "skill agreement ≥ 90%; trap tags ≥ 80%; difficulty ρ ≥ 0.4",
+      "metric": "skill_agreement",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C3.1",
+      "name": "Solve",
+      "bar": "accuracy against the key ≥ 95% (CR)",
+      "metric": "accuracy",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C3.2",
+      "name": "Explain",
+      "bar": "explanations rated correct ≥ 90%",
+      "metric": "explanation_correctness",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C3.3",
+      "name": "Explain at the learner's level",
+      "bar": "readability in band ≥ 90%; preferred to generic",
+      "metric": "readability_in_band",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C4",
+      "name": "Diagnose the learner",
+      "bar": "misconception top-3 ≥ 70%; next-miss AUC ≥ 0.65",
+      "metric": "misconception_top3",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C5",
+      "name": "Write practice",
+      "bar": "first-draft verification rate rising with memory; two-answer rate ≤ 2%",
+      "metric": "first_draft_pass_rate",
+      "unit": "ratio",
+      "direction": "higher"
+    },
+    {
+      "id": "C6",
+      "name": "Choose practice",
+      "bar": "success on recommended 60%–80%; gains over unrecommended",
+      "metric": "recommendation_success_rate",
+      "unit": "ratio",
+      "direction": "target"
+    }
+  ],
+  "subjects": [
+    "CR"
+  ],
+  "runs": [
+    {
+      "run_id": "20261029T190207Z-4c0169",
+      "protocol": "E1",
+      "protocol_version": 2,
+      "started_at": "2026-10-29T19:02:07.966960+00:00",
+      "git_sha": "075163a1f78145d9ecf24665f5e50812cc3a16fe",
+      "prompts_hash": "890192aa4f6ce426",
+      "dataset_id": "official-cr-v1",
+      "dataset_hash": "f8478fddd1285fd5",
+      "split": "test",
+      "n_items": 5,
+      "baseline_run": null,
+      "note": "trial, 5 items",
+      "subject": "CR",
+      "scope": "trial",
+      "capabilities": [
+        "C3.1",
+        "C3.2"
+      ],
+      "models": {
+        "primary": "muse-spark-1.3",
+        "solver": "muse-spark-1.3"
+      },
+      "judge": {
+        "samples_per_judge": 3,
+        "override_rate": 0.8,
+        "version": "aj-0.1:muse-spark-1.3"
+      },
+      "memory": null,
+      "measured_capabilities": [
+        "C3.1"
+      ]
+    },
+    {
+      "run_id": "20261029T191708Z-83575b",
+      "protocol": "E1",
+      "protocol_version": 2,
+      "started_at": "2026-10-29T19:17:08.498118+00:00",
+      "git_sha": "a65bf41f937f19f1e32f5c2b52a4d18211356fd8",
+      "prompts_hash": "2628088f56acdece",
+      "dataset_id": "official-cr-v1",
+      "dataset_hash": "f8478fddd1285fd5",
+      "split": "test",
+      "n_items": 39,
+      "baseline_run": null,
+      "note": "baseline, test split",
+      "subject": "CR",
+      "scope": "full",
+      "capabilities": [
+        "C3.1",
+        "C3.2"
+      ],
+      "models": {
+        "primary": "muse-spark-1.3",
+        "solver": "muse-spark-1.3"
+      },
+      "judge": {
+        "samples_per_judge": 3,
+        "override_rate": 0.8,
+        "version": "aj-0.1:muse-spark-1.3"
+      },
+      "memory": null,
+      "measured_capabilities": [
+        "C3.1"
+      ]
+    },
+    {
+      "run_id": "20261029T200138Z-60ec5a",
+      "protocol": "E1",
+      "protocol_version": 2,
+      "started_at": "2026-10-29T20:01:38.928455+00:00",
+      "git_sha": "8240652d236ce1b7f187b048d9be569b60a59f2f",
+      "prompts_hash": "2628088f56acdece",
+      "dataset_id": "official-cr-v1",
+      "dataset_hash": "f8478fddd1285fd5",
+      "split": "test",
+      "n_items": 5,
+      "baseline_run": "20261029T191708Z-83575b",
+      "note": "trial: memory from train split",
+      "subject": "CR",
+      "scope": "trial",
+      "capabilities": [
+        "C3.1",
+        "C3.2"
+      ],
+      "models": {
+        "primary": "muse-spark-1.3",
+        "solver": "muse-spark-1.3"
+      },
+      "judge": {
+        "samples_per_judge": 3,
+        "override_rate": 0.8,
+        "version": "aj-0.1:muse-spark-1.3"
+      },
+      "memory": {
+        "lessons": 48,
+        "hash": "0a11573f6e4bfdd8"
+      },
+      "measured_capabilities": [
+        "C3.1"
+      ]
+    }
+  ],
+  "records": [
+    {
+      "run_id": "20261029T190207Z-4c0169",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B0",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 5,
+      "ci95": [
+        0.5655,
+        1.0
+      ],
+      "expected_n": 5,
+      "complete": true,
+      "calls": 5,
+      "ece": 0.008
+    },
+    {
+      "run_id": "20261029T190207Z-4c0169",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B1",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 5,
+      "ci95": [
+        0.5655,
+        1.0
+      ],
+      "expected_n": 5,
+      "complete": true,
+      "calls": 13,
+      "ece": 0.012,
+      "vs_B0": {
+        "b": 0,
+        "c": 0,
+        "p": 1.0,
+        "diff_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "run_id": "20261029T191708Z-83575b",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B0",
+      "scope": "full",
+      "metric": "accuracy",
+      "value": 0.9487,
+      "n": 39,
+      "ci95": [
+        0.8311,
+        0.9858
+      ],
+      "expected_n": 39,
+      "complete": true,
+      "calls": 39,
+      "ece": 0.0364
+    },
+    {
+      "run_id": "20261029T191708Z-83575b",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B1",
+      "scope": "full",
+      "metric": "accuracy",
+      "value": 0.9487,
+      "n": 39,
+      "ci95": [
+        0.8311,
+        0.9858
+      ],
+      "expected_n": 39,
+      "complete": true,
+      "calls": 138,
+      "ece": 0.0151,
+      "vs_B0": {
+        "b": 1,
+        "c": 1,
+        "p": 1.0,
+        "diff_ci95": [
+          -0.0769,
+          0.0769
+        ]
+      }
+    },
+    {
+      "run_id": "20261029T200138Z-60ec5a",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B0+M",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 5,
+      "ci95": [
+        0.5655,
+        1.0
+      ],
+      "expected_n": 5,
+      "complete": true,
+      "calls": 5,
+      "ece": 0.016,
+      "vs_baseline": {
+        "b": 0,
+        "c": 0,
+        "p": 1.0,
+        "baseline_accuracy": 1.0,
+        "diff_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "run_id": "20261029T200138Z-60ec5a",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "B1+M",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 5,
+      "ci95": [
+        0.5655,
+        1.0
+      ],
+      "expected_n": 5,
+      "complete": true,
+      "calls": 13,
+      "ece": 0.016,
+      "vs_baseline": {
+        "b": 0,
+        "c": 0,
+        "p": 1.0,
+        "baseline_accuracy": 1.0,
+        "diff_ci95": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ]
+}

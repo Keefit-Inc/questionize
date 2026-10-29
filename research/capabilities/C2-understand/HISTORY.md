@@ -1,7 +1,7 @@
 # C2 improvement history
 
-Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do not edit by hand. Each row is one run; a change is kept only if it beats the previous version on the capability's primary measure.
+Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do not edit by hand. Trials remain visible and are not full evaluations. Each sub-capability uses its own metric; these observations do not automatically establish an improvement.
 
-| Date | Subject | Run | Protocol | What changed | Models | Result |
-|---|---|---|---|---|---|---|
-| | | | | not measured yet | | |
+| Date | Subject | Scope | Run | Protocol | What changed | Models | Result |
+|---|---|---|---|---|---|---|---|
+| | | | | | not measured yet | | |

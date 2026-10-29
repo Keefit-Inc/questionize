@@ -1,6 +1,6 @@
 // Questionize service worker: the app opens offline and starts fast, while every visit online
 // still gets the newest version. API calls, live updates and uploads always go to the network.
-const VERSION = "v1";
+const VERSION = "v2";
 // "/" always returns the app shell (it is not tied to an HTML Accept header like the client routes).
 const SHELL = `shell-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
@@ -24,6 +24,8 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // The research console has its own shell and must never replace the learner's offline app.
+  if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/cable") || url.pathname === "/sw.js") return;
 
   // Pages: the network first (so a deploy shows up right away), the saved shell when offline.

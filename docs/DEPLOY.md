@@ -62,6 +62,10 @@ bin/kamal deploy --skip-push --version $(git rev-parse HEAD)
 
 The AI service accessory runs the `latest` image; after an AI change, refresh it with `bin/kamal accessory reboot ai`.
 
+Pushing to `main` builds images; it does not deploy the running app. Both web and job roles must use the intended commit after a deploy. The image includes the separate Vue + TypeScript research console at `/admin`, served from its own entry point with the aggregate export in `research/results/dashboard.json`. Regenerate that export with `python -m questionize.scoreboard` in `ai/` before committing new experiment records.
+
+The learner app shows GMAT, LSAT and GRE by default. `VITE_ALL_LEVELS=true` during the web build restores all seven choices; the complete level catalog and existing profiles remain intact. The service worker is served with `Cache-Control: no-cache` so installed apps can discover releases, and it does not cache the research console as the learner app's offline shell.
+
 Useful commands: `bin/kamal logs`, `bin/kamal console`, `bin/kamal accessory logs ai`, `bin/kamal app details`.
 
 ## 5. Check

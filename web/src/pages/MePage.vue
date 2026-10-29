@@ -60,15 +60,18 @@ const goals = computed(() => {
 
 const changingLevel = ref(false);
 async function pickLevel(level: LevelId) {
-  await chooseLevel(level).catch(() => (error.value = "Couldn't save your level."));
-  if (me.value) me.value = { ...me.value, level };
-  changingLevel.value = false;
+  try {
+    await chooseLevel(level);
+    if (me.value) me.value = { ...me.value, level };
+    changingLevel.value = false;
+  } catch {
+    error.value = "Couldn't save your level.";
+  }
 }
 
 async function load() {
-  loadMe();
   try {
-    [me.value, log.value] = await Promise.all([withDevice((api) => api.getMe()), withDevice((api) => api.listErrorLog())]);
+    [me.value, log.value] = await Promise.all([loadMe(), withDevice((api) => api.listErrorLog())]);
   } catch {
     error.value = "Couldn't load your profile.";
   }

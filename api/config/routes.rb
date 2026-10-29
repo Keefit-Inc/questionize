@@ -4,6 +4,9 @@ Rails.application.routes.draw do
 
   # The web app's shell, never cached (see SpaController).
   root "spa#show"
+  get "sw.js", to: "service_worker#show", format: false
+  get "admin", to: "research_console#show"
+  get "admin/data", to: "research_console#data"
 
   # Shared question links get social preview tags.
   get "q/:public_id", to: "share_pages#show", as: :share_page

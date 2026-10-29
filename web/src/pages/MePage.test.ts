@@ -9,6 +9,7 @@ vi.mock("../api", () => ({
     call({
       getMe: async () => ({
         handle: "reader-x",
+        level: "gmat",
         anonymous: true,
         xp: 25,
         ratings: [

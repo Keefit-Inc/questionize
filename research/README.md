@@ -57,6 +57,8 @@ A new subject is added as a **subject pack** in [`subjects/`](subjects/): its sk
 
 Run with `ai/eval` runners; every run appends one line to [`ledger.jsonl`](ledger.jsonl) with the capability it measures, and `python -m questionize.scoreboard` turns the ledger into [`results/SCOREBOARD.md`](results/SCOREBOARD.md) (the latest result for each capability against its bar) and each capability's `HISTORY.md` (every run, what changed, the result).
 
+The same command exports [`results/dashboard.json`](results/dashboard.json), a versioned, aggregate-only data contract for the separate Vue + TypeScript research console at `/admin`. The console filters by subject, capability, evaluation scope and condition; shows uncertainty and provenance; and compares recorded runs without treating changed datasets, prompts or samples as a controlled improvement. Trial runs stay separate from full evaluations, and a capability stays unmeasured until its own metric is recorded. It exposes no item text, private outputs, rating sheets, credentials or experiment execution. Refreshing the console fetches the current deployed ledger snapshot; new runs are published by regenerating the export and deploying the app image.
+
 ## How experiments are recorded
 
 Every experiment follows the same four steps, so results can be trusted and repeated.

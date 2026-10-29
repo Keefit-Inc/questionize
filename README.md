@@ -2,7 +2,7 @@
 
 **Snap a question you missed. See what it tests, why your answer was tempting, and practice the same trap — with reasoning questions verified by Meta's Muse models.**
 
-Questionize is a reasoning tutor for Critical Reasoning and Reading Comprehension, from Grades 3–5 up to the GMAT, LSAT and GRE. It is an installable web app at [questionize.org](https://questionize.org) and a Chrome extension.
+Questionize is a reasoning tutor for Critical Reasoning and Reading Comprehension, starting with GMAT, LSAT and GRE. It is an installable web app at [questionize.org](https://questionize.org) and a Chrome extension. School and college levels remain available behind the web build setting `VITE_ALL_LEVELS=true`.
 
 > Built for the **Meta Global AI Developer Hackathon** (Oct 27 – Nov 4, 2026) · Theme: *Build for Your World* · Everything in this repository was written during the hackathon.
 
@@ -17,7 +17,7 @@ Questionize is a reasoning tutor for Critical Reasoning and Reading Comprehensio
 
   Photos are read once and deleted; the server keeps no copy of the book's text.
 - **Questions.** *My misses* collects the questions you snapped and the bank questions you missed, with previous / next and swipe between Question, Analysis and Practice; *Bank* is the shared, rated question bank with **For you** picks; *Archived* holds what you've mastered.
-- **Me.** *Analysis* shows the traps that catch you, the misconceptions behind them, the question types you miss and what to practice next; *Stats* shows ratings by skill. Choose your **level** here (Grades 3–5, 6–8, 9–12 · SAT/ACT, College & adult, GMAT, LSAT, GRE); everything written for you follows it. Sign in with **Facebook** to keep it on every device.
+- **Me.** *Analysis* shows the traps that catch you, the misconceptions behind them, the question types you miss and what to practice next; *Stats* shows ratings by skill. Choose your **level** here (GMAT by default, LSAT or GRE); everything written for you follows it. School and college levels can be enabled at build time. Sign in with **Facebook** to keep it on every device.
 - **Chrome extension.** On any article: *Map & challenge* reconstructs the argument (conclusion, premises, the assumption it leans on most) and asks three critical questions; *Practice questions* turns the article into verified questions; *My misses* works like Snap.
 - **Share** any bank question to Facebook, Threads, WhatsApp or X, or to Instagram as an image card. The answer is never in the preview.
 
@@ -95,6 +95,7 @@ ai/                 FastAPI AI service with the agent pipeline (internal only)
 packages/shared/    TypeScript types, API client, Action Cable helpers and shared Vue components
 docs/               architecture, knowledge model, learning model (assessment, levels, quality), decisions, deployment
 research/           research questions, preregistered protocols, experiment ledger and results
+admin/              separate Vue + TypeScript research console at /admin: capability histories, controlled comparisons and aggregate results
 ```
 
 ## Run it locally

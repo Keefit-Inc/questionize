@@ -4,6 +4,7 @@ import { ref } from "vue";
 import type { LevelId } from "@questionize/shared";
 import LevelPicker from "./LevelPicker.vue";
 import { chooseLevel } from "../profile";
+import { ALL_LEVELS_VISIBLE } from "../levels";
 
 const busy = ref(false);
 const error = ref("");
@@ -24,11 +25,11 @@ async function pick(level: LevelId) {
   <div class="sheet-backdrop" role="dialog" aria-modal="true" aria-labelledby="level-title">
     <div class="sheet">
       <p class="kicker">Welcome to Questionize</p>
-      <h2 id="level-title">Who are you studying as?</h2>
+      <h2 id="level-title">{{ ALL_LEVELS_VISIBLE ? "Who are you studying as?" : "Which test are you studying for?" }}</h2>
       <p class="lede">Questions, explanations and your analysis are written for this level. You can change it any time in Me.</p>
       <LevelPicker :busy="busy" @pick="pick" />
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p class="note">Questionize is for people 13 and older. For Grades 3–5, a parent or teacher uses it with the child.</p>
+      <p class="note">Questionize is for people 13 and older.<template v-if="ALL_LEVELS_VISIBLE"> For Grades 3–5, a parent or teacher uses it with the child.</template></p>
     </div>
   </div>
 </template>

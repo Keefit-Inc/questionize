@@ -11,12 +11,16 @@ ARG NODE_VERSION=22
 # Build the web app (pnpm workspace: web + packages/shared)
 FROM docker.io/library/node:$NODE_VERSION-slim AS web
 WORKDIR /src
+ARG VITE_ALL_LEVELS=false
+ENV VITE_ALL_LEVELS=$VITE_ALL_LEVELS
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY web ./web
-RUN pnpm install --frozen-lockfile --filter @questionize/web... && \
-    pnpm --filter @questionize/web build
+COPY admin ./admin
+RUN pnpm install --frozen-lockfile --filter @questionize/web... --filter @questionize/admin && \
+    pnpm --filter @questionize/web build && \
+    pnpm --filter @questionize/admin build
 
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
@@ -65,6 +69,10 @@ RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 # The web app is served as static files from public/
 COPY --from=web /src/web/dist/ ./public/
 RUN mv public/index.html public/app.html
+RUN mv public/sw.js service-worker.js
+COPY --from=web /src/admin/dist/index.html ./admin.html
+COPY --from=web /src/admin/dist/admin-assets/ ./public/admin-assets/
+COPY research/results/dashboard.json ./research-dashboard.json
 
 # Final stage for app image
 FROM base
