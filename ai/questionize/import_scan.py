@@ -298,7 +298,8 @@ def build_dataset(layouts: dict[int, tuple[ScanLayout, list[str]]], dataset: str
 
 # ------------------------------------------------------------------ rule-based layout (no model)
 
-QUESTION_START = re.compile(r"^(\d{1,3})[.)]\s+(\S.*)$")
+# "1. Text", "1 Text" (OCR can drop the period; the text then starts with a capital), or the number alone.
+QUESTION_START = re.compile(r"^(\d{1,3})(?:[.)]\s*(\S.*)?|\s+([A-Z\"\u201c].*))?$")
 OPTION = re.compile(r"^[(\[]?([A-E])[)\]]\s*(.*)$")
 KEY_LINE = re.compile(r"(?:the\s+)?correct answer is\s*\(?([A-E])\)?", re.IGNORECASE)
 BANNER = re.compile(r"^(argument (construction|evaluation)|evaluation of a plan|argument|evaluation|construction)\b", re.IGNORECASE)
@@ -341,12 +342,15 @@ def parse_book(pages: dict[int, list[str]]) -> list[dict]:
     options (A)-(E), a reasoning-type banner, the explanation, and "The correct answer is X." Questions may
     run across pages."""
     noise = boilerplate(pages)
-    stream = [
-        (n, line.strip())
-        for n in sorted(pages)
-        for line in pages[n]
-        if line.strip() and not re.fullmatch(r"\d{1,4}", line.strip()) and re.sub(r"\d+", "#", line.strip().lower()) not in noise
-    ]
+    stream = []
+    for n in sorted(pages):
+        lines = [line.strip() for line in pages[n] if line.strip()]
+        for i, line in enumerate(lines):
+            # A bare number among a page's last lines is its page number; elsewhere it may start a question.
+            if re.fullmatch(r"\d{1,4}", line) and i >= len(lines) - 2:
+                continue
+            if re.sub(r"\d+", "#", line.lower()) not in noise:
+                stream.append((n, line))
     items, start = [], 0
     for k, (_, line) in enumerate(stream):
         found = KEY_LINE.search(line)
@@ -367,8 +371,10 @@ def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
     if q is None:
         flags.append("no_number")
         q = 0
-    number = QUESTION_START.match(lines[q]).group(1) if QUESTION_START.match(lines[q]) else ""
-    body = [QUESTION_START.match(lines[q]).group(2) if number else lines[q], *lines[q + 1 : first_option]]
+    start = QUESTION_START.match(lines[q])
+    number = start.group(1) if start else ""
+    rest = (start.group(2) or start.group(3) or "") if start else lines[q]
+    body = [line for line in [rest, *lines[q + 1 : first_option]] if line]
 
     # The stem is the run of lines after the passage's last sentence-ending line.
     stem_from = len(body) - 1

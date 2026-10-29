@@ -202,3 +202,15 @@ def test_rules_dataset_feeds_e1(tmp_path):
     path.write_text(json.dumps(data))
     _, _, items, excluded = load_dataset(path)
     assert len(items) == 4 and excluded["flagged_scan"] == 0
+
+
+def test_rules_accept_a_number_without_its_period_or_on_its_own_line():
+    no_period = book_page(1, "E", header=False)
+    no_period[0] = "1 Planner: Accidents fell after the city opened bike lanes on"
+    alone = book_page(2, "C", header=False)
+    alone[0:1] = ["2", "Planner: Accidents fell after the city opened bike lanes on"]
+    items = import_scan.parse_book({1: no_period, 2: alone})
+    assert [(i["number"], i["flags"]) for i in items] == [("1", []), ("2", [])]
+    assert items[1]["question"]["passage"].startswith("Planner: Accidents")
+    # "30 percent of..." in a passage is not a question number.
+    assert not import_scan.QUESTION_START.match("30 percent of riders")
