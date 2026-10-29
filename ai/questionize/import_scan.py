@@ -21,11 +21,13 @@ import base64
 import difflib
 import io
 import json
+import logging
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -185,11 +187,15 @@ async def read_pages(model: StructuredLLM, images: dict[int, bytes], concurrency
         shots = [data_url(images[n])] + ([data_url(images[n + 1])] if with_next and n + 1 in images else [])
         note = "The question continues on the second image; read both as one page." if len(shots) > 1 else "Read this page."
         async with gate:
+            started = time.monotonic()
             try:
-                return await model.complete(SCAN_SYSTEM, note, ScanPage, temperature=0.0, images=shots)
+                page = await model.complete(SCAN_SYSTEM, note, ScanPage, temperature=0.0, images=shots)
             except Exception as e:  # noqa: BLE001 — one unreadable page should not stop the book
-                print(f"[scan] page {n}: {e}", file=sys.stderr)
+                print(f"[scan] page {n}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
                 return None
+            what = f"question {page.number or '?'}" if page.kind == "question" else "no question"
+            print(f"[scan] page {n}{'+' + str(n + 1) if len(shots) > 1 else ''}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
+            return page
 
     first = dict(zip(order, await asyncio.gather(*(one(n) for n in order)), strict=True))
     out: dict[int, ScanPage] = {}
@@ -256,9 +262,12 @@ def main(argv: list[str] | None = None) -> None:
     if inside_repo(args.out):
         sys.exit("Refusing to write book text inside the repository; choose a path outside it.")
 
+    # Retries and schema fallbacks are logged as warnings; show them while a long book runs.
+    logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
     settings = load_settings()
     model = make_llm(settings.primary, timeout=settings.timeout_seconds)
     images = render_pages(args.pdf, parse_pages(args.pages))
+    print(f"[scan] {len(images)} pages rendered; reading them with {model.model} (4 at a time)…", file=sys.stderr)
     pages = asyncio.run(read_pages(model, images))
     data = build_dataset(pages, images, None if args.ocr == "none" else OCR_ENGINES[args.ocr], args.dataset, args.book)
 
