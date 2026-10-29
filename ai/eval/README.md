@@ -36,7 +36,7 @@ cd ai && pip install -r requirements-research.txt     # on a Mac this includes A
 python -m questionize.import_scan ~/private/og.pdf --pages 520-640 --book "Official Guide" --out ~/private/official-cr-v1.json
 ```
 
-The primary model reads each page into the question, the book's key letter, the book's explanation and a trap tag per option (its own words). An on-device OCR engine reads the same page (`--ocr apple` on macOS, `tesseract` elsewhere, `none` to skip): a page is flagged when under 97% of the model's words line up with the OCR text, when the key letter printed on the page differs, or when an option is missing. Fix flagged items against the page in the JSON and set `"flagged": false`; E1 skips them until then. The output quotes the book, so the script refuses a path inside the repository.
+An on-device OCR engine reads each page into numbered lines (`--ocr apple` on macOS, `tesseract` elsewhere; `--ocr-only` to check it without any model call). Pages with no answer options are skipped. The primary model sees only the numbered lines and answers with line ranges for the passage, stem, options and explanation, plus the key letter, the sub-type and a trap tag per option in its own words, so the text is exactly what was printed and no page image leaves the machine. Items with a missing key, option or field, or a key that differs from the one printed on the page, are flagged; fix them against the page in the JSON and set `"flagged": false`. E1 skips them until then. The output quotes the book, so the script refuses a path inside the repository.
 
 ### Running
 

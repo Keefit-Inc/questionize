@@ -1,24 +1,24 @@
 """Turn a scanned answer-and-explanation section of a prep book you own into a private E1 dataset.
 
-    python -m questionize.import_scan ~/private/og.pdf --pages 520-640 --book "Official Guide" \\
-        --out ~/private/official-cr-v1.json [--ocr apple|tesseract|none] [--dataset official-cr-v1]
+    python -m questionize.import_scan ~/private/og.pdf --pages 1-120 --book "Official Guide" \\
+        --out ~/private/official-cr-v1.json [--ocr apple|tesseract] [--dataset official-cr-v1]
 
-Each page is read by the primary (vision) model into the question, the book's key letter, the book's
-explanation and a trap tag per option. The same page is read again by an on-device OCR engine (Apple's
-Vision framework on a Mac, or Tesseract), and the model's transcription is checked against it word by
-word: a page where they disagree, or where the key letter in the OCR text differs, is flagged for a
-person to look at. E1 skips flagged items until the flag is cleared in the JSON.
+OCR first, model second. An on-device engine (Apple's Vision framework on a Mac, Tesseract elsewhere)
+reads every page into numbered lines; pages with no answer options are skipped without a model call.
+The primary model then sees only the numbered lines and answers with line ranges (which lines are the
+passage, the stem, each option, the explanation), the key letter, the sub-type and a trap tag per option.
+It never retypes the book, so the text is exactly what was printed, the calls are short and cheap, and
+no page image leaves the machine. Items with a missing key, a missing option, an empty field, or a key
+that differs from the one printed on the page are flagged; E1 skips them until the flag is cleared.
 
 Everything this writes quotes the book. The output must live outside the repository (it refuses a path
-inside it), and the scan never leaves this machine except as page images sent to the model.
+inside it).
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import base64
-import difflib
 import io
 import json
 import logging
@@ -36,25 +36,34 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .llm import StructuredLLM
-from .schemas import Choice, Label, TrapType
+from .schemas import Label, TrapType
 
 REPO = Path(__file__).resolve().parents[2]
-AGREEMENT_FLOOR = 0.97
 RENDER_DPI = 200
+MARKER = re.compile(r"^\(?([A-E])[).]?\s+\S")
 
-SCAN_SYSTEM = """You transcribe one page of a GMAT/LSAT prep book's answer-explanation section.
+LAYOUT_SYSTEM = """You lay out one OCR'd page of a GMAT/LSAT prep book's answer-explanation section.
 
-Copy the question exactly as printed: passage, question stem and every answer option, word for word, \
-keeping the book's punctuation. Do not correct, shorten or paraphrase. Leave out page headers, footers, \
-running titles and question-type banners.
+The page is given as numbered lines. Do not copy any text: answer with line numbers only. Give the first \
+and last line of the passage (the argument), of the question stem, of each answer option A-E, and of the \
+book's explanation. Leave out page headers, footers, running titles and question-type banners. Record the \
+letter the book gives as the correct answer, the question number, and the sub-type.
 
-Then copy the book's explanation exactly, and record the letter the book gives as the correct answer. \
 For every option, give the trap it sets (or "correct") and a short reason in your own words (at most 15 \
 words, never quoting the book).
 
-If the page holds no question (a title page, a chapter introduction, an answer grid), set kind to \
-"not_a_question". If the question or its explanation runs onto the next page, set continues_on_next_page; \
-if this page begins in the middle of the previous page's question, set starts_mid_question."""
+If the page holds no question (a title page, an introduction, an answer grid), set kind to "not_a_question". \
+If the explanation runs past the last line shown, set continues_on_next_page. If the page begins in the \
+middle of the previous page's question, set starts_mid_question."""
+
+
+class Span(BaseModel):
+    first: int
+    last: int
+
+
+class ChoiceSpan(Span):
+    label: Label
 
 
 class OptionTrap(BaseModel):
@@ -63,16 +72,16 @@ class OptionTrap(BaseModel):
     why: str = Field(..., max_length=160)
 
 
-class ScanPage(BaseModel):
+class ScanLayout(BaseModel):
     kind: Literal["question", "not_a_question"]
     number: str = ""
     family: Literal["CR", "RC", "other"] = "other"
     subtype: str = Field("", description="weaken, strengthen, assumption, flaw, evaluate, inference (CR); main_idea, detail, inference, author_purpose, structure (RC)")
-    passage: str = ""
-    stem: str = ""
-    choices: list[Choice] = []
+    passage: Span | None = None
+    stem: Span | None = None
+    choices: list[ChoiceSpan] = []
+    explanation: Span | None = None
     answer_key: Label | None = None
-    official_explanation: str = ""
     option_traps: list[OptionTrap] = []
     continues_on_next_page: bool = False
     starts_mid_question: bool = False
@@ -103,7 +112,7 @@ def render_pages(pdf: Path, pages: list[int], dpi: int = RENDER_DPI) -> dict[int
     return out
 
 
-def apple_ocr(png: bytes) -> str:
+def apple_ocr(png: bytes) -> list[str]:
     """macOS Vision framework (the engine behind Live Text), accurate mode, on device."""
     from ocrmac import ocrmac  # pip install ocrmac (macOS only)
 
@@ -113,130 +122,138 @@ def apple_ocr(png: bytes) -> str:
         rows = ocrmac.OCR(f.name, recognition_level="accurate", language_preference=["en-US"]).recognize()
     # Vision returns lines bottom-up in normalized coordinates; sort top to bottom, then left to right.
     rows.sort(key=lambda r: (-round(r[2][1] + r[2][3], 2), r[2][0]))
-    return "\n".join(r[0] for r in rows)
+    return [r[0] for r in rows]
 
 
-def tesseract_ocr(png: bytes) -> str:
+def tesseract_ocr(png: bytes) -> list[str]:
     if not shutil.which("tesseract"):
         raise RuntimeError("tesseract is not installed (brew install tesseract)")
-    return subprocess.run(["tesseract", "stdin", "stdout", "-l", "eng"], input=png, capture_output=True, check=True).stdout.decode()
+    out = subprocess.run(["tesseract", "stdin", "stdout", "-l", "eng"], input=png, capture_output=True, check=True).stdout.decode()
+    return [line for line in out.splitlines() if line.strip()]
 
 
-OCR_ENGINES: dict[str, Callable[[bytes], str]] = {"apple": apple_ocr, "tesseract": tesseract_ocr}
+OCR_ENGINES: dict[str, Callable[[bytes], list[str]]] = {"apple": apple_ocr, "tesseract": tesseract_ocr}
 
 
-# ------------------------------------------------------------------ checks
+# ------------------------------------------------------------------ assembling text
 
 
-def words(text: str) -> list[str]:
-    # Hyphenation at line ends and curly quotes are the usual OCR-vs-model differences that mean nothing.
-    text = text.replace("-\n", "").replace("’", "'").replace("“", '"').replace("”", '"')
-    return re.findall(r"[a-z0-9']+", text.lower())
+def has_options(lines: list[str]) -> bool:
+    return len({m.group(1) for line in lines if (m := MARKER.match(line.strip()))}) >= 3
 
 
-def agreement(transcribed: str, ocr: str) -> float:
-    """Share of the model's words that line up, in order, with the OCR text. Invented or dropped text lowers it."""
-    mine, theirs = words(transcribed), words(ocr)
-    if not mine:
-        return 0.0
-    matcher = difflib.SequenceMatcher(None, mine, theirs, autojunk=False)
-    return round(sum(b.size for b in matcher.get_matching_blocks()) / len(mine), 4)
+def join_lines(lines: list[str]) -> str:
+    """Rejoin OCR lines into running text, undoing end-of-line hyphenation."""
+    text = ""
+    for line in (line.strip() for line in lines):
+        if not line:
+            continue
+        if text.endswith("-") and line[:1].islower():
+            text = text[:-1] + line
+        else:
+            text = f"{text} {line}" if text else line
+    return text
+
+
+def take(lines: list[str], span: Span | None) -> str | None:
+    """Lines first..last (1-based, inclusive), or None when the span is missing or out of range."""
+    if span is None or not 1 <= span.first <= span.last <= len(lines):
+        return None
+    return join_lines(lines[span.first - 1 : span.last])
 
 
 KEY_PATTERN = re.compile(r"(?:correct answer is|the answer is|answer:)\s*\(?([A-E])\)?", re.IGNORECASE)
 
 
-def ocr_key(ocr: str) -> str | None:
-    found = KEY_PATTERN.findall(ocr)
+def printed_key(text: str) -> str | None:
+    found = KEY_PATTERN.findall(text)
     return found[-1].upper() if found else None
 
 
-def question_text(p: ScanPage) -> str:
-    return "\n".join([p.passage, p.stem, *(c.text for c in p.choices)])
-
-
-def check(page: ScanPage, ocr: str | None) -> tuple[list[str], float | None]:
+def assemble(layout: ScanLayout, lines: list[str]) -> tuple[dict, list[str]]:
     flags: list[str] = []
-    if not page.answer_key:
-        flags.append("no_key")
-    if sorted(c.label for c in page.choices) != ["A", "B", "C", "D", "E"]:
+    passage, stem, explanation = take(lines, layout.passage), take(lines, layout.stem), take(lines, layout.explanation)
+    choices = []
+    for c in sorted(layout.choices, key=lambda c: c.label):
+        text = take(lines, c)
+        if text is None:
+            continue
+        choices.append({"label": c.label, "text": re.sub(r"^\(?[A-E]\)?[.)]?\s+", "", text)})
+    if not passage or not stem:
+        flags.append("missing_text")
+    if [c["label"] for c in choices] != ["A", "B", "C", "D", "E"]:
         flags.append("choices_incomplete")
-    score = None
-    if ocr is not None:
-        score = agreement(question_text(page), ocr)
-        if score < AGREEMENT_FLOOR:
-            flags.append("transcription_mismatch")
-        printed = ocr_key(ocr)
-        if printed and page.answer_key and printed != page.answer_key:
-            flags.append("key_mismatch")
-    return flags, score
+    if not layout.answer_key:
+        flags.append("no_key")
+    printed = printed_key("\n".join(lines))
+    if printed and layout.answer_key and printed != layout.answer_key:
+        flags.append("key_mismatch")
+    question = {"passage": passage or "", "stem": stem or "", "choices": choices}
+    return {"question": question, "official_explanation": explanation or ""}, flags
 
 
 # ------------------------------------------------------------------ run
 
 
-def data_url(png: bytes) -> str:
-    return "data:image/png;base64," + base64.b64encode(png).decode()
+def numbered(lines: list[str]) -> str:
+    return "\n".join(f"[{i}] {line}" for i, line in enumerate(lines, 1))
 
 
-async def read_pages(model: StructuredLLM, images: dict[int, bytes], concurrency: int = 4) -> dict[int, ScanPage]:
+async def lay_out(model: StructuredLLM, ocr: dict[int, list[str]], concurrency: int = 4) -> dict[int, tuple[ScanLayout, list[str]]]:
+    """A layout and the lines it refers to, for each page that starts a question."""
     gate = asyncio.Semaphore(concurrency)
-    order = sorted(images)
+    order = sorted(ocr)
 
-    async def one(n: int, with_next: bool = False) -> ScanPage | None:
-        shots = [data_url(images[n])] + ([data_url(images[n + 1])] if with_next and n + 1 in images else [])
-        note = "The question continues on the second image; read both as one page." if len(shots) > 1 else "Read this page."
+    async def one(n: int, lines: list[str], label: str) -> ScanLayout | None:
         async with gate:
             started = time.monotonic()
             try:
-                page = await model.complete(SCAN_SYSTEM, note, ScanPage, temperature=0.0, images=shots)
+                layout = await model.complete(LAYOUT_SYSTEM, numbered(lines), ScanLayout, temperature=0.0)
             except Exception as e:  # noqa: BLE001 — one unreadable page should not stop the book
-                print(f"[scan] page {n}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
+                print(f"[scan] page {label}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
                 return None
-            what = f"question {page.number or '?'}" if page.kind == "question" else "no question"
-            print(f"[scan] page {n}{'+' + str(n + 1) if len(shots) > 1 else ''}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
-            return page
+            what = f"question {layout.number or '?'}" if layout.kind == "question" else "no question"
+            print(f"[scan] page {label}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
+            return layout
 
-    first = dict(zip(order, await asyncio.gather(*(one(n) for n in order)), strict=True))
-    out: dict[int, ScanPage] = {}
+    candidates = [n for n in order if has_options(ocr[n])]
     for n in order:
-        page = first[n]
-        if page is None or page.kind != "question" or page.starts_mid_question:
+        if n not in candidates:
+            print(f"[scan] page {n}: no options found by OCR, skipped", file=sys.stderr)
+    first = dict(zip(candidates, await asyncio.gather(*(one(n, ocr[n], str(n)) for n in candidates)), strict=True))
+    out: dict[int, tuple[ScanLayout, list[str]]] = {}
+    for n in candidates:
+        layout, lines = first[n], ocr[n]
+        if layout is None or layout.kind != "question" or layout.starts_mid_question:
             continue
-        if page.continues_on_next_page and n + 1 in images:
-            page = await one(n, with_next=True) or page
-        out[n] = page
+        if layout.continues_on_next_page and n + 1 in ocr:
+            lines = ocr[n] + ocr[n + 1]
+            layout = await one(n, lines, f"{n}+{n + 1}") or layout
+        out[n] = (layout, lines)
     return out
 
 
-def build_dataset(
-    pages: dict[int, ScanPage], images: dict[int, bytes], ocr: Callable[[bytes], str] | None, dataset: str, book: str
-) -> dict:
+def build_dataset(layouts: dict[int, tuple[ScanLayout, list[str]]], dataset: str, book: str, engine: str) -> dict:
     items = []
-    for n, page in sorted(pages.items()):
-        text = None
-        if ocr is not None:
-            text = ocr(images[n]) + ("\n" + ocr(images[n + 1]) if page.continues_on_next_page and n + 1 in images else "")
-        flags, score = check(page, text)
+    for n, (layout, lines) in sorted(layouts.items()):
+        fields, flags = assemble(layout, lines)
         items.append(
             {
                 "entry_id": n,
                 "book": book,
                 "page": str(n),
-                "number": page.number,
-                "family": page.family,
-                "subtype": page.subtype,
-                "answer_key": page.answer_key,
+                "number": layout.number,
+                "family": layout.family,
+                "subtype": layout.subtype,
+                "answer_key": layout.answer_key,
                 "key_verdict": "book",
-                "question": {"passage": page.passage, "stem": page.stem, "choices": [c.model_dump() for c in page.choices]},
-                "official_explanation": page.official_explanation,
-                "option_traps": [t.model_dump() for t in page.option_traps],
-                "ocr_agreement": score,
+                **fields,
+                "option_traps": [t.model_dump() for t in layout.option_traps],
                 "flags": flags,
                 "flagged": bool(flags),
             }
         )
-    return {"dataset": dataset, "source": "scan", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
+    return {"dataset": dataset, "source": f"scan+{engine}", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
 
 
 def inside_repo(path: Path) -> bool:
@@ -257,26 +274,36 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--book", default="")
     ap.add_argument("--dataset", default="official-cr-v1")
-    ap.add_argument("--ocr", choices=["apple", "tesseract", "none"], default="apple" if sys.platform == "darwin" else "tesseract")
+    ap.add_argument("--ocr-only", action="store_true", help="run OCR and report what it found, without any model call")
+    ap.add_argument("--ocr", choices=sorted(OCR_ENGINES), default="apple" if sys.platform == "darwin" else "tesseract")
     args = ap.parse_args(argv)
     if inside_repo(args.out):
         sys.exit("Refusing to write book text inside the repository; choose a path outside it.")
+
+    if args.ocr_only:
+        for n, png in render_pages(args.pdf, parse_pages(args.pages)).items():
+            started = time.monotonic()
+            lines = OCR_ENGINES[args.ocr](png)
+            found = "options found" if has_options(lines) else "no options"
+            print(f"page {n}: {len(lines)} lines, {found}, key {printed_key(chr(10).join(lines)) or '-'} ({time.monotonic() - started:.1f}s)")
+        return
 
     # Retries and schema fallbacks are logged as warnings; show them while a long book runs.
     logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
     settings = load_settings()
     model = make_llm(settings.primary, timeout=settings.timeout_seconds)
     images = render_pages(args.pdf, parse_pages(args.pages))
-    print(f"[scan] {len(images)} pages rendered; reading them with {model.model} (4 at a time)…", file=sys.stderr)
-    pages = asyncio.run(read_pages(model, images))
-    data = build_dataset(pages, images, None if args.ocr == "none" else OCR_ENGINES[args.ocr], args.dataset, args.book)
+    started = time.monotonic()
+    ocr = {n: OCR_ENGINES[args.ocr](png) for n, png in images.items()}
+    print(f"[scan] {len(ocr)} pages read by {args.ocr} OCR in {time.monotonic() - started:.0f}s; laying them out with {model.model}…", file=sys.stderr)
+    data = build_dataset(asyncio.run(lay_out(model, ocr)), args.dataset, args.book, args.ocr)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1, ensure_ascii=False))
     flagged = [i for i in data["items"] if i["flagged"]]
     print(f"{len(images)} pages → {len(data['items'])} questions, {len(flagged)} flagged → {args.out}")
     for i in flagged:
-        print(f"  page {i['page']} #{i['number']}: {', '.join(i['flags'])} (agreement {i['ocr_agreement']})")
+        print(f"  page {i['page']} #{i['number']}: {', '.join(i['flags'])}")
     if flagged:
         print("Fix each flagged item in the JSON against the page, then set \"flagged\": false.")
 

@@ -7,83 +7,99 @@ from conftest import ScriptedLLM
 from questionize import import_scan
 from questionize.eval_e1 import load_dataset
 from questionize.import_scan import (
-    ScanPage,
-    agreement,
+    ScanLayout,
+    assemble,
     build_dataset,
-    check,
-    ocr_key,
+    has_options,
+    join_lines,
+    lay_out,
     parse_pages,
-    read_pages,
 )
 
-CHOICES = [{"label": label, "text": f"Option {label} about the new bike lanes."} for label in "ABCDE"]
-OCR_TEXT = (
-    "Questions 12\nAccidents fell after the city opened bike lanes on Main Street.\n"
-    "Which of the following most seriously weak-\nens the argument?\n"
-    + "\n".join(f"({c['label']}) {c['text']}" for c in CHOICES)
-    + "\nThe correct answer is B.\nGMAT Official Guide 2025"
-)
+PAGE = [
+    "Critical Reasoning Answer Explanations",  # 1 running title
+    "12. Accidents fell after the city opened bike",  # 2
+    "lanes on Main Street.",  # 3
+    "Which of the following most seriously weak-",  # 4
+    "ens the argument?",  # 5
+    "(A) Bike sales rose.",  # 6
+    "(B) Speed cameras were installed the same year.",  # 7
+    "(C) The lanes are painted green.",  # 8
+    "(D) Other cities built lanes.",  # 9
+    "(E) Some drivers dislike the lanes.",  # 10
+    "Speed cameras offer another cause for the drop.",  # 11
+    "The correct answer is B.",  # 12
+]
 
 
-def page(**over) -> ScanPage:
+def layout(**over) -> ScanLayout:
     base = {
         "kind": "question",
         "number": "12",
         "family": "CR",
         "subtype": "weaken",
-        "passage": "Accidents fell after the city opened bike lanes on Main Street.",
-        "stem": "Which of the following most seriously weakens the argument?",
-        "choices": CHOICES,
+        "passage": {"first": 2, "last": 3},
+        "stem": {"first": 4, "last": 5},
+        "choices": [{"label": label, "first": 6 + i, "last": 6 + i} for i, label in enumerate("ABCDE")],
+        "explanation": {"first": 11, "last": 12},
         "answer_key": "B",
-        "official_explanation": "Book explanation text.",
         "option_traps": [{"label": "A", "trap": "irrelevant", "why": "Off the causal claim."}],
     }
-    return ScanPage.model_validate(base | over)
+    return ScanLayout.model_validate(base | over)
 
 
 def test_parse_pages():
     assert parse_pages("3-5, 9") == [3, 4, 5, 9]
 
 
-def test_agreement_ignores_hyphenation_and_headers_but_catches_invented_text():
-    assert agreement(import_scan.question_text(page()), OCR_TEXT) == 1.0
-    invented = page(passage="Accidents fell sharply after the city opened protected bike lanes on Main Street last spring.")
-    assert agreement(import_scan.question_text(invented), OCR_TEXT) < import_scan.AGREEMENT_FLOOR
+def test_join_lines_undoes_hyphenation():
+    assert join_lines(["most seriously weak-", "ens the argument?"]) == "most seriously weakens the argument?"
+    assert join_lines(["a well-", "Known case"]) == "a well- Known case"
 
 
-def test_check_flags_key_and_transcription_problems():
-    assert ocr_key(OCR_TEXT) == "B"
-    assert check(page(), OCR_TEXT) == ([], 1.0)
-    flags, _ = check(page(answer_key="D"), OCR_TEXT)
+def test_assemble_takes_the_printed_text_by_line_number():
+    fields, flags = assemble(layout(), PAGE)
+    assert flags == []
+    q = fields["question"]
+    assert q["passage"] == "12. Accidents fell after the city opened bike lanes on Main Street."
+    assert q["stem"] == "Which of the following most seriously weakens the argument?"
+    assert q["choices"][1] == {"label": "B", "text": "Speed cameras were installed the same year."}
+    assert fields["official_explanation"].endswith("The correct answer is B.")
+
+
+def test_assemble_flags_bad_layouts():
+    _, flags = assemble(layout(answer_key="D"), PAGE)
     assert flags == ["key_mismatch"]
-    flags, score = check(page(answer_key=None, choices=CHOICES[:4]), None)
-    assert flags == ["no_key", "choices_incomplete"] and score is None
+    _, flags = assemble(layout(answer_key=None, stem={"first": 4, "last": 99}, choices=[]), PAGE)
+    assert flags == ["missing_text", "choices_incomplete", "no_key"]
 
 
-def test_read_pages_joins_a_question_that_runs_onto_the_next_page():
-    joined = page(official_explanation="Explanation across both pages.")
+def test_lay_out_skips_pages_without_options_and_joins_continuations():
+    intro = ["Chapter 7", "Critical Reasoning Answer Explanations"]
+    tail = ["of the drop, so the conclusion does not follow."]
     model = ScriptedLLM(
-        ScanPage=[
-            page(continues_on_next_page=True),  # page 10, first pass
-            page(starts_mid_question=True),  # page 11
-            ScanPage(kind="not_a_question"),  # page 12
-            joined,  # page 10 with 11
+        ScanLayout=[
+            layout(continues_on_next_page=True),  # page 2, first pass
+            layout(explanation={"first": 11, "last": 13}),  # page 2 with 3
         ]
     )
-    images = {10: b"p10", 11: b"p11", 12: b"p12"}
-    pages = asyncio.run(read_pages(model, images, concurrency=1))
-    assert list(pages) == [10] and pages[10].official_explanation == "Explanation across both pages."
-    assert model.images == [import_scan.data_url(b"p10"), import_scan.data_url(b"p11")]
+    out = asyncio.run(lay_out(model, {1: intro, 2: PAGE, 3: tail}, concurrency=1))
+    assert list(out) == [2]
+    chosen, lines = out[2]
+    assert len(lines) == len(PAGE) + 1 and chosen.explanation.last == 13
+    # Only OCR'd text goes to the model, as numbered lines; never an image.
+    assert len(model.calls) == 2 and model.calls[0][1].startswith("[1] Critical Reasoning")
+    assert not hasattr(model, "images")
+    assert has_options(PAGE) and not has_options(intro)
 
 
 def test_dataset_round_trips_into_e1_and_skips_flagged_items(tmp_path):
-    pages = {10: page(), 11: page(answer_key="D")}
-    data = build_dataset(pages, {10: b"x", 11: b"y"}, lambda png: OCR_TEXT, "official-cr-v1", "Official Guide")
+    data = build_dataset({10: (layout(), PAGE), 11: (layout(answer_key="D"), PAGE)}, "official-cr-v1", "Official Guide", "apple")
     assert [i["flags"] for i in data["items"]] == [[], ["key_mismatch"]]
     path = tmp_path / "ds.json"
     path.write_text(json.dumps(data))
     _, _, items, excluded = load_dataset(path)
-    assert [i.entry_id for i in items] == [10] and items[0].official_explanation == "Book explanation text."
+    assert [i.entry_id for i in items] == [10] and items[0].official_explanation.endswith("answer is B.")
     assert excluded["flagged_scan"] == 1
 
 
