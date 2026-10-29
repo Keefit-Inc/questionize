@@ -13,7 +13,7 @@ Questionize is a reasoning tutor for Critical Reasoning and Reading Comprehensio
   - its difficulty (1–5), what the question writer set out to test, and the skills to practice;
   - why your answer was tempting: the trap it set and the belief behind your choice;
   - every option explained, in our own words;
-  - new practice questions on different topics that set the same trap. Once verified they join the shared bank for everyone, and the same design is re-pitched in the background for other levels (Grades 6–8, 9–12, College by default), so one GMAT miss also stocks the school levels.
+  - new practice questions on different topics that set the same trap. Once verified they join the shared bank for everyone. The same design can later be re-pitched for other levels once it is corroborated, so adult-test misses also stock the school levels.
 
   Photos are read once and deleted; the server keeps no copy of the book's text.
 - **Questions.** *My misses* collects the questions you snapped and the bank questions you missed, with previous / next and swipe between Question, Analysis and Practice; *Bank* is the shared, rated question bank with **For you** picks; *Archived* holds what you've mastered.
@@ -53,6 +53,15 @@ After publication, learners' answers, votes and reports keep checking each quest
 
 **Cross-model verification:** set `SOLVER_PROVIDER=baseten` to have **Muse Spark Open** (open weights, `meta-models/muse-spark-open-1026`) solve items written by **Muse Spark 1.3** on the Meta Model API.
 
+## The core problem, and how we test our answer
+
+Asking a language model for "an LSAT question" is easy; getting one with exactly one defensible answer, distractors that fail for the right reasons, and an explanation that is actually correct is not. Questionize is built around two research questions, each answered with measurements rather than demos:
+
+1. **Can a general LLM be turned into a reliable question writer and explainer without retraining it?** We compare, on the same official-style items with known answer keys: one model asked directly; our verification loop (blind solver, critic, Argument Judge); a debate between two different Meta models; and the loop plus a growing memory of question designs learned from real missed questions. Measures: solving accuracy against the key, explanation correctness rated blind by people, first-pass verification rate, judge margin, ambiguity rate, and, once published, real answer statistics.
+2. **Can a learner's own missed questions reveal their competencies and what to practice?** A profile built from snapped misses (skills, traps, misconceptions) is checked against what the learner gets wrong next, against expert labels of the misconception, and against whether same-trap practice lowers their rate of falling for that trap.
+
+Protocols, the experiment ledger and results live in [`research/`](research/README.md); decisions and their reasons are recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
 ## Repository layout
 
 ```
@@ -76,7 +85,8 @@ ai/                 FastAPI AI service with the agent pipeline (internal only)
   eval/               gold-set format for scoring the Argument Judge
   tests/              offline tests with scripted models
 packages/shared/    TypeScript types, API client, Action Cable helpers and shared Vue components
-docs/               architecture, knowledge model, learning model (assessment, levels, quality), deployment
+docs/               architecture, knowledge model, learning model (assessment, levels, quality), decisions, deployment
+research/           research questions, preregistered protocols, experiment ledger and results
 ```
 
 ## Run it locally

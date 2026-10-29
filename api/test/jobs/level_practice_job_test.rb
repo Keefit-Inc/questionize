@@ -35,7 +35,9 @@ class LevelPracticeJobTest < ActiveJob::TestCase
     assert_equal 0, Item.count
   end
 
-  test "a snapped question's design fans out to the other levels" do
+  test "a snapped question's design fans out to the configured levels other than the learner's" do
+    levels = Rails.configuration.x.practice_fanout_levels
+    Rails.configuration.x.practice_fanout_levels = %w[middle high college]
     user = User.create!(level: "high")
     run = GenerationRun.create!(user: user, kind: "error_log", params: {})
     assert_enqueued_jobs 2, only: LevelPracticeJob do
@@ -43,6 +45,15 @@ class LevelPracticeJobTest < ActiveJob::TestCase
     end
     assert_no_enqueued_jobs only: LevelPracticeJob do
       GenerationRuns::Recorder.new(GenerationRun.create!(user: user, kind: "error_log", params: {})).record(diagnosis_event(observation: false))
+    end
+  ensure
+    Rails.configuration.x.practice_fanout_levels = levels
+  end
+
+  test "fan-out is off unless levels are configured" do
+    assert_empty Rails.configuration.x.practice_fanout_levels
+    assert_no_enqueued_jobs only: LevelPracticeJob do
+      GenerationRuns::Recorder.new(GenerationRun.create!(user: User.create!, kind: "error_log", params: {})).record(diagnosis_event)
     end
   end
 

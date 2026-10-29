@@ -66,7 +66,7 @@ A learner chooses who they study as. From then on everything written for them is
 
 **Filling every level [built].** Two sources of questions for levels nobody is snapping at yet:
 
-- *Fan-out.* When a snapped question's abstract design passes the leak checks, background jobs write one practice question from the same design for each level in `PRACTICE_FANOUT_LEVELS` (default Grades 6–8, Grades 9–12, College & adult), besides the learner's own level. A design whose skill is out of scope for a level (an LSAT flaw question for Grades 3–5) is skipped, not forced. So a GMAT or LSAT learner's misses also stock the school levels.
+- *Fan-out.* When a snapped question's abstract design passes the leak checks, background jobs can write one practice question from the same design for each level in `PRACTICE_FANOUT_LEVELS` (for example Grades 6–8, Grades 9–12, College & adult), besides the learner's own level. It is off by default: designs are learned first, and level-wide generation waits until a design is corroborated by several independent sources (DECISIONS R3). A design whose skill is out of scope for a level (an LSAT flaw question for Grades 3–5) is skipped, not forced. So a GMAT or LSAT learner's misses also stock the school levels.
 - *Seed designs.* `api/db/seeds/designs.json` holds twelve abstract designs written for Questionize from the Common Core RI.x.8 progression, with the reasoning patterns and traps typical of younger readers (one example taken as a rule, an on-topic but irrelevant fact, a vivid detail mistaken for the main idea). `bin/rails questionize:seed_designs` queues practice for each design at each of its levels (`LEVELS=` to limit, `COUNT=` per design and level).
 
 Designs taken only from adult tests carry adult traps; the seed designs cover what younger readers get wrong until their own answers can be measured. Released NAEP reading items (public domain) are the next source of school-level designs **[later]**.
@@ -121,7 +121,11 @@ Readability (Flesch–Kincaid grade) of passages and explanations, computed per 
 - Same-trap retest: on a learner's next question that offers the trap they fell for, the trap is chosen less often than their earlier rate.
 - Skill rating change over 2 weeks for active learners, compared with learners who don't use recommendations.
 
-## 7. What is built and what is next
+## 7. Data and modeling approach
+
+Psychometrics before machine learning: Elo now, Rasch / IRT per level offline when items have enough answers, Bayesian Knowledge Tracing per skill once answer sequences exist; recommendation rules evaluated by observed success before any learned recommender. The knowledge graph stays in PostgreSQL tables, similarity search uses pgvector in the same database, and generation improves through measured prompt and memory changes before any fine-tuning. Reasons in `DECISIONS.md` D1–D6; experiments in `research/`.
+
+## 8. What is built and what is next
 
 | Area | Built | Next | Later |
 |---|---|---|---|
