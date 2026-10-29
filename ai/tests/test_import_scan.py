@@ -30,12 +30,13 @@ def structure(**over) -> PageStructure:
         "number": "12",
         "passage": "Accidents fell after the city opened bike lanes on Main Street.",
         "stem": "Which of the following most seriously weakens the argument?",
-        "options": [{"label": line[1], "text": line[4:]} for line in PAGE[5:10]],
+        **{f"option_{line[1].lower()}": line[4:] for line in PAGE[5:10]},
         "answer_key": "B",
         "explanation": "Speed cameras offer another cause for the drop.",
-        "option_explanations": [{"label": "A", "text": "Sales do not bear on the cause."}],
+        "explanation_a": "Sales do not bear on the cause.",
         "subtype": "weaken",
-        "option_traps": [{"label": "A", "trap": "irrelevant"}],
+        "trap_a": "irrelevant",
+        "trap_b": "a made-up trap",
     }
     return PageStructure.model_validate(base | over)
 
@@ -50,7 +51,7 @@ def test_join_lines_undoes_hyphenation():
 
 
 def test_an_incomplete_question_is_sent_back_to_the_model():
-    with pytest.raises(ValueError, match="passage, stem, options"):
+    with pytest.raises(ValueError, match="passage, stem, option_a, option_b, option_c, option_d, option_e, answer_key"):
         PageStructure.model_validate({"kind": "question"})
     assert PageStructure.model_validate({"kind": "not_a_question"}).options == []
 

@@ -3,7 +3,7 @@
     python -m questionize.eval_e4 ~/private/og-rules.json ~/private/og-model.json --out ~/private/official-cr-v1.json
 
 Two independent captures of the same pages, layout rules (R) and the model structuring OCR text (M-text),
-are matched by question number and compared field by field. Where they agree on every field and the key,
+are matched by the page each question starts on and compared field by field. Where they agree on every field and the key,
 the item is taken as verified; where they disagree it is flagged for a person to check against the page
 (research/protocols/E4-capture.md). Until a person has checked a sample, agreement between R and M is
 reported as agreement, not accuracy.
@@ -55,11 +55,12 @@ def split_of(dataset: str, number: str) -> str:
 
 
 def compare(rules: list[dict], model: list[dict], dataset: str) -> tuple[list[dict], dict]:
-    by_number = {i["number"]: i for i in rules if i.get("number")}
+    # Both captures record the page a question starts on; numbers can be missing where OCR dropped them.
+    by_page = {i["page"]: i for i in rules}
     merged, field_same = [], {f: 0 for f in (*FIELDS, "key")}
     matched = agreed = 0
     for m in model:
-        r = by_number.get(m.get("number"))
+        r = by_page.get(m.get("page"))
         if r is None:
             merged.append(m | {"flags": [*m.get("flags", []), "no_rules_match"], "flagged": True})
             continue
@@ -78,7 +79,8 @@ def compare(rules: list[dict], model: list[dict], dataset: str) -> tuple[list[di
         ok = not flags
         agreed += ok
         # The model's capture carries the explanation split by option and the trap tags; keep it.
-        merged.append(m | {"flags": flags, "flagged": not ok, "split": split_of(dataset, m["number"]) if ok else ""})
+        number = m.get("number") or r.get("number", "")
+        merged.append(m | {"number": number, "flags": flags, "flagged": not ok, "split": split_of(dataset, number or m["page"]) if ok else ""})
     n = max(matched, 1)
     summary = {
         "R_vs_Mtext": {"primary": round(agreed / n, 4), "ci95": wilson(agreed, matched), "n": matched},

@@ -34,7 +34,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -63,7 +63,11 @@ marks, but never reword, shorten, summarize or correct the book. If the page hol
 continues_on_next_page.
 
 Finally, in your own words (never quoting the book), give the question's sub-type and, for each option, \
-the trap it sets or "correct"."""
+the trap it sets or "correct". Put each option, each per-option explanation and each trap in its own field \
+(option_a ... option_e, explanation_a ... explanation_e, trap_a ... trap_e)."""
+
+
+TRAPS: tuple[str, ...] = get_args(TrapType)
 
 
 class TextChoice(BaseModel):
@@ -77,17 +81,47 @@ class OptionTrap(BaseModel):
 
 
 class PageStructure(BaseModel):
+    """Flat fields only: Muse's structured output breaks on arrays of objects (seen at "options"), while plain
+    string fields come back clean."""
+
     kind: Literal["question", "not_a_question"]
     number: str = ""
     passage: str = ""
     stem: str = ""
-    options: list[TextChoice] = []
+    option_a: str = ""
+    option_b: str = ""
+    option_c: str = ""
+    option_d: str = ""
+    option_e: str = ""
     answer_key: Label | None = None
     explanation: str = Field("", description="The book's explanation before the per-option paragraphs (Situation, Reasoning)")
-    option_explanations: list[TextChoice] = Field([], description="The book's paragraph on each option, A to E")
+    explanation_a: str = Field("", description="The book's paragraph on option A")
+    explanation_b: str = ""
+    explanation_c: str = ""
+    explanation_d: str = ""
+    explanation_e: str = ""
     subtype: str = Field("", description="weaken, strengthen, assumption, flaw, evaluate, inference, explain, structure")
-    option_traps: list[OptionTrap] = []
+    trap_a: str = Field("", description="correct, or the trap option A sets: " + ", ".join(TRAPS))
+    trap_b: str = ""
+    trap_c: str = ""
+    trap_d: str = ""
+    trap_e: str = ""
     continues_on_next_page: bool = False
+
+    def _by_letter(self, prefix: str) -> list[tuple[str, str]]:
+        return [(label, getattr(self, f"{prefix}_{label.lower()}").strip()) for label in "ABCDE"]
+
+    @property
+    def options(self) -> list[TextChoice]:
+        return [TextChoice(label=label, text=text) for label, text in self._by_letter("option") if text]
+
+    @property
+    def option_explanations(self) -> list[TextChoice]:
+        return [TextChoice(label=label, text=text) for label, text in self._by_letter("explanation") if text]
+
+    @property
+    def option_traps(self) -> list[OptionTrap]:
+        return [OptionTrap(label=label, trap=trap) for label, trap in self._by_letter("trap") if trap in TRAPS]
 
     @model_validator(mode="after")
     def _complete_question(self) -> PageStructure:
@@ -95,8 +129,7 @@ class PageStructure(BaseModel):
         # and a failure here goes back to the model as a correction request.
         if self.kind == "question":
             missing = [name for name in ("passage", "stem") if not getattr(self, name).strip()]
-            if sorted(o.label for o in self.options) != ["A", "B", "C", "D", "E"]:
-                missing.append("options (one for each of A-E)")
+            missing += [f"option_{label.lower()}" for label, text in self._by_letter("option") if not text]
             if self.answer_key is None:
                 missing.append("answer_key")
             if missing:
