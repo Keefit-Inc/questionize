@@ -347,6 +347,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--split", choices=["all", "train", "test"], default="all", help="items of one split only (set by eval_e4)")
     ap.add_argument("--memory", type=Path, help="lessons learned on the train split (questionize.memory); conditions become B0+M, …")
+    ap.add_argument("--note", default="", help="what changed in this run, for the capability's improvement history")
     ap.add_argument("--baseline", type=Path, help="run directory of the same conditions without memory, to pair against")
     args = ap.parse_args(argv)
 
@@ -381,6 +382,7 @@ def main(argv: list[str] | None = None) -> None:
         "split": args.split,
         "memory": {"hash": hashlib.sha256(args.memory.read_bytes()).hexdigest()[:16], "lessons": sum(len(v) for v in memory.values())} if memory else None,
         "baseline_run": args.baseline.name if args.baseline else None,
+        "note": args.note,
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
     with (run_dir / "results.jsonl").open("w") as f:
@@ -390,7 +392,7 @@ def main(argv: list[str] | None = None) -> None:
     write_rating_sheet(run_dir, outcomes, {i.entry_id: i for i in items}, random.Random(args.seed))
 
     # The ledger holds identifiers and aggregate numbers only: no item text, no local paths.
-    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "capabilities", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded", "split", "memory", "baseline_run")}
+    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "capabilities", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded", "split", "memory", "baseline_run", "note")}
     line["summary"] = summary
     args.ledger.parent.mkdir(parents=True, exist_ok=True)
     with args.ledger.open("a") as f:

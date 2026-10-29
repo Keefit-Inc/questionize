@@ -76,5 +76,5 @@ python -m questionize.memory ~/private/official-cr-v1.json --out ~/questionize-r
 python -m questionize.eval_e1 ~/private/official-cr-v1.json --split test --conditions B0,B1 \
     --memory ~/questionize-research/memory/cr-v1.json --baseline ~/questionize-research/runs/<baseline run id>
 # 6. Scoreboard
-python -m questionize.scoreboard > ../research/results/SCOREBOARD.md
+python -m questionize.scoreboard   # SCOREBOARD.md and each capability's HISTORY.md
 ```

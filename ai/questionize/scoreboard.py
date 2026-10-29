@@ -1,6 +1,7 @@
-"""Turn the experiment ledger into a scoreboard: the latest result for each capability against its bar.
+"""Turn the experiment ledger into a scoreboard and per-capability improvement histories.
 
-    python -m questionize.scoreboard [../research/ledger.jsonl] > ../research/results/SCOREBOARD.md
+    python -m questionize.scoreboard            # writes research/results/SCOREBOARD.md and
+                                                # research/capabilities/C*/HISTORY.md
 
 The capabilities, their primary measures and bars are those in research/README.md. A run marked
 invalidated by a later ledger line is left out.
@@ -12,7 +13,8 @@ import json
 import sys
 from pathlib import Path
 
-LEDGER = Path(__file__).resolve().parents[2] / "research" / "ledger.jsonl"
+RESEARCH = Path(__file__).resolve().parents[2] / "research"
+LEDGER = RESEARCH / "ledger.jsonl"
 
 CAPABILITIES: list[tuple[str, str, str]] = [
     ("C1.1", "Capture: extract", "items with every role right ≥ 98%; CER ≤ 1% scans, ≤ 2% photos"),
@@ -73,9 +75,44 @@ def render(rows: list[dict]) -> str:
     return "\n".join(out) + "\n"
 
 
+def history(rows: list[dict], capability: str) -> str:
+    """Every run that measured a capability (C3 matches C3.1, C3.2, …), oldest first: what changed and the result."""
+    runs = sorted((r for r in rows if any(c.split(".")[0] == capability for c in r.get("capabilities", []))), key=lambda r: r.get("started_at", ""))
+    out = [
+        f"# {capability} improvement history",
+        "",
+        (
+            "Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do not edit by hand. "
+            "Each row is one run; a change is kept only if it beats the previous version on the capability's primary measure."
+        ),
+        "",
+        "| Date | Run | Protocol | What changed | Models | Result |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in runs:
+        out.append(
+            f"| {r.get('started_at', '')[:10]} | {r['run_id']} | {r['protocol']} v{r.get('protocol_version', 1)} "
+            f"| {r.get('note') or ''} | {', '.join(r.get('models', {}).values())} | {headline(r.get('summary', {}))} |"
+        )
+    if not runs:
+        out.append("| | | | not measured yet | | |")
+    return "\n".join(out) + "\n"
+
+
+def write_all(rows: list[dict], research: Path = RESEARCH) -> list[Path]:
+    written = [research / "results" / "SCOREBOARD.md"]
+    written[0].write_text(render(rows))
+    for folder in sorted((research / "capabilities").glob("C*-*")):
+        path = folder / "HISTORY.md"
+        path.write_text(history(rows, folder.name.split("-")[0]))
+        written.append(path)
+    return written
+
+
 def main(argv: list[str] | None = None) -> None:
     args = argv if argv is not None else sys.argv[1:]
-    print(render(load(Path(args[0]) if args else LEDGER)), end="")
+    for path in write_all(load(Path(args[0]) if args else LEDGER)):
+        print(path)
 
 
 if __name__ == "__main__":
