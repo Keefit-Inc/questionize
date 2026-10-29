@@ -132,3 +132,21 @@ def test_render_pages_reads_a_pdf(tmp_path):
     doc.save(str(pdf))
     images = import_scan.render_pages(pdf, [1, 2, 3], dpi=72)
     assert sorted(images) == [1, 2] and images[1].startswith(b"\x89PNG")
+
+
+def test_merge_rows_puts_markers_and_labels_on_their_lines():
+    # Two-column rows as Vision reports them: separate boxes, slightly different heights, any order.
+    boxes = [
+        ("At least some animals recall every detail.", [0.16, 0.648, 0.70, 0.014]),
+        ("(A)", [0.12, 0.6485, 0.02, 0.013]),
+        ("The neuroscientist's statements most strongly support which?", [0.12, 0.672, 0.70, 0.014]),
+        ("(B)", [0.12, 0.627, 0.02, 0.013]),
+        ("Perfectly recalling every detail could help", [0.16, 0.626, 0.70, 0.014]),
+        ("some animals react more appropriately.", [0.16, 0.609, 0.70, 0.014]),
+    ]
+    assert import_scan.merge_rows(boxes) == [
+        "The neuroscientist's statements most strongly support which?",
+        "(A) At least some animals recall every detail.",
+        "(B) Perfectly recalling every detail could help",
+        "some animals react more appropriately.",
+    ]

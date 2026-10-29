@@ -50,6 +50,11 @@ and last line of the passage (the argument), of the question stem, of each answe
 book's explanation. Leave out page headers, footers, running titles and question-type banners. Record the \
 letter the book gives as the correct answer, the question number, and the sub-type.
 
+In this kind of book a page usually reads: the question number and the passage; the question stem; options \
+marked (A) to (E); a reasoning-type banner (for example "Argument Construction"); the explanation, often \
+with labels such as "Situation" and "Reasoning" and a line per option marked A to E; and "The correct \
+answer is X." The explanation runs from the banner to that sentence.
+
 For every option, give the trap it sets (or "correct") and a short reason in your own words (at most 15 \
 words, never quoting the book).
 
@@ -135,9 +140,21 @@ def apple_ocr(png: bytes) -> list[str]:
         f.write(png)
         f.flush()
         rows = ocrmac.OCR(f.name, recognition_level="accurate", language_preference=["en-US"]).recognize()
-    # Vision returns lines bottom-up in normalized coordinates; sort top to bottom, then left to right.
-    rows.sort(key=lambda r: (-round(r[2][1] + r[2][3], 2), r[2][0]))
-    return [r[0] for r in rows]
+    return merge_rows([(text, box) for text, _confidence, box in rows])
+
+
+def merge_rows(boxes: list[tuple[str, list[float]]]) -> list[str]:
+    """Vision returns separate boxes for "(A)" and its text, or "Situation" and its paragraph line, in
+    normalized coordinates with the origin at the bottom left. Put boxes whose vertical centres fall within
+    half a line height of each other on one line, left to right, and order the lines top to bottom."""
+    lines: list[tuple[float, float, list[tuple[float, str]]]] = []  # (centre, height, [(x, text)])
+    for text, (x, y, _w, h) in sorted(boxes, key=lambda b: -(b[1][1] + b[1][3] / 2)):
+        centre = y + h / 2
+        if lines and abs(lines[-1][0] - centre) < 0.5 * min(lines[-1][1], h):
+            lines[-1][2].append((x, text))
+        else:
+            lines.append((centre, h, [(x, text)]))
+    return [" ".join(text for _, text in sorted(parts)) for _, _, parts in lines]
 
 
 def tesseract_ocr(png: bytes) -> list[str]:
