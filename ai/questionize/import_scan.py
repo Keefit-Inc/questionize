@@ -40,6 +40,8 @@ from .schemas import Label, TrapType
 
 REPO = Path(__file__).resolve().parents[2]
 RENDER_DPI = 200
+# Line spacing inside a paragraph is about 1.0x; between options about 1.2x; between paragraphs about 1.5x.
+PARAGRAPH_GAP = 1.35
 # "(A) text", "A. text", "A) text", or the letter alone on its line with the text beside it in another column.
 MARKER = re.compile(r"^[(\[]?([A-E])\s*[).:\]]?(?:\s+\S|$)")
 
@@ -146,7 +148,8 @@ def apple_ocr(png: bytes) -> list[str]:
 def merge_rows(boxes: list[tuple[str, list[float]]]) -> list[str]:
     """Vision returns separate boxes for "(A)" and its text, or "Situation" and its paragraph line, in
     normalized coordinates with the origin at the bottom left. Put boxes whose vertical centres fall within
-    half a line height of each other on one line, left to right, and order the lines top to bottom."""
+    half a line height of each other on one line, left to right, and order the lines top to bottom. A gap
+    clearly wider than the usual line spacing becomes an empty line: a paragraph break."""
     lines: list[tuple[float, float, list[tuple[float, str]]]] = []  # (centre, height, [(x, text)])
     for text, (x, y, _w, h) in sorted(boxes, key=lambda b: -(b[1][1] + b[1][3] / 2)):
         centre = y + h / 2
@@ -154,14 +157,22 @@ def merge_rows(boxes: list[tuple[str, list[float]]]) -> list[str]:
             lines[-1][2].append((x, text))
         else:
             lines.append((centre, h, [(x, text)]))
-    return [" ".join(text for _, text in sorted(parts)) for _, _, parts in lines]
+    gaps = sorted(a[0] - b[0] for a, b in zip(lines, lines[1:], strict=False))
+    usual = gaps[len(gaps) // 2] if gaps else 0.0
+    out: list[str] = []
+    for i, (centre, _, parts) in enumerate(lines):
+        if i and usual and lines[i - 1][0] - centre > PARAGRAPH_GAP * usual:
+            out.append("")
+        out.append(" ".join(text for _, text in sorted(parts)))
+    return out
 
 
 def tesseract_ocr(png: bytes) -> list[str]:
     if not shutil.which("tesseract"):
         raise RuntimeError("tesseract is not installed (brew install tesseract)")
     out = subprocess.run(["tesseract", "stdin", "stdout", "-l", "eng"], input=png, capture_output=True, check=True).stdout.decode()
-    return [line for line in out.splitlines() if line.strip()]
+    # Tesseract marks paragraphs with blank lines already.
+    return [line.strip() for line in out.splitlines()]
 
 
 OCR_ENGINES: dict[str, Callable[[bytes], list[str]]] = {"apple": apple_ocr, "tesseract": tesseract_ocr}
@@ -327,7 +338,7 @@ def boilerplate(pages: dict[int, list[str]]) -> set[str]:
         return set()
     seen: dict[str, int] = {}
     for lines in pages.values():
-        for key in {re.sub(r"\d+", "#", line.strip().lower()) for line in lines[:2] + lines[-2:] if not structural(line)}:
+        for key in {re.sub(r"\d+", "#", line.strip().lower()) for line in [x for x in lines if x.strip()][:2] + [x for x in lines if x.strip()][-2:] if not structural(line)}:
             seen[key] = seen.get(key, 0) + 1
     return {k for k, count in seen.items() if count >= max(3, len(pages) // 3) and len(k) < 80}
 
@@ -344,12 +355,14 @@ def parse_book(pages: dict[int, list[str]]) -> list[dict]:
     noise = boilerplate(pages)
     stream = []
     for n in sorted(pages):
-        lines = [line.strip() for line in pages[n] if line.strip()]
+        lines = [line.strip() for line in pages[n]]
+        last = [i for i, line in enumerate(lines) if line][-2:]
         for i, line in enumerate(lines):
             # A bare number among a page's last lines is its page number; elsewhere it may start a question.
-            if re.fullmatch(r"\d{1,4}", line) and i >= len(lines) - 2:
+            if re.fullmatch(r"\d{1,4}", line) and i in last:
                 continue
-            if re.sub(r"\d+", "#", line.lower()) not in noise:
+            # Empty lines are paragraph breaks and are kept.
+            if not line or re.sub(r"\d+", "#", line.lower()) not in noise:
                 stream.append((n, line))
     items, start = [], 0
     for k, (_, line) in enumerate(stream):
@@ -361,26 +374,64 @@ def parse_book(pages: dict[int, list[str]]) -> list[dict]:
     return [i for i in items if i]
 
 
+def paragraphs(lines: list[str], offset: int = 0) -> list[list[tuple[int, str]]]:
+    out: list[list[tuple[int, str]]] = [[]]
+    for i, line in enumerate(lines):
+        if line:
+            out[-1].append((offset + i, line))
+        elif out[-1]:
+            out.append([])
+    return [p for p in out if p]
+
+
+def split_passage(before_options: list[str]) -> tuple[str, str, str, int]:
+    """(number, passage, stem, index of the passage's first line) from the lines before option (A).
+
+    With paragraph breaks: the stem is the last paragraph and the passage the one before it, which leaves
+    out chapter titles and introductions above it. The question number opens the passage or stands alone
+    just above it. Without breaks: the passage starts at the last numbered line, and the stem is the run of
+    lines after the passage's last sentence-ending line."""
+    paras = paragraphs(before_options)
+    if not paras:
+        return "", "", "", 0
+    number = ""
+    if len(paras) >= 2 and not any(QUESTION_START.match(t) and re.match(r"\d{1,3}[.)]?(\s|$)", t) for _, t in paras[-1]):
+        stem_lines, body = [t for _, t in paras[-1]], paras[-2]
+        # No break between passage and stem: split the last paragraph at its last sentence end instead.
+        cut = len(stem_lines) - 1
+        while cut > 0 and not stem_lines[cut - 1].endswith(TERMINAL):
+            cut -= 1
+        if cut > 0:
+            body, stem_lines = paras[-1][:cut], stem_lines[cut:]
+            paras = [*paras[:-1], body]
+        alone = len(paras) >= 3 and len(paras[-3]) == 1 and re.fullmatch(r"\d{1,3}[.)]?", paras[-3][0][1])
+        if alone:
+            number = re.match(r"\d+", paras[-3][0][1]).group(0)
+        first, text = body[0]
+        if not number and (m := QUESTION_START.match(text)):
+            number, text = m.group(1), m.group(2) or m.group(3) or ""
+        passage_lines = [line for line in [text, *(t for _, t in body[1:])] if line]
+        return number, join_lines(passage_lines), join_lines(stem_lines), first
+
+    flat = [(i, t) for p in paras for i, t in p]
+    q = max((k for k, (_, t) in enumerate(flat) if QUESTION_START.match(t)), default=0)
+    m = QUESTION_START.match(flat[q][1])
+    number = m.group(1) if m else ""
+    rest = (m.group(2) or m.group(3) or "") if m else flat[q][1]
+    body = [line for line in [rest, *(t for _, t in flat[q + 1 :])] if line]
+    stem_from = len(body) - 1
+    while stem_from > 0 and not body[stem_from - 1].endswith(TERMINAL):
+        stem_from -= 1
+    return number, join_lines(body[:stem_from]), join_lines(body[stem_from:]), flat[q][0]
+
+
 def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
     lines = [text for _, text in segment]
     first_option = next((i for i, t in enumerate(lines) if (m := OPTION.match(t)) and m.group(1) == "A"), None)
     if first_option is None:
         return None
-    q = max((i for i in range(first_option) if QUESTION_START.match(lines[i])), default=None)
+    number, passage, stem, q = split_passage(lines[:first_option])
     flags: list[str] = []
-    if q is None:
-        flags.append("no_number")
-        q = 0
-    start = QUESTION_START.match(lines[q])
-    number = start.group(1) if start else ""
-    rest = (start.group(2) or start.group(3) or "") if start else lines[q]
-    body = [line for line in [rest, *lines[q + 1 : first_option]] if line]
-
-    # The stem is the run of lines after the passage's last sentence-ending line.
-    stem_from = len(body) - 1
-    while stem_from > 0 and not body[stem_from - 1].endswith(TERMINAL):
-        stem_from -= 1
-    passage, stem = join_lines(body[:stem_from]), join_lines(body[stem_from:])
 
     # Options (A)-(E) in order; each runs until the next marker; (E) runs until the banner.
     marks: list[tuple[str, int]] = []
@@ -417,7 +468,20 @@ def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
 
 def rules_dataset(pages: dict[int, list[str]], dataset: str, book: str, engine: str) -> dict:
     items = []
-    for parsed in parse_book(pages):
+    parsed_all = parse_book(pages)
+    # Questions are numbered in order: a number OCR missed is the one between its neighbours.
+    for k, parsed in enumerate(parsed_all):
+        if parsed["number"]:
+            continue
+        before = parsed_all[k - 1]["number"] if k else ""
+        after = parsed_all[k + 1]["number"] if k + 1 < len(parsed_all) else ""
+        if before.isdigit():
+            parsed["number"] = str(int(before) + 1)
+        elif after.isdigit() and int(after) > 1:
+            parsed["number"] = str(int(after) - 1)
+        else:
+            parsed["flags"].append("no_number")
+    for parsed in parsed_all:
         items.append(
             {
                 "entry_id": int(parsed["page"]) * 100 + len([i for i in items if i["page"] == parsed["page"]]),

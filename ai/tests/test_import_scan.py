@@ -214,3 +214,42 @@ def test_rules_accept_a_number_without_its_period_or_on_its_own_line():
     assert items[1]["question"]["passage"].startswith("Planner: Accidents")
     # "30 percent of..." in a passage is not a question number.
     assert not import_scan.QUESTION_START.match("30 percent of riders")
+
+
+def test_merge_rows_marks_paragraph_breaks():
+    # Lines 0.017 apart inside a paragraph, 0.025 between paragraphs.
+    ys = [0.80, 0.783, 0.766, 0.741, 0.724]
+    boxes = [(f"line {i}", [0.1, y, 0.7, 0.012]) for i, y in enumerate(ys)]
+    assert import_scan.merge_rows(boxes) == ["line 0", "line 1", "line 2", "", "line 3", "line 4"]
+
+
+def test_paragraphs_separate_the_passage_from_titles_and_an_introduction():
+    page = book_page(1, "E", header=False)
+    lines = [
+        "8.6 Answer Explanations",
+        "",
+        "The following discussion is intended to help you. Remember the strategy,",
+        "not the details.",
+        "",
+        page[0].removeprefix("1. "),  # OCR missed the number in the margin
+        page[1],
+        "",
+        page[2],
+        page[3],
+        "",
+        *page[4:],
+    ]
+    second = book_page(2, "C", header=False)
+    (first, nxt) = import_scan.rules_dataset({1: lines, 2: second}, "d", "b", "apple")["items"]
+    assert first["question"]["passage"] == "Planner: Accidents fell after the city opened bike lanes on Main Street, so bike lanes make streets safer."
+    assert first["question"]["stem"].startswith("Which of the following")
+    # The missing number is filled in from its neighbour, so the item is not flagged.
+    assert first["number"] == "1" and first["flags"] == [] and nxt["number"] == "2"
+
+
+def test_paragraph_split_when_passage_and_stem_run_together():
+    page = book_page(3, "A", header=False)
+    lines = ["Introduction text for the chapter.", "", page[0], page[1], page[2], page[3], "", *page[4:]]
+    (item,) = import_scan.parse_book({1: lines})
+    assert item["number"] == "3" and item["question"]["stem"].startswith("Which of the following")
+    assert item["question"]["passage"].startswith("Planner:")
