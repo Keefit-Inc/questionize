@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "qualifications": [
+    {
+      "id": "capture-emphasis-spans",
+      "applies_to": {
+        "dataset_hash": "f8478fddd1285fd5"
+      },
+      "summary": "This dataset contains 11 usable structure items without explicit emphasis spans: 7 train and 4 test. C3 comparisons are provisional pending capture verification.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E1.md"
+    },
+    {
+      "id": "e1-v2-judge-task-direction",
+      "applies_to": {
+        "protocol": "E1",
+        "protocol_version": 2
+      },
+      "summary": "E1 v2 routes the Argument Judge by subtype alone. EXCEPT tasks can receive an inappropriate ranking direction, and the Judge can override a correct Solver answer.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E1.md"
+    },
+    {
+      "id": "e1-v2-final-confidence",
+      "applies_to": {
+        "protocol": "E1",
+        "protocol_version": 2
+      },
+      "summary": "E1 v2 B1 retains the initial Solver confidence after a Judge override. Its ECE is not validated as confidence in the final decision.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E1.md"
+    }
+  ]
+}

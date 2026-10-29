@@ -138,3 +138,78 @@ def test_command_typo_cannot_replace_reports_with_an_empty_ledger(tmp_path, monk
         scoreboard.main(["cd", ".."])
     with pytest.raises(SystemExit, match="reports were not changed"):
         scoreboard.main([str(tmp_path / "missing.jsonl")])
+
+
+def test_qualifications_match_dataset_and_exact_protocol_version_without_changing_results():
+    definitions = {"schema_version": 1, "qualifications": [
+        {"id": "capture", "applies_to": {"dataset_hash": "dataset-a"}, "summary": "Capture verification pending."},
+        {"id": "method", "applies_to": {"protocol": "E1", "protocol_version": 2}, "summary": "Method requires review."},
+    ]}
+    base = {"run_id": "baseline", "protocol": "E1", "protocol_version": 2, "dataset_hash": "dataset-a",
+            "capabilities": ["C3.1"], "n_items": 39, "summary": {"B0": {"n": 39, "accuracy": .9487}}}
+    memory = base | {"run_id": "memory", "summary": {"B0+M": {"n": 39, "accuracy": .9487, "vs_baseline": {"b": 0, "c": 0, "p": 1, "diff_ci95": [0, 0]}}}}
+    rows = [base, memory, base | {"run_id": "v3", "protocol_version": 3}, base | {"run_id": "new-data", "dataset_hash": "dataset-b"}]
+    data = scoreboard.render_data(rows, definitions)
+    by_id = {r["run_id"]: r for r in data["runs"]}
+    assert [q["id"] for q in by_id["baseline"]["qualifications"]] == ["capture", "method"]
+    assert [q["id"] for q in by_id["v3"]["qualifications"]] == ["capture"]
+    assert [q["id"] for q in by_id["new-data"]["qualifications"]] == ["method"]
+    record = next(r for r in data["records"] if r["run_id"] == "memory")
+    assert record["value"] == .9487 and record["vs_baseline"]["diff_ci95"] == [0, 0]
+    assert len(data["runs"]) == len(rows)
+
+
+def test_qualifications_are_explicit_deterministic_and_safely_projected(monkeypatch):
+    from pathlib import Path
+
+    def no_reads(*args, **kwargs):
+        pytest.fail("render_data must not read annotation or private files")
+
+    monkeypatch.setattr(Path, "read_text", no_reads)
+    run = {"run_id": "run", "protocol": "E1", "protocol_version": 2, "dataset_hash": "dataset-a",
+           "capabilities": ["C3.1"], "qualifications": [{"summary": "PRIVATE ROW QUALIFICATION"}],
+           "summary": {"B0": {"n": 39, "accuracy": .9487}}}
+    report = "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E1.md"
+    entries = [
+        {"id": "z", "applies_to": {"protocol": "E1", "protocol_version": 2}, "summary": "Public method note.", "report_url": report,
+         "path": "/private/report", "question": "PRIVATE QUESTION"},
+        {"id": "a", "applies_to": {"dataset_hash": "dataset-a"}, "summary": "Public capture note.", "report_url": "file:///private/report"},
+        {"id": "bad-selector", "applies_to": {"protocol": "E1"}, "summary": "PRIVATE UNDERQUALIFIED NOTE"},
+    ]
+    assert scoreboard.render_data([run])["runs"][0]["qualifications"] == []
+    data = scoreboard.render_data([run], {"schema_version": 1, "qualifications": entries})
+    assert data == scoreboard.render_data([run], {"schema_version": 1, "qualifications": list(reversed(entries))})
+    assert data["runs"][0]["qualifications"] == [
+        {"id": "a", "summary": "Public capture note."},
+        {"id": "z", "summary": "Public method note.", "report_url": report},
+    ]
+    assert "PRIVATE" not in json.dumps(data) and "/private/" not in json.dumps(data)
+
+
+def test_public_qualification_file_is_loaded_for_generated_reports_and_dashboard(tmp_path):
+    definitions = {"schema_version": 1, "qualifications": [
+        {"id": "capture", "applies_to": {"dataset_hash": "dataset-a"}, "summary": "Capture verification pending."},
+    ]}
+    qualification_file = tmp_path / "qualifications.json"
+    qualification_file.write_text(json.dumps(definitions))
+    source = qualification_file.read_bytes()
+    (tmp_path / "capabilities/C3-solve-explain").mkdir(parents=True)
+    rows = [{"run_id": "run", "protocol": "E1", "dataset_hash": "dataset-a", "capabilities": ["C3.1"], "summary": {"B0": {"accuracy": .9487, "n": 39}}}]
+    scoreboard.write_all(rows, tmp_path)
+    assert qualification_file.read_bytes() == source
+    data = json.loads((tmp_path / "results/dashboard.json").read_text())
+    assert data["runs"][0]["qualifications"] == [{"id": "capture", "summary": "Capture verification pending."}]
+    board = (tmp_path / "results/SCOREBOARD.md").read_text()
+    history = (tmp_path / "capabilities/C3-solve-explain/HISTORY.md").read_text()
+    assert "provisional" in board and "Capture verification pending." in board
+    assert "B0 0.9487" in board and "provisional" in history
+
+
+def test_invalid_qualification_schema_cannot_replace_existing_reports(tmp_path):
+    (tmp_path / "results").mkdir()
+    target = tmp_path / "results/SCOREBOARD.md"
+    target.write_text("Existing report")
+    (tmp_path / "qualifications.json").write_text('{"schema_version": 99, "qualifications": []}')
+    with pytest.raises(ValueError, match="Unsupported qualifications schema"):
+        scoreboard.write_all([], tmp_path)
+    assert target.read_text() == "Existing report"

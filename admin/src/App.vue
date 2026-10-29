@@ -21,6 +21,7 @@ const selectedCapability = computed(() => data.value?.capabilities.find((c) => c
 const records = computed(() => data.value ? measurements(data.value, subject.value, capability.value, scope.value, condition.value) : []);
 const runs = computed(() => data.value?.runs.filter((run) => run.subject === subject.value && run.capabilities.includes(capability.value) && (scope.value === "all" || run.scope === scope.value)) ?? []);
 const runMap = computed(() => new Map(data.value?.runs.map((run) => [run.run_id, run])));
+const qualifications = computed(() => [...new Map(runs.value.flatMap((run) => run.qualifications ?? []).map((item) => [item.id, item])).values()]);
 const series = computed(() => [...new Set(records.value.map((record) => record.condition))]);
 const conditions = computed(() => [...new Set(data.value?.records.filter((record) => record.subject === subject.value && record.capability === capability.value).map((record) => record.condition))].sort());
 const measuredGroups = computed(() => new Set(data.value?.records.filter((record) => record.subject === subject.value && record.scope === "full").map((record) => record.capability.split(".")[0])));
@@ -125,6 +126,11 @@ onMounted(refresh);
           <section class="panel performance">
             <div class="panel-heading"><div><p class="eyebrow">{{ capability }} · {{ subjectName(subject) }}</p><h2>{{ selectedCapability?.name }} over time</h2></div><span :class="['scope-badge', { trial: scope !== 'full' }]">{{ scope === 'full' ? 'FULL EVALUATIONS' : scope === 'trial' ? 'TRIAL RUNS' : 'MIXED SCOPES' }}</span></div>
             <p class="bar-text">Evaluation bar: {{ selectedCapability?.bar }}</p>
+            <details v-if="qualifications.length" class="quality-note">
+              <summary><strong>Provisional evidence</strong> · {{ qualifications.length }} data or method qualifications</summary>
+              <p>Raw observations are retained. Resolve these qualifications before treating the results as evidence for adopting a change.</p>
+              <ul><li v-for="item in qualifications" :key="item.id">{{ item.summary }} <a v-if="item.report_url" :href="item.report_url" target="_blank" rel="noreferrer">Evaluation notes ↗</a></li></ul>
+            </details>
             <template v-if="records.length">
               <div class="latest-values"><div v-for="record in currentRecords" :key="record.condition"><span class="condition-label"><i :style="{ background: color(record.condition) }" />{{ record.condition }}</span><strong>{{ percentage(record.value) }}</strong><small>n = {{ record.n ?? 'unrecorded' }}<template v-if="record.ci95"> · 95% CI {{ percentage(record.ci95[0]) }}–{{ percentage(record.ci95[1]) }}</template></small></div></div>
               <div class="chart-wrap"><svg class="chart" viewBox="0 0 790 282" role="img" :aria-label="`${selectedCapability?.name} results and 95 percent confidence intervals by run`">

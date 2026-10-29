@@ -5,6 +5,10 @@ const run = (id: string, patch: Partial<Run> = {}): Run => ({ run_id: id, protoc
 const record = (patch: Partial<Measurement> = {}): Measurement => ({ run_id: "a", capability: "C3.1", subject: "CR", condition: "B0", scope: "full", metric: "accuracy", value: 37 / 39, n: 39, expected_n: 39, complete: true, ci95: [.83, .99], ...patch });
 
 describe("research comparisons", () => {
+  it("does not label qualified benchmark evidence as ready for adoption", () => {
+    const qualified = run("b", { qualifications: [{ id: "capture", summary: "Required emphasis spans are missing." }] });
+    expect(comparisonIssues(run("a"), qualified, record(), record())).toContain("These runs have unresolved data or method qualifications; review the evaluation notes.");
+  });
   it("keeps trial, subject and capability measurements separate", () => {
     const data = { records: [record(), record({ scope: "trial", n: 5, value: 1 }), record({ subject: "RC" })] } as ResearchData;
     expect(measurements(data, "CR", "C3.1", "full")).toHaveLength(1);

@@ -1,10 +1,12 @@
 export interface Capability { id: string; name: string; bar: string; metric: string; unit: string; direction: string }
+export interface Qualification { id: string; summary: string; report_url?: string }
 export interface Run {
   run_id: string; protocol: string; protocol_version: number; started_at: string; subject: string;
   scope: "full" | "trial"; n_items: number; dataset_id: string; dataset_hash: string;
   split: string; prompts_hash: string; git_sha: string; models: Record<string, string>;
   judge: Record<string, unknown>; memory: { hash: string; lessons: number } | null;
   baseline_run: string | null; note: string; capabilities: string[]; measured_capabilities: string[];
+  qualifications?: Qualification[];
 }
 export interface Comparison { b?: number; c?: number; p?: number; n?: number; baseline_accuracy?: number; diff_ci95?: [number, number] }
 export interface Measurement {
@@ -65,6 +67,7 @@ export function comparisonView(before: Run | undefined, after: Run | undefined, 
 
 export function comparisonIssues(before: Run, after: Run, left?: Measurement, right?: Measurement): string[] {
   const issues: string[] = [];
+  if (before.qualifications?.length || after.qualifications?.length) issues.push("These runs have unresolved data or method qualifications; review the evaluation notes.");
   const positiveCount = (value: unknown) => typeof value === "number" && Number.isInteger(value) && value > 0;
   for (const [key, label] of [["protocol", "Protocol"], ["subject", "Subject"], ["dataset_id", "Dataset ID"], ["dataset_hash", "Dataset"], ["split", "Split"], ["prompts_hash", "Prompt/code hash"]] as const) {
     if (!before[key] || !after[key]) issues.push(`${label} was not recorded for both runs.`);

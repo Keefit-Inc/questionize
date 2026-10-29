@@ -14,6 +14,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 RESEARCH = Path(__file__).resolve().parents[2] / "research"
 LEDGER = RESEARCH / "ledger.jsonl"
@@ -128,7 +129,59 @@ def _cell(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def render(rows: list[dict]) -> str:
+def qualifications_for(run: dict, definitions: dict | None = None) -> list[dict]:
+    """Project matching public annotations, never fields supplied on the run itself."""
+    if definitions is None:
+        return []
+    if not isinstance(definitions, dict) or definitions.get("schema_version") != 1 or not isinstance(definitions.get("qualifications"), list):
+        raise ValueError("Unsupported qualifications schema")
+    matches = []
+    for entry in definitions["qualifications"]:
+        if not isinstance(entry, dict):
+            continue
+        selector = entry.get("applies_to")
+        if not isinstance(selector, dict) or not selector or set(selector) - {"dataset_hash", "protocol", "protocol_version"}:
+            continue
+        if ("protocol" in selector) != ("protocol_version" in selector):
+            continue
+        if "protocol_version" in selector and (not isinstance(selector["protocol_version"], int) or isinstance(selector["protocol_version"], bool) or selector["protocol_version"] < 1):
+            continue
+        if any(not isinstance(selector[key], str) or not selector[key] for key in ("dataset_hash", "protocol") if key in selector):
+            continue
+        if any(run.get(key) != value for key, value in selector.items()):
+            continue
+        if not all(isinstance(entry.get(key), str) and entry[key].strip() for key in ("id", "summary")):
+            continue
+        item = {"id": entry["id"], "summary": entry["summary"]}
+        report_url = entry.get("report_url")
+        if isinstance(report_url, str) and not re.search(r"\s", report_url):
+            try:
+                url = urlsplit(report_url)
+            except ValueError:
+                url = None
+            if url and url.scheme == "https" and url.netloc == "github.com" and url.path.startswith("/Keefit-Inc/questionize/blob/") and "/research/results/" in url.path and not url.query:
+                item["report_url"] = report_url
+        matches.append(item)
+    # Input ordering or repeated annotations cannot change the published snapshot.
+    unique = {}
+    for item in sorted(matches, key=lambda item: (item["id"], item["summary"], item.get("report_url", ""))):
+        unique.setdefault(item["id"], item)
+    return [unique[key] for key in sorted(unique)]
+
+
+def _qualification_notes(rows: list[dict], definitions: dict | None) -> list[str]:
+    matched = {q["id"]: q for row in rows for q in qualifications_for(row, definitions)}
+    if not matched:
+        return []
+    out = ["", "## Data and method qualifications", "", "These annotations qualify interpretation; the recorded results and runs are retained.", ""]
+    for key in sorted(matched):
+        item = matched[key]
+        report = f" [Report]({item['report_url']})" if item.get("report_url") else ""
+        out.append(f"- **{item['id']}:** {item['summary']}{report}")
+    return out
+
+
+def render(rows: list[dict], qualifications: dict | None = None) -> str:
     out = [
         "# Scoreboard", "",
         "Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do not edit by hand. "
@@ -151,13 +204,16 @@ def render(rows: list[dict]) -> str:
                     r = max(measured, key=lambda r: (r.get("started_at", ""), r["run_id"]))
                     result = headline(r.get("summary", {}), cap)
                     run = f"{r['protocol']} v{r.get('protocol_version', 1)} · {r['run_id']} · {', '.join(r.get('models', {}).values())}"
+                    if qualifications_for(r, qualifications):
+                        run += " · provisional (see qualifications)"
                 else:
                     result, run = "not measured yet", ""
                 out.append("| " + " | ".join(_cell(x) for x in (f"{cap} {name}", subject, scope, bar, result, run)) + " |")
+    out.extend(_qualification_notes(rows, qualifications))
     return "\n".join(out) + "\n"
 
 
-def history(rows: list[dict], capability: str) -> str:
+def history(rows: list[dict], capability: str, qualifications: dict | None = None) -> str:
     """All valid runs in the capability family, including trials and unmeasured sub-capabilities."""
     runs = sorted((r for r in rows if any(c.split(".")[0] == capability for c in r.get("capabilities", []))), key=lambda r: (r.get("started_at", ""), r["run_id"]))
     out = [
@@ -171,10 +227,13 @@ def history(rows: list[dict], capability: str) -> str:
     for r in runs:
         caps = [c for c, _, _ in CAPABILITIES if c in r.get("capabilities", []) and c.split(".")[0] == capability]
         result = "; ".join(f"{c}: {headline(r.get('summary', {}), c)}" for c in caps)
+        if qualifications_for(r, qualifications):
+            result += "; provisional (see qualifications)"
         values = (r.get("started_at", "")[:10], subject_of(r), scope_of(r), r["run_id"], f"{r['protocol']} v{r.get('protocol_version', 1)}", r.get("note") or "", ", ".join(r.get("models", {}).values()), result)
         out.append("| " + " | ".join(_cell(v) for v in values) + " |")
     if not runs:
         out.append("| | | | | | not measured yet | | |")
+    out.extend(_qualification_notes(runs, qualifications))
     return "\n".join(out) + "\n"
 
 
@@ -194,14 +253,16 @@ def _comparison(source: Any) -> dict | None:
     return result or None
 
 
-def render_data(rows: list[dict]) -> dict:
+def render_data(rows: list[dict], qualifications: dict | None = None) -> dict:
     """Deterministic aggregate-only schema v1; no raw ledger passthrough.
 
     `runs` contains the comparison context: dataset/hash, split, prompts/hash, models, judge,
     memory/hash and requested n_items. `records` contains a metric for one capability and
     condition with its actual n, expected_n and completeness. Compare contexts explicitly;
-    the exporter never promotes a run or declares mismatched contexts comparable.
+    the exporter never promotes a run or declares mismatched contexts comparable. Public
+    qualifications are passed explicitly; this function never reads annotation or private files.
     """
+    qualifications_for({}, qualifications)  # validate the schema even when there are no runs
     runs, records = [], []
     for row in sorted(rows, key=lambda r: (r.get("started_at", ""), r["run_id"])):
         run = {
@@ -212,6 +273,7 @@ def render_data(rows: list[dict]) -> dict:
             "subject": subject_of(row), "scope": scope_of(row),
             "capabilities": [c for c, _, _ in CAPABILITIES if c in row.get("capabilities", [])],
             "models": {k: v for k, v in row.get("models", {}).items() if isinstance(k, str) and isinstance(v, str)},
+            "qualifications": qualifications_for(row, qualifications),
         })
         judge = row.get("judge")
         if isinstance(judge, dict):
@@ -256,13 +318,16 @@ def render_data(rows: list[dict]) -> dict:
 
 
 def write_all(rows: list[dict], research: Path = RESEARCH) -> list[Path]:
+    qualification_path = research / "qualifications.json"
+    qualifications = json.loads(qualification_path.read_text()) if qualification_path.is_file() else None
+    dashboard = render_data(rows, qualifications)
     (research / "results").mkdir(parents=True, exist_ok=True)
     written = [research / "results" / "SCOREBOARD.md", research / "results" / "dashboard.json"]
-    written[0].write_text(render(rows))
-    written[1].write_text(json.dumps(render_data(rows), ensure_ascii=False, indent=2, allow_nan=False) + "\n")
+    written[0].write_text(render(rows, qualifications))
+    written[1].write_text(json.dumps(dashboard, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
     for folder in sorted((research / "capabilities").glob("C*-*")):
         path = folder / "HISTORY.md"
-        path.write_text(history(rows, folder.name.split("-")[0]))
+        path.write_text(history(rows, folder.name.split("-")[0], qualifications))
         written.append(path)
     return written
 
