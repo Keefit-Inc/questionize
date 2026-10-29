@@ -470,8 +470,8 @@ function showAnalysis() {
         <div class="nocam-actions">
           <button type="button" class="ghost" @click="startCamera">Try the camera again</button>
           <label class="primary file">
-            <input type="file" accept="image/*" capture="environment" @change="pick" />
-            Choose a photo
+            <input type="file" accept="image/*" :capture="curator ? undefined : 'environment'" :multiple="curator" @change="pick" />
+            {{ curator ? "Choose photos" : "Choose a photo" }}
           </label>
         </div>
       </div>
