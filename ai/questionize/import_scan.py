@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .llm import StructuredLLM
 from .schemas import Label, TrapType
@@ -59,8 +59,8 @@ middle of the previous page's question, set starts_mid_question."""
 
 
 class Span(BaseModel):
-    first: int
-    last: int
+    first: int = Field(..., description="Number of the first line, as shown in [brackets]")
+    last: int = Field(..., description="Number of the last line, inclusive")
 
 
 class ChoiceSpan(Span):
@@ -86,6 +86,20 @@ class ScanLayout(BaseModel):
     option_traps: list[OptionTrap] = []
     continues_on_next_page: bool = False
     starts_mid_question: bool = False
+
+    @model_validator(mode="after")
+    def _complete_question(self) -> ScanLayout:
+        # Every field defaults so that "not_a_question" can be short; a question page must be complete,
+        # and a failure here goes back to the model as a correction request.
+        if self.kind == "question" and not self.starts_mid_question:
+            missing = [name for name in ("passage", "stem", "explanation", "answer_key") if getattr(self, name) is None]
+            if not self.number:
+                missing.append("number")
+            if sorted(c.label for c in self.choices) != ["A", "B", "C", "D", "E"]:
+                missing.append("choices (one line range for each of A-E)")
+            if missing:
+                raise ValueError(f"a question page needs: {', '.join(missing)}")
+        return self
 
 
 # ------------------------------------------------------------------ pages and OCR
@@ -255,6 +269,9 @@ def build_dataset(layouts: dict[int, tuple[ScanLayout, list[str]]], dataset: str
                 "key_verdict": "book",
                 **fields,
                 "option_traps": [t.model_dump() for t in layout.option_traps],
+                # Line numbers only, for checking a flagged item against the page.
+                "layout": layout.model_dump(include={"passage", "stem", "choices", "explanation"}),
+                "lines": len(lines),
                 "flags": flags,
                 "flagged": bool(flags),
             }

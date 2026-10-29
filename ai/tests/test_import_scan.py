@@ -70,8 +70,15 @@ def test_assemble_takes_the_printed_text_by_line_number():
 def test_assemble_flags_bad_layouts():
     _, flags = assemble(layout(answer_key="D"), PAGE)
     assert flags == ["key_mismatch"]
-    _, flags = assemble(layout(answer_key=None, stem={"first": 4, "last": 99}, choices=[]), PAGE)
+    bad = layout().model_copy(update={"answer_key": None, "stem": import_scan.Span(first=4, last=99), "choices": []})
+    _, flags = assemble(bad, PAGE)
     assert flags == ["missing_text", "choices_incomplete", "no_key"]
+
+
+def test_an_empty_question_layout_is_sent_back_to_the_model():
+    with pytest.raises(ValueError, match="passage, stem, explanation, answer_key, number, choices"):
+        ScanLayout.model_validate({"kind": "question"})
+    assert ScanLayout.model_validate({"kind": "not_a_question"}).choices == []
 
 
 def test_lay_out_skips_pages_without_options_and_joins_continuations():
