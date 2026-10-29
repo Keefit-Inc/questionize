@@ -80,10 +80,10 @@ Not every capability is a language-model job. C1 uses OCR as a check, C4 and C6 
 
 | ID | Capability | Status | Protocol |
 |---|---|---|---|
-| E1 | C3.1, C3.2 solve and explain official items: single model (B0), verification loop (B1), two-model debate (B2) | Registered; dataset being built | [E1](protocols/E1-solve-and-explain.md) |
+| E1 | C3.1, C3.2 solve and explain official items: single model (B0), verification loop (B1), two-model debate (B2); each again with a memory learned on the train split (+M) | Registered (v2); dataset being built | [E1](protocols/E1-solve-and-explain.md) |
 | E2 | C5 does a memory of learned designs improve generated questions | Registered | [E2](protocols/E2-design-memory.md) |
 | E3 | C4 (and C2 difficulty) what a learner's misses reveal | Registered, pilot | [E3](protocols/E3-error-log-diagnosis.md) |
-| E4 | C1 capture fidelity: text, roles, key, and figure reconstruction | Registered | [E4](protocols/E4-capture.md) |
+| E4 | C1 capture fidelity: text, roles, key, and figure reconstruction; produces the verified, split dataset | Registered | [E4](protocols/E4-capture.md) |
 | E5 | C2 item understanding: skill, objective and traps against the book | Planned | |
 | E6 | C3.3 level-adapted explanations | Planned | |
 | E7 | C6 recommendations: success rate and gains, simulated students first | Planned | |

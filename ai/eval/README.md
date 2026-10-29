@@ -58,3 +58,23 @@ It writes a run directory under `~/questionize-research/runs/<run_id>/` (`--out`
 | `rating_key.csv` | Joins rating ids back to items and conditions after rating |
 
 It appends one line with identifiers and the summary (no item text, no paths) to `research/ledger.jsonl`; commit that line. With the solver pointed at the same model as the primary, B2 is reported as B2′.
+
+## Before and after learning (E4 → E1 → memory → E1+M)
+
+```bash
+cd ai
+# 1. Capture the book twice: layout rules, and the model structuring the OCR text (E4)
+python -m questionize.import_scan ~/private/og.pdf --pages 1-N --out ~/private/og-rules.json
+python -m questionize.import_scan ~/private/og.pdf --pages 1-N --layout model --out ~/private/og-model.json
+# 2. Compare them; agreed items become the verified dataset, split 60/40 into train and test
+python -m questionize.eval_e4 ~/private/og-rules.json ~/private/og-model.json --out ~/private/official-cr-v1.json
+# 3. Baseline: the model as it is, on the test split
+python -m questionize.eval_e1 ~/private/official-cr-v1.json --split test --conditions B0,B1
+# 4. Learn: lessons from the train split, checked against the key and explanation
+python -m questionize.memory ~/private/official-cr-v1.json --out ~/questionize-research/memory/cr-v1.json
+# 5. After: the same conditions with the memory, paired with the baseline run
+python -m questionize.eval_e1 ~/private/official-cr-v1.json --split test --conditions B0,B1 \
+    --memory ~/questionize-research/memory/cr-v1.json --baseline ~/questionize-research/runs/<baseline run id>
+# 6. Scoreboard
+python -m questionize.scoreboard > ../research/results/SCOREBOARD.md
+```

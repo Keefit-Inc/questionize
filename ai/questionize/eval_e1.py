@@ -39,7 +39,7 @@ from .judge import SUBTYPE_MEASURES, ArgumentJudge, rank
 from .llm import StructuredLLM
 from .schemas import Label, SolverResult
 
-PROTOCOL, PROTOCOL_VERSION = "E1", 1
+PROTOCOL, PROTOCOL_VERSION = "E1", 2
 CAPABILITIES = ["C3.1", "C3.2"]
 ROOT = Path(__file__).resolve().parent
 JUDGE_OVERRIDE_RATE = 0.8
@@ -83,6 +83,7 @@ class DatasetItem(BaseModel):
     question: DatasetQuestion
     official_explanation: str = ""
     flagged: bool = False
+    split: str = ""
 
 
 @dataclass
@@ -192,7 +193,16 @@ def paired_diff_ci(base: dict[int, bool], other: dict[int, bool], rng: random.Ra
     return (round(means[int(0.025 * BOOTSTRAP_ROUNDS)], 4), round(means[int(0.975 * BOOTSTRAP_ROUNDS) - 1], 4))
 
 
-def summarize(outcomes: list[Outcome], seed: int = 7) -> dict[str, Any]:
+def load_baseline(run_dir: Path) -> dict[str, dict[int, bool]]:
+    """Per-condition correctness from an earlier run's results.jsonl, to pair against."""
+    out: dict[str, dict[int, bool]] = {}
+    for line in (run_dir / "results.jsonl").read_text().splitlines():
+        r = json.loads(line)
+        out.setdefault(r["condition"], {})[r["entry_id"]] = r["correct"]
+    return out
+
+
+def summarize(outcomes: list[Outcome], seed: int = 7, baseline: dict[str, dict[int, bool]] | None = None) -> dict[str, Any]:
     by: dict[str, dict[int, Outcome]] = {}
     for o in outcomes:
         by.setdefault(o.condition, {})[o.entry_id] = o
@@ -211,6 +221,14 @@ def summarize(outcomes: list[Outcome], seed: int = 7) -> dict[str, Any]:
         if cond != "B0" and base:
             paired = {i: o.correct for i, o in rows.items()}
             entry["vs_B0"] = mcnemar(base, paired) | {"diff_ci95": paired_diff_ci(base, paired, random.Random(seed))}
+        before = (baseline or {}).get(cond.removesuffix("+M"))
+        if before and cond.endswith("+M"):
+            paired = {i: o.correct for i, o in rows.items()}
+            k0 = sum(before[i] for i in paired if i in before)
+            entry["vs_baseline"] = mcnemar(before, paired) | {
+                "baseline_accuracy": round(k0 / max(1, len(paired.keys() & before.keys())), 4),
+                "diff_ci95": paired_diff_ci(before, paired, random.Random(seed)),
+            }
         summary[cond] = entry
     return summary
 
@@ -263,6 +281,17 @@ def write_rating_sheet(run_dir: Path, outcomes: list[Outcome], items: dict[int, 
             w.writerow([rid, o.entry_id, o.condition, o.correct])
 
 
+class Remembering:
+    """A model whose system prompts carry the lessons learned for this item's sub-type (the memory)."""
+
+    def __init__(self, llm: StructuredLLM, lessons: list[str]):
+        self.llm, self.model = llm, llm.model
+        self.note = "\n\nLESSONS FROM EARLIER QUESTIONS OF THIS TYPE (apply them when they fit):\n" + "\n".join(f"- {r}" for r in lessons)
+
+    async def complete(self, system, user, schema, **kw):
+        return await self.llm.complete(system + self.note, user, schema, **kw)
+
+
 async def run(
     items: list[DatasetItem],
     conditions: list[str],
@@ -271,6 +300,7 @@ async def run(
     judge: ArgumentJudge | None,
     seed: int = 7,
     concurrency: int = 4,
+    memory: dict[str, list[str]] | None = None,
 ) -> list[Outcome]:
     rng = random.Random(seed)
     gate = asyncio.Semaphore(concurrency)
@@ -278,14 +308,23 @@ async def run(
     b2_label = "B2'" if same_model else "B2"
 
     async def one(item: DatasetItem, cond: str) -> Outcome | None:
+        p, s = primary, solver
+        lessons = (memory or {}).get(item.subtype) or (memory or {}).get("*")
+        if memory is not None and lessons:
+            p, s = Remembering(primary, lessons), Remembering(solver, lessons)
+        suffix = "+M" if memory is not None else ""
         async with gate:
             try:
+                out = None
                 if cond == "B0":
-                    return await run_b0(primary, item)
-                if cond == "B1":
-                    return await run_b1(primary, solver, judge, item, random.Random(rng.random()))
-                if cond == "B2":
-                    return await run_b2(primary, solver, item, b2_label)
+                    out = await run_b0(p, item)
+                elif cond == "B1":
+                    out = await run_b1(p, s, judge, item, random.Random(rng.random()))
+                elif cond == "B2":
+                    out = await run_b2(p, s, item, b2_label)
+                if out is not None:
+                    out.condition += suffix
+                return out
             except Exception as e:  # noqa: BLE001 — recorded, not fatal: one bad call should not lose the run
                 print(f"[E1] item {item.entry_id} {cond}: {e}", file=sys.stderr)
             return None
@@ -306,6 +345,9 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, default=Path.home() / "questionize-research" / "runs")
     ap.add_argument("--ledger", type=Path, default=ROOT.parent.parent / "research" / "ledger.jsonl")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--split", choices=["all", "train", "test"], default="all", help="items of one split only (set by eval_e4)")
+    ap.add_argument("--memory", type=Path, help="lessons learned on the train split (questionize.memory); conditions become B0+M, …")
+    ap.add_argument("--baseline", type=Path, help="run directory of the same conditions without memory, to pair against")
     args = ap.parse_args(argv)
 
     settings = load_settings()
@@ -313,14 +355,18 @@ def main(argv: list[str] | None = None) -> None:
     solver = make_llm(settings.solver, timeout=settings.timeout_seconds) if settings.solver != settings.primary else primary
     judge = build_judge(settings, primary, solver)
     dataset_id, dataset_hash, items, excluded = load_dataset(args.dataset)
+    if args.split != "all":
+        items = [i for i in items if i.split == args.split]
     if args.limit:
         items = items[: args.limit]
+    memory = json.loads(args.memory.read_text())["lessons"] if args.memory else None
+    baseline = load_baseline(args.baseline) if args.baseline else None
     conditions = [c.strip() for c in args.conditions.split(",") if c.strip()]
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:6]
     started = datetime.now(timezone.utc).isoformat()
-    outcomes = asyncio.run(run(items, conditions, primary, solver, judge, seed=args.seed))
-    summary = summarize(outcomes, seed=args.seed)
+    outcomes = asyncio.run(run(items, conditions, primary, solver, judge, seed=args.seed, memory=memory))
+    summary = summarize(outcomes, seed=args.seed, baseline=baseline)
 
     run_dir = args.out / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -332,6 +378,9 @@ def main(argv: list[str] | None = None) -> None:
         "judge": {"version": judge.version if judge else None, "samples_per_judge": settings.judge_samples, "override_rate": JUDGE_OVERRIDE_RATE},
         "seed": args.seed, "conditions": conditions,
         "dataset_id": dataset_id, "dataset_hash": dataset_hash, "n_items": len(items), "excluded": excluded,
+        "split": args.split,
+        "memory": {"hash": hashlib.sha256(args.memory.read_bytes()).hexdigest()[:16], "lessons": sum(len(v) for v in memory.values())} if memory else None,
+        "baseline_run": args.baseline.name if args.baseline else None,
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
     with (run_dir / "results.jsonl").open("w") as f:
@@ -341,7 +390,7 @@ def main(argv: list[str] | None = None) -> None:
     write_rating_sheet(run_dir, outcomes, {i.entry_id: i for i in items}, random.Random(args.seed))
 
     # The ledger holds identifiers and aggregate numbers only: no item text, no local paths.
-    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "capabilities", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded")}
+    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "capabilities", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded", "split", "memory", "baseline_run")}
     line["summary"] = summary
     args.ledger.parent.mkdir(parents=True, exist_ok=True)
     with args.ledger.open("a") as f:

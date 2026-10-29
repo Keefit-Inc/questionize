@@ -522,6 +522,7 @@ def main(argv: list[str] | None = None) -> None:
         settings = load_settings()
         model = make_llm(settings.primary, timeout=settings.timeout_seconds)
         data = model_dataset(asyncio.run(structure_pages(model, ocr)), args.dataset, args.book, args.ocr)
+        data["model"] = model.model
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1, ensure_ascii=False))
