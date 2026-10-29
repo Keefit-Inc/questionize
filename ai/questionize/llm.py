@@ -99,6 +99,27 @@ class OpenAICompatLLM:
             }
         return {"type": "json_object"}
 
+    async def text(self, system: str, user: str, *, temperature: float = 0.0) -> str:
+        """A plain-text reply, no JSON: for long verbatim copies, where structured output breaks."""
+        last_error: Exception | None = None
+        for _ in range(self._max_retries + 1):
+            kwargs: dict = {"temperature": temperature} if self._send_temperature else {}
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=self.model, messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], **kwargs
+                )
+                return resp.choices[0].message.content or ""
+            except openai.BadRequestError as e:
+                if self._send_temperature and "temperature" in str(e).lower():
+                    self._send_temperature = False
+                    last_error = e
+                    continue
+                raise LLMError(f"{self.provider} rejected the request: {e}") from e
+            except (openai.APIConnectionError, openai.APITimeoutError, openai.RateLimitError) as e:
+                last_error = e
+                log.warning("%s transient error: %s", self.provider, e)
+        raise LLMError(f"{self.provider} failed to reply: {last_error}")
+
     async def complete(
         self, system: str, user: str, schema: type[T], *, temperature: float = 0.4, images: list[str] | None = None
     ) -> T:
@@ -175,6 +196,15 @@ class AnthropicLLM:
         # The SDK retries connection errors, 429 and 5xx itself.
         self._client = anthropic.AsyncAnthropic(api_key=provider.api_key, timeout=timeout, max_retries=max_retries)
         self._max_retries = max_retries
+
+    async def text(self, system: str, user: str, *, temperature: float = 0.0) -> str:
+        try:
+            resp = await self._client.messages.create(
+                model=self.model, max_tokens=16000, system=system, messages=[{"role": "user", "content": user}]
+            )
+        except anthropic.APIError as e:
+            raise LLMError(f"anthropic error: {e}") from e
+        return "".join(block.text for block in resp.content if block.type == "text")
 
     async def complete(
         self, system: str, user: str, schema: type[T], *, temperature: float = 0.4, images: list[str] | None = None

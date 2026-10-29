@@ -2,7 +2,6 @@ import asyncio
 import json
 
 import pytest
-from conftest import ScriptedLLM
 
 from questionize import import_scan
 from questionize.eval_e1 import load_dataset
@@ -65,20 +64,58 @@ def test_structure_is_checked_against_the_ocr_text():
     assert import_scan.check_structure(structure(answer_key="D"), ocr)[0] == ["key_mismatch"]
 
 
+def labeled(continues: bool = False, key: str = "B", number: str = "12") -> str:
+    lines = [
+        "KIND: question",
+        f"NUMBER: {number}",
+        "PASSAGE: Accidents fell after the city opened bike lanes on Main Street.",
+        "STEM: Which of the following most seriously weakens the argument?",
+        *(f"{line[1]}: {line[4:]}" for line in PAGE[5:10]),
+        f"**KEY:** {key}",
+        "EXPLANATION: Speed cameras offer another cause",
+        "for the drop.",
+        "EXPLAIN A: Sales do not bear on the cause.",
+        "SUBTYPE: Weaken",
+        "TRAP A: irrelevant.",
+        "TRAP B: correct",
+        f"CONTINUES: {'yes' if continues else 'no'}",
+    ]
+    return "\n".join(lines)
+
+
+class TextModel:
+    model = "m"
+
+    def __init__(self, replies):
+        self.replies, self.calls = list(replies), []
+
+    async def text(self, system, user, **kw):
+        self.calls.append(user)
+        return self.replies.pop(0)
+
+
+def test_labeled_plain_text_reply_is_parsed():
+    page = import_scan.parse_labeled(labeled())
+    assert page.answer_key == "B" and page.subtype == "weaken" and page.explanation == "Speed cameras offer another cause for the drop."
+    assert [o.label for o in page.options] == list("ABCDE") and page.options[1].text == "Speed cameras were installed the same year."
+    assert [t.model_dump() for t in page.option_traps] == [{"label": "A", "trap": "irrelevant"}, {"label": "B", "trap": "correct"}]
+    with pytest.raises(ValueError):
+        import_scan.parse_labeled("KIND: question\nPASSAGE: only this")
+
+
 def test_the_model_gets_the_ocr_text_and_continuations():
     intro = ["Chapter 7", "Critical Reasoning Answer Explanations"]
     tail = ["of the drop, so the conclusion does not follow."]
-    model = ScriptedLLM(PageStructure=[structure(continues_on_next_page=True), structure()])
+    model = TextModel(["KIND: question\nPASSAGE: cut off", labeled(continues=True), labeled()])
     out = asyncio.run(import_scan.structure_pages(model, {1: intro, 2: PAGE, 3: tail}, concurrency=1))
     assert list(out) == [2] and out[2][1].endswith("does not follow.")
-    # Only OCR text goes to the model; never an image. The intro page is skipped without a call.
-    assert len(model.calls) == 2 and model.calls[0][1].startswith("OCR TEXT:\nCritical Reasoning")
-    assert not hasattr(model, "images")
-    data = import_scan.model_dataset(out, "official-cr-v1", "Guide", "apple")
-    (item,) = data["items"]
+    # Only OCR text goes to the model; the intro page is skipped without a call; an incomplete reply gets one retry.
+    assert len(model.calls) == 3 and model.calls[0].startswith("OCR TEXT:\nCritical Reasoning")
+    assert "previous reply was incomplete" in model.calls[1]
+    (item,) = import_scan.model_dataset(out, "official-cr-v1", "Guide", "apple")["items"]
     assert item["question"]["choices"][1]["text"] == "Speed cameras were installed the same year."
     assert item["official_explanation"].startswith("Speed cameras offer") and "A. Sales do not" in item["official_explanation"]
-    assert item["flags"] == [] and item["option_traps"] == [{"label": "A", "trap": "irrelevant"}]
+    assert item["flags"] == [] and item["split"] in ("train", "test")
 
 
 def test_option_markers_in_other_layouts():
@@ -232,7 +269,7 @@ def test_model_calls_stop_when_the_first_pages_all_fail():
         model = "m"
         calls = 0
 
-        async def complete(self, *a, **kw):
+        async def text(self, *a, **kw):
             Failing.calls += 1
             raise RuntimeError("bad output")
 

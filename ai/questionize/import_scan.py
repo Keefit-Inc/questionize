@@ -55,19 +55,39 @@ STRUCTURE_SYSTEM = """You structure the OCR text of one page from a GMAT/LSAT pr
 Such a page usually holds: a question number and the passage (the argument); the question stem; answer \
 options (A) to (E); a reasoning-type banner such as "Argument Construction"; the book's explanation, often \
 labelled "Situation" and "Reasoning", then one paragraph per option marked A to E; and "The correct answer \
-is X." Chapter titles, introductions, running headers and page numbers are not part of a question.
+is X." Chapter titles, introductions, running headers and page numbers are not part of a question. OCR may \
+misread option markers, for example "(0)" for "(D)".
 
-Copy every field from the OCR text exactly as printed. Join lines broken by hyphenation and drop stray OCR \
-marks, but never reword, shorten, summarize or correct the book. If the page holds no question, set kind to \
-"not_a_question" and leave the rest empty. If the explanation is cut off at the end of the text, set \
-continues_on_next_page.
+Copy every part exactly as printed. Join lines broken by hyphenation, but never reword, shorten, summarize \
+or correct the book. Reply in plain text, not JSON, with exactly these labels, each at the start of a line:
 
-Finally, in your own words (never quoting the book), give the question's sub-type and, for each option, \
-the trap it sets or "correct". Put each option, each per-option explanation and each trap in its own field \
-(option_a ... option_e, explanation_a ... explanation_e, trap_a ... trap_e)."""
+KIND: question (or: not_a_question, and nothing else)
+NUMBER: <the question number>
+PASSAGE: <the passage>
+STEM: <the question stem>
+A: <option A>
+B: <option B>
+C: <option C>
+D: <option D>
+E: <option E>
+KEY: <the letter the book gives as correct>
+EXPLANATION: <the book's explanation before the per-option paragraphs>
+EXPLAIN A: <the book's paragraph on option A>
+EXPLAIN B: ...
+EXPLAIN C: ...
+EXPLAIN D: ...
+EXPLAIN E: ...
+SUBTYPE: <weaken, strengthen, assumption, flaw, evaluate, inference, explain or structure>
+TRAP A: <correct, or the trap option A sets: one of TRAP_LIST>
+TRAP B: ...
+TRAP C: ...
+TRAP D: ...
+TRAP E: ...
+CONTINUES: <yes if the explanation is cut off at the end of the text, else no>"""
 
 
 TRAPS: tuple[str, ...] = get_args(TrapType)
+STRUCTURE_SYSTEM = STRUCTURE_SYSTEM.replace("TRAP_LIST", ", ".join(TRAPS))
 
 
 class TextChoice(BaseModel):
@@ -252,6 +272,41 @@ def agreement(copied: str, ocr: str) -> float:
     return round(sum(b.size for b in blocks) / len(mine), 4)
 
 
+LABELED = re.compile(r"^\s*\**\s*(KIND|NUMBER|PASSAGE|STEM|KEY|EXPLANATION|SUBTYPE|CONTINUES|EXPLAIN [A-E]|TRAP [A-E]|[A-E])\s*\**\s*:\s?(.*)$")
+
+
+def parse_labeled(reply: str) -> PageStructure:
+    """Read the labelled plain-text reply into the page structure (validation as for JSON)."""
+    fields: dict[str, list[str]] = {}
+    current = None
+    for line in reply.splitlines():
+        m = LABELED.match(line)
+        if m:
+            current = m.group(1)
+            fields[current] = [m.group(2)]
+        elif current is not None:
+            fields[current].append(line)
+
+    def get(key: str) -> str:
+        return join_lines(fields.get(key, [])).strip()
+
+    data: dict = {
+        "kind": "not_a_question" if get("KIND").lower().startswith("not") else "question",
+        "number": get("NUMBER").rstrip("."),
+        "passage": get("PASSAGE"),
+        "stem": get("STEM"),
+        "answer_key": (re.search(r"[A-E]", get("KEY")) or [None])[0],
+        "explanation": get("EXPLANATION"),
+        "subtype": get("SUBTYPE").lower(),
+        "continues_on_next_page": get("CONTINUES").lower().startswith("y"),
+    }
+    for label in "ABCDE":
+        data[f"option_{label.lower()}"] = get(label)
+        data[f"explanation_{label.lower()}"] = get(f"EXPLAIN {label}")
+        data[f"trap_{label.lower()}"] = get(f"TRAP {label}").lower().strip(" .")
+    return PageStructure.model_validate(data)
+
+
 def check_structure(page: PageStructure, ocr: str) -> tuple[list[str], float]:
     flags: list[str] = []
     copied = "\n".join([page.passage, page.stem, *(o.text for o in page.options)])
@@ -277,7 +332,13 @@ async def structure_pages(model: StructuredLLM, ocr: dict[int, list[str]], concu
                 return None
             started = time.monotonic()
             try:
-                page = await model.complete(STRUCTURE_SYSTEM, f"OCR TEXT:\n{body}", PageStructure, temperature=0.0)
+                reply = await model.text(STRUCTURE_SYSTEM, f"OCR TEXT:\n{body}")
+                try:
+                    page = parse_labeled(reply)
+                except ValueError as e:
+                    # One correction round, still in plain text.
+                    reply = await model.text(STRUCTURE_SYSTEM, f"OCR TEXT:\n{body}\n\nYour previous reply was incomplete ({e}). Reply again with every label.")
+                    page = parse_labeled(reply)
             except Exception as e:  # noqa: BLE001 — one unreadable page should not stop the book
                 tally["failed"] += 1
                 print(f"[scan] page {label}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
@@ -304,6 +365,8 @@ async def structure_pages(model: StructuredLLM, ocr: dict[int, list[str]], concu
 
 
 def model_dataset(structured: dict[int, tuple[PageStructure, str]], dataset: str, book: str, engine: str) -> dict:
+    from .eval_e4 import split_of
+
     items = []
     for n, (page, body) in sorted(structured.items()):
         flags, score = check_structure(page, body)
@@ -324,6 +387,7 @@ def model_dataset(structured: dict[int, tuple[PageStructure, str]], dataset: str
                 "ocr_agreement": score,
                 "flags": flags,
                 "flagged": bool(flags),
+                "split": split_of(dataset, page.number or str(n)) if not flags else "",
             }
         )
     return {"dataset": dataset, "source": f"scan+{engine}+model", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
@@ -541,7 +605,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--book", default="")
     ap.add_argument("--dataset", default="official-cr-v1")
-    ap.add_argument("--layout", choices=["rules", "model"], default="rules", help="rules: no model call (default); model: the primary model structures the OCR text, splits the explanation by option and tags traps")
+    ap.add_argument("--layout", choices=["rules", "model"], default="model", help="model (default): the primary model structures the OCR text, splits the explanation by option and tags traps; rules: no model call, a cross-check")
     ap.add_argument("--ocr-only", action="store_true", help="run OCR and report what it found, without any model call")
     ap.add_argument("--ocr", choices=sorted(OCR_ENGINES), default="apple" if sys.platform == "darwin" else "tesseract")
     args = ap.parse_args(argv)
