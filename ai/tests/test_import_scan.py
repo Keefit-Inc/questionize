@@ -6,15 +6,7 @@ from conftest import ScriptedLLM
 
 from questionize import import_scan
 from questionize.eval_e1 import load_dataset
-from questionize.import_scan import (
-    ScanLayout,
-    assemble,
-    build_dataset,
-    has_options,
-    join_lines,
-    lay_out,
-    parse_pages,
-)
+from questionize.import_scan import PageStructure, has_options, join_lines, parse_pages
 
 PAGE = [
     "Critical Reasoning Answer Explanations",  # 1 running title
@@ -32,20 +24,20 @@ PAGE = [
 ]
 
 
-def layout(**over) -> ScanLayout:
+def structure(**over) -> PageStructure:
     base = {
         "kind": "question",
         "number": "12",
-        "family": "CR",
-        "subtype": "weaken",
-        "passage": {"first": 2, "last": 3},
-        "stem": {"first": 4, "last": 5},
-        "choices": [{"label": label, "first": 6 + i, "last": 6 + i} for i, label in enumerate("ABCDE")],
-        "explanation": {"first": 11, "last": 12},
+        "passage": "Accidents fell after the city opened bike lanes on Main Street.",
+        "stem": "Which of the following most seriously weakens the argument?",
+        "options": [{"label": line[1], "text": line[4:]} for line in PAGE[5:10]],
         "answer_key": "B",
-        "option_traps": [{"label": "A", "trap": "irrelevant", "why": "Off the causal claim."}],
+        "explanation": "Speed cameras offer another cause for the drop.",
+        "option_explanations": [{"label": "A", "text": "Sales do not bear on the cause."}],
+        "subtype": "weaken",
+        "option_traps": [{"label": "A", "trap": "irrelevant"}],
     }
-    return ScanLayout.model_validate(base | over)
+    return PageStructure.model_validate(base | over)
 
 
 def test_parse_pages():
@@ -57,47 +49,35 @@ def test_join_lines_undoes_hyphenation():
     assert join_lines(["a well-", "Known case"]) == "a well- Known case"
 
 
-def test_assemble_takes_the_printed_text_by_line_number():
-    fields, flags = assemble(layout(), PAGE)
-    assert flags == []
-    q = fields["question"]
-    assert q["passage"] == "12. Accidents fell after the city opened bike lanes on Main Street."
-    assert q["stem"] == "Which of the following most seriously weakens the argument?"
-    assert q["choices"][1] == {"label": "B", "text": "Speed cameras were installed the same year."}
-    assert fields["official_explanation"].endswith("The correct answer is B.")
+def test_an_incomplete_question_is_sent_back_to_the_model():
+    with pytest.raises(ValueError, match="passage, stem, options"):
+        PageStructure.model_validate({"kind": "question"})
+    assert PageStructure.model_validate({"kind": "not_a_question"}).options == []
 
 
-def test_assemble_flags_bad_layouts():
-    _, flags = assemble(layout(answer_key="D"), PAGE)
-    assert flags == ["key_mismatch"]
-    bad = layout().model_copy(update={"answer_key": None, "stem": import_scan.Span(first=4, last=99), "choices": []})
-    _, flags = assemble(bad, PAGE)
-    assert flags == ["missing_text", "choices_incomplete", "no_key"]
+def test_structure_is_checked_against_the_ocr_text():
+    ocr = "\n".join(PAGE)
+    assert import_scan.check_structure(structure(), ocr) == ([], 1.0)
+    reworded = structure(passage="After protected bike lanes opened downtown last spring, crashes dropped sharply.")
+    flags, score = import_scan.check_structure(reworded, ocr)
+    assert flags == ["not_as_printed"] and score < import_scan.AGREEMENT_FLOOR
+    assert import_scan.check_structure(structure(answer_key="D"), ocr)[0] == ["key_mismatch"]
 
 
-def test_an_empty_question_layout_is_sent_back_to_the_model():
-    with pytest.raises(ValueError, match="passage, stem, explanation, answer_key, number, choices"):
-        ScanLayout.model_validate({"kind": "question"})
-    assert ScanLayout.model_validate({"kind": "not_a_question"}).choices == []
-
-
-def test_lay_out_skips_pages_without_options_and_joins_continuations():
+def test_the_model_gets_the_ocr_text_and_continuations():
     intro = ["Chapter 7", "Critical Reasoning Answer Explanations"]
     tail = ["of the drop, so the conclusion does not follow."]
-    model = ScriptedLLM(
-        ScanLayout=[
-            layout(continues_on_next_page=True),  # page 2, first pass
-            layout(explanation={"first": 11, "last": 13}),  # page 2 with 3
-        ]
-    )
-    out = asyncio.run(lay_out(model, {1: intro, 2: PAGE, 3: tail}, concurrency=1))
-    assert list(out) == [2]
-    chosen, lines = out[2]
-    assert len(lines) == len(PAGE) + 1 and chosen.explanation.last == 13
-    # Only OCR'd text goes to the model, as numbered lines; never an image.
-    assert len(model.calls) == 2 and model.calls[0][1].startswith("[1] Critical Reasoning")
+    model = ScriptedLLM(PageStructure=[structure(continues_on_next_page=True), structure()])
+    out = asyncio.run(import_scan.structure_pages(model, {1: intro, 2: PAGE, 3: tail}, concurrency=1))
+    assert list(out) == [2] and out[2][1].endswith("does not follow.")
+    # Only OCR text goes to the model; never an image. The intro page is skipped without a call.
+    assert len(model.calls) == 2 and model.calls[0][1].startswith("OCR TEXT:\nCritical Reasoning")
     assert not hasattr(model, "images")
-    assert has_options(PAGE) and not has_options(intro)
+    data = import_scan.model_dataset(out, "official-cr-v1", "Guide", "apple")
+    (item,) = data["items"]
+    assert item["question"]["choices"][1]["text"] == "Speed cameras were installed the same year."
+    assert item["official_explanation"].startswith("Speed cameras offer") and "A. Sales do not" in item["official_explanation"]
+    assert item["flags"] == [] and item["option_traps"] == [{"label": "A", "trap": "irrelevant"}]
 
 
 def test_option_markers_in_other_layouts():
@@ -106,16 +86,6 @@ def test_option_markers_in_other_layouts():
     assert not has_options(["A city opened lanes.", "Because of this, accidents fell."])
     # A page with only the key printed still gets a call.
     assert import_scan.worth_a_call(["Speed cameras offer another cause.", "The correct answer is B."])
-
-
-def test_dataset_round_trips_into_e1_and_skips_flagged_items(tmp_path):
-    data = build_dataset({10: (layout(), PAGE), 11: (layout(answer_key="D"), PAGE)}, "official-cr-v1", "Official Guide", "apple")
-    assert [i["flags"] for i in data["items"]] == [[], ["key_mismatch"]]
-    path = tmp_path / "ds.json"
-    path.write_text(json.dumps(data))
-    _, _, items, excluded = load_dataset(path)
-    assert [i.entry_id for i in items] == [10] and items[0].official_explanation.endswith("answer is B.")
-    assert excluded["flagged_scan"] == 1
 
 
 def test_refuses_to_write_inside_the_repository():

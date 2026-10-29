@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import difflib
 import io
 import itertools
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -41,70 +43,61 @@ from .schemas import Label, TrapType
 
 REPO = Path(__file__).resolve().parents[2]
 RENDER_DPI = 200
+AGREEMENT_FLOOR = 0.97
 # Line spacing inside a paragraph is about 1.0x; between options about 1.2x; between paragraphs about 1.5x.
 PARAGRAPH_GAP = 1.35
 # "(A) text", "A. text", "A) text", or the letter alone on its line with the text beside it in another column.
 MARKER = re.compile(r"^[(\[]?([A-E])\s*[).:\]]?(?:\s+\S|$)")
 
-LAYOUT_SYSTEM = """You lay out one OCR'd page of a GMAT/LSAT prep book's answer-explanation section.
+STRUCTURE_SYSTEM = """You structure the OCR text of one page from a GMAT/LSAT prep book's answer-explanation section.
 
-The page is given as numbered lines. Do not copy any text: answer with line numbers only. Give the first \
-and last line of the passage (the argument), of the question stem, of each answer option A-E, and of the \
-book's explanation. Leave out page headers, footers, running titles and question-type banners. Record the \
-letter the book gives as the correct answer, the question number, and the sub-type.
+Such a page usually holds: a question number and the passage (the argument); the question stem; answer \
+options (A) to (E); a reasoning-type banner such as "Argument Construction"; the book's explanation, often \
+labelled "Situation" and "Reasoning", then one paragraph per option marked A to E; and "The correct answer \
+is X." Chapter titles, introductions, running headers and page numbers are not part of a question.
 
-In this kind of book a page usually reads: the question number and the passage; the question stem; options \
-marked (A) to (E); a reasoning-type banner (for example "Argument Construction"); the explanation, often \
-with labels such as "Situation" and "Reasoning" and a line per option marked A to E; and "The correct \
-answer is X." The explanation runs from the banner to that sentence.
+Copy every field from the OCR text exactly as printed. Join lines broken by hyphenation and drop stray OCR \
+marks, but never reword, shorten, summarize or correct the book. If the page holds no question, set kind to \
+"not_a_question" and leave the rest empty. If the explanation is cut off at the end of the text, set \
+continues_on_next_page.
 
-For every option, give the trap it sets (or "correct") and a short reason in your own words (at most 15 \
-words, never quoting the book).
-
-If the page holds no question (a title page, an introduction, an answer grid), set kind to "not_a_question". \
-If the explanation runs past the last line shown, set continues_on_next_page. If the page begins in the \
-middle of the previous page's question, set starts_mid_question."""
+Finally, in your own words (never quoting the book), give the question's sub-type and, for each option, \
+the trap it sets or "correct"."""
 
 
-class Span(BaseModel):
-    first: int = Field(..., description="Number of the first line, as shown in [brackets]")
-    last: int = Field(..., description="Number of the last line, inclusive")
-
-
-class ChoiceSpan(Span):
+class TextChoice(BaseModel):
     label: Label
+    text: str
 
 
 class OptionTrap(BaseModel):
     label: Label
     trap: TrapType
-    why: str = Field(..., max_length=160)
 
 
-class ScanLayout(BaseModel):
+class PageStructure(BaseModel):
     kind: Literal["question", "not_a_question"]
     number: str = ""
-    family: Literal["CR", "RC", "other"] = "other"
-    subtype: str = Field("", description="weaken, strengthen, assumption, flaw, evaluate, inference (CR); main_idea, detail, inference, author_purpose, structure (RC)")
-    passage: Span | None = None
-    stem: Span | None = None
-    choices: list[ChoiceSpan] = []
-    explanation: Span | None = None
+    passage: str = ""
+    stem: str = ""
+    options: list[TextChoice] = []
     answer_key: Label | None = None
+    explanation: str = Field("", description="The book's explanation before the per-option paragraphs (Situation, Reasoning)")
+    option_explanations: list[TextChoice] = Field([], description="The book's paragraph on each option, A to E")
+    subtype: str = Field("", description="weaken, strengthen, assumption, flaw, evaluate, inference, explain, structure")
     option_traps: list[OptionTrap] = []
     continues_on_next_page: bool = False
-    starts_mid_question: bool = False
 
     @model_validator(mode="after")
-    def _complete_question(self) -> ScanLayout:
-        # Every field defaults so that "not_a_question" can be short; a question page must be complete,
+    def _complete_question(self) -> PageStructure:
+        # Every field defaults so a page without a question can be short; a question must be complete,
         # and a failure here goes back to the model as a correction request.
-        if self.kind == "question" and not self.starts_mid_question:
-            missing = [name for name in ("passage", "stem", "explanation", "answer_key") if getattr(self, name) is None]
-            if not self.number:
-                missing.append("number")
-            if sorted(c.label for c in self.choices) != ["A", "B", "C", "D", "E"]:
-                missing.append("choices (one line range for each of A-E)")
+        if self.kind == "question":
+            missing = [name for name in ("passage", "stem") if not getattr(self, name).strip()]
+            if sorted(o.label for o in self.options) != ["A", "B", "C", "D", "E"]:
+                missing.append("options (one for each of A-E)")
+            if self.answer_key is None:
+                missing.append("answer_key")
             if missing:
                 raise ValueError(f"a question page needs: {', '.join(missing)}")
         return self
@@ -204,13 +197,6 @@ def join_lines(lines: list[str]) -> str:
     return text
 
 
-def take(lines: list[str], span: Span | None) -> str | None:
-    """Lines first..last (1-based, inclusive), or None when the span is missing or out of range."""
-    if span is None or not 1 <= span.first <= span.last <= len(lines):
-        return None
-    return join_lines(lines[span.first - 1 : span.last])
-
-
 KEY_PATTERN = re.compile(r"(?:correct answer is|the answer is|answer:)\s*\(?([A-E])\)?", re.IGNORECASE)
 
 
@@ -219,93 +205,86 @@ def printed_key(text: str) -> str | None:
     return found[-1].upper() if found else None
 
 
-def assemble(layout: ScanLayout, lines: list[str]) -> tuple[dict, list[str]]:
+def words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9']+", text.replace("\u2019", "'").lower())
+
+
+def agreement(copied: str, ocr: str) -> float:
+    """Share of the model's words that line up, in order, with the OCR text: low when it rewrote or invented."""
+    mine, theirs = words(copied), words(join_lines(ocr.splitlines()))
+    if not mine:
+        return 0.0
+    blocks = difflib.SequenceMatcher(None, mine, theirs, autojunk=False).get_matching_blocks()
+    return round(sum(b.size for b in blocks) / len(mine), 4)
+
+
+def check_structure(page: PageStructure, ocr: str) -> tuple[list[str], float]:
     flags: list[str] = []
-    passage, stem, explanation = take(lines, layout.passage), take(lines, layout.stem), take(lines, layout.explanation)
-    choices = []
-    for c in sorted(layout.choices, key=lambda c: c.label):
-        text = take(lines, c)
-        if text is None:
-            continue
-        choices.append({"label": c.label, "text": re.sub(r"^\(?[A-E]\)?[.)]?\s+", "", text)})
-    if not passage or not stem:
-        flags.append("missing_text")
-    if [c["label"] for c in choices] != ["A", "B", "C", "D", "E"]:
-        flags.append("choices_incomplete")
-    if not layout.answer_key:
-        flags.append("no_key")
-    printed = printed_key("\n".join(lines))
-    if printed and layout.answer_key and printed != layout.answer_key:
+    copied = "\n".join([page.passage, page.stem, *(o.text for o in page.options)])
+    score = agreement(copied, ocr)
+    if score < AGREEMENT_FLOOR:
+        flags.append("not_as_printed")
+    printed = printed_key(ocr)
+    if printed and page.answer_key and printed != page.answer_key:
         flags.append("key_mismatch")
-    question = {"passage": passage or "", "stem": stem or "", "choices": choices}
-    return {"question": question, "official_explanation": explanation or ""}, flags
+    return flags, score
 
 
-# ------------------------------------------------------------------ run
-
-
-def numbered(lines: list[str]) -> str:
-    return "\n".join(f"[{i}] {line}" for i, line in enumerate(lines, 1))
-
-
-async def lay_out(model: StructuredLLM, ocr: dict[int, list[str]], concurrency: int = 4) -> dict[int, tuple[ScanLayout, list[str]]]:
-    """A layout and the lines it refers to, for each page that starts a question."""
+async def structure_pages(model: StructuredLLM, ocr: dict[int, list[str]], concurrency: int = 4) -> dict[int, tuple[PageStructure, str]]:
+    """The model's structure of each page that starts a question, with the OCR text it was given."""
     gate = asyncio.Semaphore(concurrency)
-    order = sorted(ocr)
+    text = {n: "\n".join(lines) for n, lines in ocr.items()}
 
-    async def one(n: int, lines: list[str], label: str) -> ScanLayout | None:
+    async def one(n: int, body: str, label: str) -> PageStructure | None:
         async with gate:
             started = time.monotonic()
             try:
-                layout = await model.complete(LAYOUT_SYSTEM, numbered(lines), ScanLayout, temperature=0.0)
+                page = await model.complete(STRUCTURE_SYSTEM, f"OCR TEXT:\n{body}", PageStructure, temperature=0.0)
             except Exception as e:  # noqa: BLE001 — one unreadable page should not stop the book
                 print(f"[scan] page {label}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
                 return None
-            what = f"question {layout.number or '?'}" if layout.kind == "question" else "no question"
+            what = f"question {page.number or '?'}" if page.kind == "question" else "no question"
             print(f"[scan] page {label}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
-            return layout
+            return page
 
-    candidates = [n for n in order if worth_a_call(ocr[n])]
-    for n in order:
-        if n not in candidates:
-            print(f"[scan] page {n}: no options or key found by OCR, skipped", file=sys.stderr)
-    first = dict(zip(candidates, await asyncio.gather(*(one(n, ocr[n], str(n)) for n in candidates)), strict=True))
-    out: dict[int, tuple[ScanLayout, list[str]]] = {}
+    candidates = [n for n in sorted(ocr) if worth_a_call(ocr[n])]
+    first = dict(zip(candidates, await asyncio.gather(*(one(n, text[n], str(n)) for n in candidates)), strict=True))
+    out: dict[int, tuple[PageStructure, str]] = {}
     for n in candidates:
-        layout, lines = first[n], ocr[n]
-        if layout is None or layout.kind != "question" or layout.starts_mid_question:
+        page, body = first[n], text[n]
+        if page is None or page.kind != "question":
             continue
-        if layout.continues_on_next_page and n + 1 in ocr:
-            lines = ocr[n] + ocr[n + 1]
-            layout = await one(n, lines, f"{n}+{n + 1}") or layout
-        out[n] = (layout, lines)
+        if page.continues_on_next_page and n + 1 in text:
+            body = f"{text[n]}\n{text[n + 1]}"
+            page = await one(n, body, f"{n}+{n + 1}") or page
+        out[n] = (page, body)
     return out
 
 
-def build_dataset(layouts: dict[int, tuple[ScanLayout, list[str]]], dataset: str, book: str, engine: str) -> dict:
+def model_dataset(structured: dict[int, tuple[PageStructure, str]], dataset: str, book: str, engine: str) -> dict:
     items = []
-    for n, (layout, lines) in sorted(layouts.items()):
-        fields, flags = assemble(layout, lines)
+    for n, (page, body) in sorted(structured.items()):
+        flags, score = check_structure(page, body)
         items.append(
             {
-                "entry_id": n,
+                "entry_id": n * 100,
                 "book": book,
                 "page": str(n),
-                "number": layout.number,
-                "family": layout.family,
-                "subtype": layout.subtype,
-                "answer_key": layout.answer_key,
+                "number": page.number,
+                "family": "CR",
+                "subtype": page.subtype,
+                "answer_key": page.answer_key,
                 "key_verdict": "book",
-                **fields,
-                "option_traps": [t.model_dump() for t in layout.option_traps],
-                # Line numbers only, for checking a flagged item against the page.
-                "layout": layout.model_dump(include={"passage", "stem", "choices", "explanation"}),
-                "lines": len(lines),
+                "question": {"passage": page.passage, "stem": page.stem, "choices": [o.model_dump() for o in sorted(page.options, key=lambda o: o.label)]},
+                "official_explanation": "\n\n".join([page.explanation, *(f"{o.label}. {o.text}" for o in sorted(page.option_explanations, key=lambda o: o.label))]).strip(),
+                "option_explanations": [o.model_dump() for o in page.option_explanations],
+                "option_traps": [t.model_dump() for t in page.option_traps],
+                "ocr_agreement": score,
                 "flags": flags,
                 "flagged": bool(flags),
             }
         )
-    return {"dataset": dataset, "source": f"scan+{engine}", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
+    return {"dataset": dataset, "source": f"scan+{engine}+model", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
 
 
 # ------------------------------------------------------------------ rule-based layout (no model)
@@ -515,7 +494,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--book", default="")
     ap.add_argument("--dataset", default="official-cr-v1")
-    ap.add_argument("--layout", choices=["rules", "model"], default="rules", help="rules: no model call (default); model: the primary model picks line ranges and trap tags")
+    ap.add_argument("--layout", choices=["rules", "model"], default="rules", help="rules: no model call (default); model: the primary model structures the OCR text, splits the explanation by option and tags traps")
     ap.add_argument("--ocr-only", action="store_true", help="run OCR and report what it found, without any model call")
     ap.add_argument("--ocr", choices=sorted(OCR_ENGINES), default="apple" if sys.platform == "darwin" else "tesseract")
     args = ap.parse_args(argv)
@@ -537,11 +516,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.layout == "rules":
         data = rules_dataset(ocr, args.dataset, args.book, args.ocr)
     else:
-        # Retries and schema fallbacks are logged as warnings; show them while a long book runs.
+        # Retries and schema fallbacks are logged as warnings; show them, and what failed, while a book runs.
+        os.environ.setdefault("LOG_INVALID_OUTPUT", "1")
         logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
         settings = load_settings()
         model = make_llm(settings.primary, timeout=settings.timeout_seconds)
-        data = build_dataset(asyncio.run(lay_out(model, ocr)), args.dataset, args.book, args.ocr)
+        data = model_dataset(asyncio.run(structure_pages(model, ocr)), args.dataset, args.book, args.ocr)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1, ensure_ascii=False))

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Protocol, TypeVar
 
@@ -45,7 +46,7 @@ def _split_data_url(url: str) -> tuple[str, str]:
 
 def _extract_json(text: str) -> str:
     """Pull a JSON object out of a reply that may wrap it in prose or fences."""
-    fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.S)
+    fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
     if fenced:
         return fenced.group(1)
     start, end = text.find("{"), text.rfind("}")
@@ -127,6 +128,9 @@ class OpenAICompatLLM:
             except ValidationError as e:
                 last_error = e
                 log.warning("%s returned invalid %s (attempt %d)", self.provider, schema.__name__, attempt + 1)
+                # Off by default: outputs can quote a learner's book, and server logs must not keep it.
+                if os.getenv("LOG_INVALID_OUTPUT"):
+                    log.warning("output: %.800s\nerrors: %s", content, e)
                 messages = messages + [
                     {"role": "assistant", "content": content},
                     {"role": "user", "content": f"That JSON did not match the schema: {e}. Return corrected JSON only."},
