@@ -31,7 +31,7 @@ Every experiment follows the same four steps, so results can be trusted and repe
 1. **Preregister.** Before running, write `protocols/E<n>-<name>.md` from the template: hypothesis, conditions, dataset, metrics, analysis, stopping rule. Commit it. A protocol changed after results exist gets a new version number and says why.
 2. **Run.** `ai/eval` runners execute a protocol and write one run directory outside the repository (see Data policy). Each run has a `manifest.json`:
    - `run_id`, `protocol` and version, `started_at`;
-   - `git_sha` of the code, `prompts_hash` (hash of `ai/questionize/prompts.py` and `levels.py`), `judge_version`;
+   - `git_sha` of the code, `prompts_hash` (hash of the prompts, levels, judge and runner source), `judge_version`;
    - providers and exact model IDs, temperatures, seeds;
    - `dataset_id` and the hash of its private contents;
    - per-condition costs (calls, tokens) and wall time.

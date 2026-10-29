@@ -5,12 +5,12 @@
 - **Registered:** 2026-10-29, before any results were seen
 
 ## Dataset
-50–80 Critical Reasoning / Logical Reasoning items from published GMAT and LSAT practice books owned by the team, photographed one at a time, with the book's answer key entered as a letter. Private dataset id `official-cr-v1`. Items kept outside the repository.
+50–80 Critical Reasoning / Logical Reasoning items from published GMAT and LSAT practice books owned by the team, photographed one at a time, with the book's answer key entered as a letter. Private dataset id `official-cr-v1`. Items kept outside the repository. Items without a key, and items whose entered key the Snap key check disputed, are excluded and counted in the manifest.
 
 ## Conditions
 - **B0:** Muse Spark 1.3 answers and explains in one call.
-- **B1:** Our pipeline's solver, critic and Argument Judge decide the answer; the explanation is written after the decision.
-- **B2:** Muse Spark 1.3 and Muse Spark Open answer independently, exchange reasoning for two rounds, and settle the answer and explanation; if no Baseten access, two differently-instructed runs of one model (reported as B2′).
+- **B1:** Our pipeline's blind solver answers; for weaken, strengthen and assumption items the Argument Judge measures every option and replaces the solver's answer when its top option stays first in at least 80% of bootstrap resamples. The explanation is written after the decision, by a call told the settled answer and allowed to object. (The critic checks questions we write, not official ones, so it has no role here.)
+- **B2:** Muse Spark 1.3 and Muse Spark Open answer independently, exchange reasoning for up to two rounds while they disagree, and settle (agreement, else the more confident final answer) the answer and explanation; if no Baseten access, two differently-instructed runs of one model (reported as B2′).
 Held fixed: transcription (from the same Snap reading), temperatures, seeds, prompts hash.
 
 ## Metrics

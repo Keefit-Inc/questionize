@@ -24,3 +24,24 @@ python -m questionize.eval_judge eval/gold.jsonl --out eval/report.json
 ```
 
 This calls the configured judge models (it needs a provider key in `ai/.env`) and prints accuracy, the gate pass rate, the mean margin and the expected calibration error. Results are published per judge version.
+
+## E1: solving and explaining official-style items
+
+Protocol: `research/protocols/E1-solve-and-explain.md`. The dataset is a curator's export from the web app (Me → Research dataset): item text from the curator's device plus the book's key letters. Keep it outside the repository.
+
+```bash
+cd ai
+python -m questionize.eval_e1 ~/private/official-cr-v1.json --conditions B0,B1,B2
+```
+
+It writes a run directory under `~/questionize-research/runs/<run_id>/` (`--out` to change):
+
+| File | Contents |
+|---|---|
+| `manifest.json` | Run id, protocol version, git SHA, prompts hash, models, judge version, seed, dataset id and hash, exclusions |
+| `results.jsonl` | One line per item and condition: answer, key, confidence, explanation, calls, debate rounds and judge readings |
+| `summary.json` | Accuracy with Wilson 95% interval, calibration error, calls; for B1/B2, McNemar against B0 and a paired bootstrap interval for the gain |
+| `rating_sheet.csv` | Explanations shuffled with the condition hidden, for blind rating (correct / partly / wrong) |
+| `rating_key.csv` | Joins rating ids back to items and conditions after rating |
+
+It appends one line with identifiers and the summary (no item text, no paths) to `research/ledger.jsonl`; commit that line. With the solver pointed at the same model as the primary, B2 is reported as B2′.
