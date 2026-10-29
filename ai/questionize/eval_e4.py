@@ -114,6 +114,7 @@ def main(argv: list[str] | None = None) -> None:
         "models": {"structurer": model.get("model", "")}, "dataset_id": dataset,
         "dataset_hash": hashlib.sha256(args.out.read_bytes()).hexdigest()[:16], "n_items": len(merged),
         "reference": "agreement between layout rules and model structuring; no human check yet",
+        "subject": "CR",
         "summary": summary,
     }
     with args.ledger.open("a") as f:

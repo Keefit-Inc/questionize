@@ -37,6 +37,12 @@ Each capability has its own folder under [`capabilities/`](capabilities/), numbe
 
 **Where the boundaries are.** C2 describes the item (the trap a distractor is built to set); C4 describes the learner (which traps and misconceptions actually catch them). C3.3 uses C4's profile but is judged as an explanation. C5 writes; C6 only selects. Verification and memory are levers that change several capabilities, not capabilities themselves; so are the eligibility checks (live-exam suspicion, content flags), which are policy gates measured separately.
 
+### Subjects
+
+Capabilities are the same for every subject; what changes per subject is the content they work on. So the research is a matrix, **capability × subject**: every ledger line names its `subject` (`CR`, `RC`, later `math-geometry`, `physics-mechanics`, …), and the scoreboard and each capability's `HISTORY.md` keep subjects apart, so a gain in math never hides a loss in CR.
+
+A new subject is added as a **subject pack** in [`subjects/`](subjects/): its skills and objectives, the parts its questions contain (figures, tables, formulas, units), its traps and misconceptions, its levels, its datasets, and any bar that differs from the default (for example C1.2 reconstruction for geometry figures). No capability folder changes; each gains rows for the new subject.
+
 ## Experiments
 
 | ID | Capability | Status | Protocol |

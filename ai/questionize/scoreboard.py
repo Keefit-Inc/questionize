@@ -37,6 +37,11 @@ def load(path: Path) -> list[dict]:
     return [r for r in rows if r.get("run_id") and r["run_id"] not in invalid and not r.get("invalidates")]
 
 
+def subject_of(run: dict) -> str:
+    """The subject a run measured (e.g. "CR", "RC", "math-geometry"); runs before the field existed were CR."""
+    return run.get("subject") or "CR"
+
+
 def headline(summary: dict) -> str:
     """'B0 0.82 [0.71, 0.89] · B1 …' from a per-condition summary with accuracy or a named primary measure."""
     parts = []
@@ -60,18 +65,21 @@ def render(rows: list[dict]) -> str:
             "Latest valid run per capability; bars from research/README.md."
         ),
         "",
-        "| Capability | Bar | Latest result | Run |",
-        "|---|---|---|---|",
+        "| Capability | Subject | Bar | Latest result | Run |",
+        "|---|---|---|---|---|",
     ]
     for cap, name, bar in CAPABILITIES:
         runs = [r for r in rows if cap in r.get("capabilities", [])]
-        if runs:
-            r = max(runs, key=lambda r: r.get("started_at", ""))
-            result = headline(r.get("summary", {}))
-            run = f"{r['protocol']} v{r.get('protocol_version', 1)} · {r['run_id']} · {', '.join(r.get('models', {}).values())}"
-        else:
-            result, run = "not measured yet", ""
-        out.append(f"| {cap} {name} | {bar} | {result} | {run} |")
+        subjects = sorted({subject_of(r) for r in runs}) or [""]
+        for subject in subjects:
+            mine = [r for r in runs if subject_of(r) == subject]
+            if mine:
+                r = max(mine, key=lambda r: r.get("started_at", ""))
+                result = headline(r.get("summary", {}))
+                run = f"{r['protocol']} v{r.get('protocol_version', 1)} · {r['run_id']} · {', '.join(r.get('models', {}).values())}"
+            else:
+                result, run = "not measured yet", ""
+            out.append(f"| {cap} {name} | {subject} | {bar} | {result} | {run} |")
     return "\n".join(out) + "\n"
 
 
@@ -86,16 +94,16 @@ def history(rows: list[dict], capability: str) -> str:
             "Each row is one run; a change is kept only if it beats the previous version on the capability's primary measure."
         ),
         "",
-        "| Date | Run | Protocol | What changed | Models | Result |",
-        "|---|---|---|---|---|---|",
+        "| Date | Subject | Run | Protocol | What changed | Models | Result |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in runs:
         out.append(
-            f"| {r.get('started_at', '')[:10]} | {r['run_id']} | {r['protocol']} v{r.get('protocol_version', 1)} "
+            f"| {r.get('started_at', '')[:10]} | {subject_of(r)} | {r['run_id']} | {r['protocol']} v{r.get('protocol_version', 1)} "
             f"| {r.get('note') or ''} | {', '.join(r.get('models', {}).values())} | {headline(r.get('summary', {}))} |"
         )
     if not runs:
-        out.append("| | | | not measured yet | | |")
+        out.append("| | | | | not measured yet | | |")
     return "\n".join(out) + "\n"
 
 

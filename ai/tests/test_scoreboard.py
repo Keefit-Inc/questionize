@@ -31,5 +31,15 @@ def test_histories_are_written_per_capability_folder(tmp_path):
     ]
     scoreboard.write_all(rows, tmp_path)
     c3 = (tmp_path / "capabilities" / "C3-solve-explain" / "HISTORY.md").read_text()
-    assert c3.index("baseline") < c3.index("memory from train split") and "B0+M 0.85" in c3
+    assert c3.index("baseline") < c3.index("memory from train split") and "B0+M 0.85" in c3 and "| CR |" in c3
     assert "not measured yet" in (tmp_path / "capabilities" / "C1-capture" / "HISTORY.md").read_text()
+
+
+def test_scoreboard_keeps_subjects_apart():
+    rows = [
+        {"run_id": "cr", "protocol": "E1", "capabilities": ["C3.1"], "started_at": "1", "models": {}, "summary": {"B0": {"accuracy": 0.9}}},
+        {"run_id": "geo", "protocol": "E1", "subject": "math-geometry", "capabilities": ["C3.1"], "started_at": "2", "models": {},
+         "summary": {"B0": {"accuracy": 0.6}}},
+    ]
+    board = scoreboard.render(rows)
+    assert "| C3.1 Solve | CR |" in board and "| C3.1 Solve | math-geometry |" in board and "B0 0.90" in board
