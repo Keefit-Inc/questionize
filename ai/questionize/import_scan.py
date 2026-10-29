@@ -40,7 +40,8 @@ from .schemas import Label, TrapType
 
 REPO = Path(__file__).resolve().parents[2]
 RENDER_DPI = 200
-MARKER = re.compile(r"^\(?([A-E])[).]?\s+\S")
+# "(A) text", "A. text", "A) text", or the letter alone on its line with the text beside it in another column.
+MARKER = re.compile(r"^[(\[]?([A-E])\s*[).:\]]?(?:\s+\S|$)")
 
 LAYOUT_SYSTEM = """You lay out one OCR'd page of a GMAT/LSAT prep book's answer-explanation section.
 
@@ -142,6 +143,11 @@ def has_options(lines: list[str]) -> bool:
     return len({m.group(1) for line in lines if (m := MARKER.match(line.strip()))}) >= 3
 
 
+def worth_a_call(lines: list[str]) -> bool:
+    """A page that starts or explains a question: options, or a printed key."""
+    return has_options(lines) or printed_key("\n".join(lines)) is not None
+
+
 def join_lines(lines: list[str]) -> str:
     """Rejoin OCR lines into running text, undoing end-of-line hyphenation."""
     text = ""
@@ -216,10 +222,10 @@ async def lay_out(model: StructuredLLM, ocr: dict[int, list[str]], concurrency: 
             print(f"[scan] page {label}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
             return layout
 
-    candidates = [n for n in order if has_options(ocr[n])]
+    candidates = [n for n in order if worth_a_call(ocr[n])]
     for n in order:
         if n not in candidates:
-            print(f"[scan] page {n}: no options found by OCR, skipped", file=sys.stderr)
+            print(f"[scan] page {n}: no options or key found by OCR, skipped", file=sys.stderr)
     first = dict(zip(candidates, await asyncio.gather(*(one(n, ocr[n], str(n)) for n in candidates)), strict=True))
     out: dict[int, tuple[ScanLayout, list[str]]] = {}
     for n in candidates:

@@ -93,6 +93,14 @@ def test_lay_out_skips_pages_without_options_and_joins_continuations():
     assert has_options(PAGE) and not has_options(intro)
 
 
+def test_option_markers_in_other_layouts():
+    assert has_options(["A. Bike sales rose.", "B. Cameras.", "C. Paint."])
+    assert has_options(["A", "B", "C", "D", "E"])  # letters in their own column
+    assert not has_options(["A city opened lanes.", "Because of this, accidents fell."])
+    # A page with only the key printed still gets a call.
+    assert import_scan.worth_a_call(["Speed cameras offer another cause.", "The correct answer is B."])
+
+
 def test_dataset_round_trips_into_e1_and_skips_flagged_items(tmp_path):
     data = build_dataset({10: (layout(), PAGE), 11: (layout(answer_key="D"), PAGE)}, "official-cr-v1", "Official Guide", "apple")
     assert [i["flags"] for i in data["items"]] == [[], ["key_mismatch"]]
