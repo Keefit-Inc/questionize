@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
+import itertools
 import json
 import logging
 import re
@@ -157,7 +158,7 @@ def merge_rows(boxes: list[tuple[str, list[float]]]) -> list[str]:
             lines[-1][2].append((x, text))
         else:
             lines.append((centre, h, [(x, text)]))
-    gaps = sorted(a[0] - b[0] for a, b in zip(lines, lines[1:], strict=False))
+    gaps = sorted(a[0] - b[0] for a, b in itertools.pairwise(lines))
     usual = gaps[len(gaps) // 2] if gaps else 0.0
     out: list[str] = []
     for i, (centre, _, parts) in enumerate(lines):
