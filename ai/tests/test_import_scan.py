@@ -150,3 +150,55 @@ def test_merge_rows_puts_markers_and_labels_on_their_lines():
         "(B) Perfectly recalling every detail could help",
         "some animals react more appropriately.",
     ]
+
+
+def book_page(number: int, key: str, header: bool = True) -> list[str]:
+    """A page laid out like a prep book's answer section, in our own words."""
+    return [
+        *(["The Study Guide for Tests Review 2016"] if header else []),
+        f"{number}. Planner: Accidents fell after the city opened bike lanes on",
+        "Main Street, so bike lanes make streets safer.",
+        "Which of the following, if true, most seriously weak-",
+        "ens the planner's argument?",
+        "(A) Bike sales rose.",
+        "(B) Speed cameras were installed on Main Street the",
+        "same year.",
+        "(C) The lanes are painted green.",
+        "(D) Other cities built lanes.",
+        "(E) Some drivers dislike the lanes.",
+        "Argument Evaluation",
+        "Situation The planner credits the lanes for the drop.",
+        "A This does not bear on the cause.",
+        f"The correct answer is {key}.",
+        f"{540 + number}",
+    ]
+
+
+def test_rules_parse_a_book_page_without_any_model():
+    pages = {n: book_page(n, "B") for n in range(1, 5)}
+    items = import_scan.parse_book(pages)
+    assert len(items) == 4
+    first = items[0]
+    assert first["number"] == "1" and first["answer_key"] == "B" and first["subtype"] == "weaken" and first["flags"] == []
+    q = first["question"]
+    assert q["passage"] == "Planner: Accidents fell after the city opened bike lanes on Main Street, so bike lanes make streets safer."
+    assert q["stem"] == "Which of the following, if true, most seriously weakens the planner's argument?"
+    assert q["choices"][1] == {"label": "B", "text": "Speed cameras were installed on Main Street the same year."}
+    assert q["choices"][4]["text"] == "Some drivers dislike the lanes."
+    assert first["official_explanation"].startswith("Argument Evaluation Situation") and first["official_explanation"].endswith("answer is B.")
+
+
+def test_rules_follow_a_question_across_pages_and_skip_an_intro():
+    page = book_page(7, "D")
+    pages = {1: ["Answer Explanations", "The following discussion explains each question."] + page[:9], 2: page[9:]}
+    (item,) = import_scan.parse_book(pages)
+    assert item["page"] == "1" and item["number"] == "7" and item["answer_key"] == "D"
+    assert [c["label"] for c in item["question"]["choices"]] == list("ABCDE")
+
+
+def test_rules_dataset_feeds_e1(tmp_path):
+    data = import_scan.rules_dataset({n: book_page(n, "B") for n in range(1, 5)}, "official-cr-v1", "Guide", "apple")
+    path = tmp_path / "ds.json"
+    path.write_text(json.dumps(data))
+    _, _, items, excluded = load_dataset(path)
+    assert len(items) == 4 and excluded["flagged_scan"] == 0

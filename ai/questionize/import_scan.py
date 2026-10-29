@@ -296,6 +296,136 @@ def build_dataset(layouts: dict[int, tuple[ScanLayout, list[str]]], dataset: str
     return {"dataset": dataset, "source": f"scan+{engine}", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
 
 
+# ------------------------------------------------------------------ rule-based layout (no model)
+
+QUESTION_START = re.compile(r"^(\d{1,3})[.)]\s+(\S.*)$")
+OPTION = re.compile(r"^[(\[]?([A-E])[)\]]\s*(.*)$")
+KEY_LINE = re.compile(r"(?:the\s+)?correct answer is\s*\(?([A-E])\)?", re.IGNORECASE)
+BANNER = re.compile(r"^(argument (construction|evaluation)|evaluation of a plan|argument|evaluation|construction)\b", re.IGNORECASE)
+TERMINAL = ('.', '?', '!', ':', '"', '\u201d', ')')
+SUBTYPE_CUES = [
+    ("weaken", r"weaken|undermine|cast(s)? (the most )?doubt|call(s)? into question|counter"),
+    ("assumption", r"assum|depends on|relies on|presuppose"),
+    ("flaw", r"flaw|vulnerable to (the )?criticism|questionable because|error in"),
+    ("evaluate", r"evaluat|useful to (know|determine|establish)|most important to"),
+    ("explain", r"explain|resolve|reconcile|discrepancy|paradox"),
+    ("structure", r"boldface|role|roles played|play(s)? which"),
+    ("strengthen", r"strengthen|support for the|most strongly support(s)? the (argument|claim|conclusion|prediction)|justify"),
+    ("inference", r"infer|support(s)? which|most strongly support|conclusion|must (also )?be true|properly drawn"),
+]
+
+
+def structural(line: str) -> bool:
+    line = line.strip()
+    return bool(KEY_LINE.search(line) or QUESTION_START.match(line) or OPTION.match(line))
+
+
+def boilerplate(pages: dict[int, list[str]]) -> set[str]:
+    """Running titles and headers: top or bottom lines (digits stripped) that recur on many pages."""
+    if len(pages) < 4:
+        return set()
+    seen: dict[str, int] = {}
+    for lines in pages.values():
+        for key in {re.sub(r"\d+", "#", line.strip().lower()) for line in lines[:2] + lines[-2:] if not structural(line)}:
+            seen[key] = seen.get(key, 0) + 1
+    return {k for k, count in seen.items() if count >= max(3, len(pages) // 3) and len(k) < 80}
+
+
+def guess_subtype(stem: str) -> str:
+    low = stem.lower()
+    return next((name for name, cue in SUBTYPE_CUES if re.search(cue, low)), "")
+
+
+def parse_book(pages: dict[int, list[str]]) -> list[dict]:
+    """Split OCR lines into questions, assuming the usual answer-section layout: number and passage, stem,
+    options (A)-(E), a reasoning-type banner, the explanation, and "The correct answer is X." Questions may
+    run across pages."""
+    noise = boilerplate(pages)
+    stream = [
+        (n, line.strip())
+        for n in sorted(pages)
+        for line in pages[n]
+        if line.strip() and not re.fullmatch(r"\d{1,4}", line.strip()) and re.sub(r"\d+", "#", line.strip().lower()) not in noise
+    ]
+    items, start = [], 0
+    for k, (_, line) in enumerate(stream):
+        found = KEY_LINE.search(line)
+        if not found:
+            continue
+        items.append(parse_question(stream[start : k + 1], found.group(1).upper()))
+        start = k + 1
+    return [i for i in items if i]
+
+
+def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
+    lines = [text for _, text in segment]
+    first_option = next((i for i, t in enumerate(lines) if (m := OPTION.match(t)) and m.group(1) == "A"), None)
+    if first_option is None:
+        return None
+    q = max((i for i in range(first_option) if QUESTION_START.match(lines[i])), default=None)
+    flags: list[str] = []
+    if q is None:
+        flags.append("no_number")
+        q = 0
+    number = QUESTION_START.match(lines[q]).group(1) if QUESTION_START.match(lines[q]) else ""
+    body = [QUESTION_START.match(lines[q]).group(2) if number else lines[q], *lines[q + 1 : first_option]]
+
+    # The stem is the run of lines after the passage's last sentence-ending line.
+    stem_from = len(body) - 1
+    while stem_from > 0 and not body[stem_from - 1].endswith(TERMINAL):
+        stem_from -= 1
+    passage, stem = join_lines(body[:stem_from]), join_lines(body[stem_from:])
+
+    # Options (A)-(E) in order; each runs until the next marker; (E) runs until the banner.
+    marks: list[tuple[str, int]] = []
+    for i in range(first_option, len(lines)):
+        m = OPTION.match(lines[i])
+        if m and m.group(1) == "ABCDE"[len(marks)]:
+            marks.append((m.group(1), i))
+            if len(marks) == 5:
+                break
+    end_e = len(lines) - 1
+    if len(marks) == 5:
+        e = marks[-1][1]
+        end_e = next((i for i in range(e + 1, len(lines)) if BANNER.match(lines[i]) or lines[i].lower().startswith("situation")), e + 1)
+    else:
+        flags.append("choices_incomplete")
+    choices = []
+    for j, (label, i) in enumerate(marks):
+        stop = marks[j + 1][1] if j + 1 < len(marks) else end_e
+        text = join_lines([OPTION.match(lines[i]).group(2), *lines[i + 1 : stop]])
+        choices.append({"label": label, "text": text})
+    explanation = join_lines(lines[end_e:])
+    if not passage or not stem:
+        flags.append("missing_text")
+    return {
+        "page": str(segment[q][0]),
+        "number": number,
+        "subtype": guess_subtype(stem),
+        "answer_key": key,
+        "question": {"passage": passage, "stem": stem, "choices": choices},
+        "official_explanation": explanation,
+        "flags": flags,
+    }
+
+
+def rules_dataset(pages: dict[int, list[str]], dataset: str, book: str, engine: str) -> dict:
+    items = []
+    for parsed in parse_book(pages):
+        items.append(
+            {
+                "entry_id": int(parsed["page"]) * 100 + len([i for i in items if i["page"] == parsed["page"]]),
+                "book": book,
+                "family": "CR",
+                "key_verdict": "book",
+                "option_traps": [],
+                **parsed,
+                "flagged": bool(parsed["flags"]),
+            }
+        )
+    return {"dataset": dataset, "source": f"scan+{engine}+rules", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
+
+
 def inside_repo(path: Path) -> bool:
     try:
         path.resolve().relative_to(REPO)
@@ -314,6 +444,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--book", default="")
     ap.add_argument("--dataset", default="official-cr-v1")
+    ap.add_argument("--layout", choices=["rules", "model"], default="rules", help="rules: no model call (default); model: the primary model picks line ranges and trap tags")
     ap.add_argument("--ocr-only", action="store_true", help="run OCR and report what it found, without any model call")
     ap.add_argument("--ocr", choices=sorted(OCR_ENGINES), default="apple" if sys.platform == "darwin" else "tesseract")
     args = ap.parse_args(argv)
@@ -328,22 +459,25 @@ def main(argv: list[str] | None = None) -> None:
             print(f"page {n}: {len(lines)} lines, {found}, key {printed_key(chr(10).join(lines)) or '-'} ({time.monotonic() - started:.1f}s)")
         return
 
-    # Retries and schema fallbacks are logged as warnings; show them while a long book runs.
-    logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
-    settings = load_settings()
-    model = make_llm(settings.primary, timeout=settings.timeout_seconds)
     images = render_pages(args.pdf, parse_pages(args.pages))
     started = time.monotonic()
     ocr = {n: OCR_ENGINES[args.ocr](png) for n, png in images.items()}
-    print(f"[scan] {len(ocr)} pages read by {args.ocr} OCR in {time.monotonic() - started:.0f}s; laying them out with {model.model}…", file=sys.stderr)
-    data = build_dataset(asyncio.run(lay_out(model, ocr)), args.dataset, args.book, args.ocr)
+    print(f"[scan] {len(ocr)} pages read by {args.ocr} OCR in {time.monotonic() - started:.0f}s", file=sys.stderr)
+    if args.layout == "rules":
+        data = rules_dataset(ocr, args.dataset, args.book, args.ocr)
+    else:
+        # Retries and schema fallbacks are logged as warnings; show them while a long book runs.
+        logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
+        settings = load_settings()
+        model = make_llm(settings.primary, timeout=settings.timeout_seconds)
+        data = build_dataset(asyncio.run(lay_out(model, ocr)), args.dataset, args.book, args.ocr)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, indent=1, ensure_ascii=False))
     flagged = [i for i in data["items"] if i["flagged"]]
     print(f"{len(images)} pages → {len(data['items'])} questions, {len(flagged)} flagged → {args.out}")
-    for i in flagged:
-        print(f"  page {i['page']} #{i['number']}: {', '.join(i['flags'])}")
+    for i in data["items"]:
+        print(f"  page {i['page']} #{i['number']}: {i['subtype'] or '?'} key {i['answer_key']}, {len(i['question']['choices'])} options, explanation {len(i['official_explanation'])} chars {i['flags'] or ''}")
     if flagged:
         print("Fix each flagged item in the JSON against the page, then set \"flagged\": false.")
 

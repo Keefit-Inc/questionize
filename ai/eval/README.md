@@ -36,7 +36,7 @@ cd ai && pip install -r requirements-research.txt     # on a Mac this includes A
 python -m questionize.import_scan ~/private/og.pdf --pages 520-640 --book "Official Guide" --out ~/private/official-cr-v1.json
 ```
 
-An on-device OCR engine reads each page into numbered lines (`--ocr apple` on macOS, `tesseract` elsewhere; `--ocr-only` to check it without any model call). Pages with no answer options are skipped. The primary model sees only the numbered lines and answers with line ranges for the passage, stem, options and explanation, plus the key letter, the sub-type and a trap tag per option in its own words, so the text is exactly what was printed and no page image leaves the machine. Items with a missing key, option or field, or a key that differs from the one printed on the page, are flagged; fix them against the page in the JSON and set `"flagged": false`. E1 skips them until then. The output quotes the book, so the script refuses a path inside the repository.
+An on-device OCR engine reads each page into lines (`--ocr apple` on macOS, `tesseract` elsewhere; `--ocr-only` checks it). By default the layout is found by rules, with no model call: the book's answer section reads number and passage, stem, options (A)-(E), a reasoning-type banner, the explanation and "The correct answer is X.", and questions may run across pages; running headers and page numbers are dropped and the sub-type is guessed from the stem. `--layout model` asks the primary model for line ranges and per-option trap tags instead. Items with a missing number, option or field are flagged; fix them against the page in the JSON and set `"flagged": false`. E1 skips them until then. The output quotes the book, so the script refuses a path inside the repository.
 
 ### Running
 
