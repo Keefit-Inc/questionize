@@ -17,7 +17,7 @@ from typing import Any
 
 from . import levels, prompts
 from .pipeline import Declined, QuestionPipeline, longest_copied_run, normalize_question
-from .schemas import Diagnosis, DiagnoseRequest, KeyCheck, KeyReview, PatternObservation, PhotoReading, PracticeRequest, Question, SolverResult, SourceQuestion
+from .schemas import Diagnosis, DiagnoseRequest, FlatPhotoReading, KeyCheck, KeyReview, PatternObservation, PhotoReading, PracticeRequest, Question, SolverResult, SourceQuestion
 
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -29,9 +29,11 @@ TOPICS = ["city services", "small business", "ecology", "sports science", "museu
 async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit, seed: int | None = None) -> dict[str, Any]:
     rng = random.Random(seed)
     await emit({"stage": "reading", "message": "Reading the photographed question"})
-    reading = await pipeline.primary.complete(
-        prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level)), PhotoReading, temperature=0.0, images=req.images
-    )
+    reading = (
+        await pipeline.primary.complete(
+            prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level)), FlatPhotoReading, temperature=0.0, images=req.images,
+        )
+    ).reading
     if not reading.readable or reading.kind == "not_a_question":
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
     if reading.kind == "live_exam_suspected":
@@ -40,10 +42,12 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     key_check, key = await _check_key(pipeline, reading, req, emit)
     if key is not None and key != reading.key_guess:
         # Our first reading explained a different answer; explain the checked one instead.
-        reread = await pipeline.primary.complete(
-            prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level), key), PhotoReading,
-            temperature=0.0, images=req.images,
-        )
+        reread = (
+            await pipeline.primary.complete(
+                prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level), key), FlatPhotoReading,
+                temperature=0.0, images=req.images,
+            )
+        ).reading
         reading = reread.model_copy(update={"key_guess": key, "question": reading.question})
 
     transcript = reading.question.text()
