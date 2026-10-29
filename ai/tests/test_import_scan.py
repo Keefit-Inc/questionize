@@ -173,6 +173,7 @@ def test_rules_dataset_feeds_e1(tmp_path):
     path.write_text(json.dumps(data))
     _, _, items, excluded = load_dataset(path)
     assert len(items) == 4 and excluded["flagged_scan"] == 0
+    assert {i.split for i in items} <= {"train", "test"} and all(i.split for i in items)
 
 
 def test_rules_accept_a_number_without_its_period_or_on_its_own_line():

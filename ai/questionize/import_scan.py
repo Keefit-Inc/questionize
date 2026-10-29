@@ -489,6 +489,7 @@ def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
 
 
 def rules_dataset(pages: dict[int, list[str]], dataset: str, book: str, engine: str) -> dict:
+    from .eval_e4 import split_of  # the same 60/40 train/test split E4 assigns
     items = []
     parsed_all = parse_book(pages)
     # Questions are numbered in order: a number OCR missed is the one between its neighbours.
@@ -513,6 +514,7 @@ def rules_dataset(pages: dict[int, list[str]], dataset: str, book: str, engine: 
                 "option_traps": [],
                 **parsed,
                 "flagged": bool(parsed["flags"]),
+                "split": split_of(dataset, parsed["number"] or parsed["page"]) if not parsed["flags"] else "",
             }
         )
     return {"dataset": dataset, "source": f"scan+{engine}+rules", "exported_at": datetime.now(timezone.utc).isoformat(), "items": items}
