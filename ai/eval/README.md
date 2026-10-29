@@ -27,6 +27,19 @@ This calls the configured judge models (it needs a provider key in `ai/.env`) an
 
 ## E1: solving and explaining official-style items
 
+### Building the dataset from a scan
+
+A prep book you own whose answer section prints one question per page (passage, options, key and explanation) can be imported directly instead of snapped item by item:
+
+```bash
+cd ai && pip install -r requirements-research.txt     # on a Mac this includes Apple Vision OCR
+python -m questionize.import_scan ~/private/og.pdf --pages 520-640 --book "Official Guide" --out ~/private/official-cr-v1.json
+```
+
+The primary model reads each page into the question, the book's key letter, the book's explanation and a trap tag per option (its own words). An on-device OCR engine reads the same page (`--ocr apple` on macOS, `tesseract` elsewhere, `none` to skip): a page is flagged when under 97% of the model's words line up with the OCR text, when the key letter printed on the page differs, or when an option is missing. Fix flagged items against the page in the JSON and set `"flagged": false`; E1 skips them until then. The output quotes the book, so the script refuses a path inside the repository.
+
+### Running
+
 Protocol: `research/protocols/E1-solve-and-explain.md`. The dataset is a curator's export from the web app (Me → Research dataset): item text from the curator's device plus the book's key letters. Keep it outside the repository.
 
 ```bash

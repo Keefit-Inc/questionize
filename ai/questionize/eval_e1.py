@@ -80,6 +80,8 @@ class DatasetItem(BaseModel):
     key_verdict: str = "unchecked"
     subtype: str = ""
     question: DatasetQuestion
+    official_explanation: str = ""
+    flagged: bool = False
 
 
 @dataclass
@@ -217,7 +219,7 @@ def summarize(outcomes: list[Outcome], seed: int = 7) -> dict[str, Any]:
 
 def prompts_hash() -> str:
     h = hashlib.sha256()
-    for name in ("prompts.py", "levels.py", "judge.py", "eval_e1.py"):
+    for name in ("prompts.py", "levels.py", "judge.py", "eval_e1.py", "import_scan.py"):
         h.update((ROOT / name).read_bytes())
     return h.hexdigest()[:16]
 
@@ -233,8 +235,12 @@ def load_dataset(path: Path) -> tuple[str, str, list[DatasetItem], dict[str, int
     raw = path.read_bytes()
     data = json.loads(raw)
     items = [DatasetItem.model_validate(i) for i in data.get("items", [])]
-    usable = [i for i in items if i.answer_key and i.key_verdict != "disputed"]
-    excluded = {"no_key": sum(1 for i in items if not i.answer_key), "disputed_key": sum(1 for i in items if i.answer_key and i.key_verdict == "disputed")}
+    usable = [i for i in items if i.answer_key and i.key_verdict != "disputed" and not i.flagged]
+    excluded = {
+        "no_key": sum(1 for i in items if not i.answer_key),
+        "disputed_key": sum(1 for i in items if i.answer_key and i.key_verdict == "disputed"),
+        "flagged_scan": sum(1 for i in items if i.answer_key and i.key_verdict != "disputed" and i.flagged),
+    }
     return data.get("dataset", path.stem), hashlib.sha256(raw).hexdigest()[:16], usable, excluded
 
 
@@ -244,9 +250,11 @@ def write_rating_sheet(run_dir: Path, outcomes: list[Outcome], items: dict[int, 
     rng.shuffle(rows)
     with (run_dir / "rating_sheet.csv").open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["rating_id", "question", "answer_shown", "explanation", "rating (correct / partly / wrong)", "comment"])
+        # The book's explanation, when the dataset has one, is the reference to rate against.
+        w.writerow(["rating_id", "question", "answer_shown", "explanation", "book_explanation", "rating (correct / partly / wrong)", "comment"])
         for rid, o in rows:
-            w.writerow([rid, item_text(items[o.entry_id].question), o.answer, o.explanation, "", ""])
+            item = items[o.entry_id]
+            w.writerow([rid, item_text(item.question), o.answer, o.explanation, item.official_explanation, "", ""])
     with (run_dir / "rating_key.csv").open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["rating_id", "entry_id", "condition", "answer_correct"])

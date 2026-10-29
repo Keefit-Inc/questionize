@@ -129,7 +129,7 @@ def test_main_writes_run_files_and_a_text_free_ledger_line(tmp_path, monkeypatch
 
     (run_dir,) = (tmp_path / "runs").iterdir()
     manifest = json.loads((run_dir / "manifest.json").read_text())
-    assert manifest["n_items"] == 1 and manifest["excluded"] == {"no_key": 1, "disputed_key": 1}
+    assert manifest["n_items"] == 1 and manifest["excluded"] == {"no_key": 1, "disputed_key": 1, "flagged_scan": 0}
     sheet = list(csv.reader((run_dir / "rating_sheet.csv").open()))
     assert len(sheet) == 2 and "condition" not in sheet[0]
     line = json.loads(ledger.read_text())
