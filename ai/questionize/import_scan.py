@@ -44,6 +44,7 @@ from .schemas import Label, TrapType
 REPO = Path(__file__).resolve().parents[2]
 RENDER_DPI = 200
 AGREEMENT_FLOOR = 0.97
+STOP_AFTER_FAILURES = 3
 # Line spacing inside a paragraph is about 1.0x; between options about 1.2x; between paragraphs about 1.5x.
 PARAGRAPH_GAP = 1.35
 # "(A) text", "A. text", "A) text", or the letter alone on its line with the text beside it in another column.
@@ -234,15 +235,23 @@ async def structure_pages(model: StructuredLLM, ocr: dict[int, list[str]], concu
     """The model's structure of each page that starts a question, with the OCR text it was given."""
     gate = asyncio.Semaphore(concurrency)
     text = {n: "\n".join(lines) for n, lines in ocr.items()}
+    tally = {"ok": 0, "failed": 0}
 
     async def one(n: int, body: str, label: str) -> PageStructure | None:
         async with gate:
+            # Credits guard: if the first pages all fail, something systematic is wrong; stop calling.
+            if tally["failed"] >= STOP_AFTER_FAILURES and tally["ok"] == 0:
+                return None
             started = time.monotonic()
             try:
                 page = await model.complete(STRUCTURE_SYSTEM, f"OCR TEXT:\n{body}", PageStructure, temperature=0.0)
             except Exception as e:  # noqa: BLE001 — one unreadable page should not stop the book
+                tally["failed"] += 1
                 print(f"[scan] page {label}: failed after {time.monotonic() - started:.0f}s: {e}", file=sys.stderr)
+                if tally["failed"] == STOP_AFTER_FAILURES and tally["ok"] == 0:
+                    print(f"[scan] the first {STOP_AFTER_FAILURES} pages all failed; stopping model calls.", file=sys.stderr)
                 return None
+            tally["ok"] += 1
             what = f"question {page.number or '?'}" if page.kind == "question" else "no question"
             print(f"[scan] page {label}: {what} ({time.monotonic() - started:.0f}s)", file=sys.stderr)
             return page
@@ -521,6 +530,8 @@ def main(argv: list[str] | None = None) -> None:
         logging.basicConfig(level=logging.WARNING, format="[%(name)s] %(message)s")
         settings = load_settings()
         model = make_llm(settings.primary, timeout=settings.timeout_seconds)
+        # One correction round per page is enough for structuring; more mostly re-sends the same page.
+        model._max_retries = 1
         data = model_dataset(asyncio.run(structure_pages(model, ocr)), args.dataset, args.book, args.ocr)
         data["model"] = model.model
 

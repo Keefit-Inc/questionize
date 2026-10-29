@@ -223,3 +223,17 @@ def test_paragraph_split_when_passage_and_stem_run_together():
     (item,) = import_scan.parse_book({1: lines})
     assert item["number"] == "3" and item["question"]["stem"].startswith("Which of the following")
     assert item["question"]["passage"].startswith("Planner:")
+
+
+def test_model_calls_stop_when_the_first_pages_all_fail():
+    class Failing:
+        model = "m"
+        calls = 0
+
+        async def complete(self, *a, **kw):
+            Failing.calls += 1
+            raise RuntimeError("bad output")
+
+    pages = {n: PAGE for n in range(1, 11)}
+    out = asyncio.run(import_scan.structure_pages(Failing(), pages, concurrency=1))
+    assert out == {} and Failing.calls == import_scan.STOP_AFTER_FAILURES
