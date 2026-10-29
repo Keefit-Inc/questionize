@@ -112,12 +112,15 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("dataset", type=Path)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--split", default="train")
+    ap.add_argument("--limit", type=int, default=0, help="learn from the first N items only (a trial run)")
     args = ap.parse_args(argv)
 
     settings = load_settings()
     model = make_llm(settings.primary, timeout=settings.timeout_seconds)
     dataset_id, dataset_hash, items, _ = load_dataset(args.dataset)
     items = [i for i in items if i.split == args.split] if args.split != "all" else items
+    if args.limit:
+        items = items[: args.limit]
     if not items:
         sys.exit(f"No usable items in split {args.split!r}; run questionize.eval_e4 first to assign splits.")
     memory, stats = asyncio.run(learn(model, items))
@@ -129,6 +132,10 @@ def main(argv: list[str] | None = None) -> None:
     args.out.write_text(json.dumps(out, indent=1))
     digest = hashlib.sha256(args.out.read_bytes()).hexdigest()[:16]
     print(json.dumps(stats))
+    for subtype, rules in memory.items():
+        print(f"\n[{subtype}]")
+        for rule in rules:
+            print(f"  - {rule}")
     print(f"{sum(len(v) for v in memory.values())} rules for {len(memory)} sub-types → {args.out} (hash {digest})")
 
 
