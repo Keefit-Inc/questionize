@@ -35,6 +35,10 @@ const verdict = computed(() => {
           <span class="qz-tag">{{ family }}</span>
           <span class="qz-tag">{{ subtypeLabel(d.subtype) }}</span>
         </div>
+        <p v-if="d.key_check && d.key_check.verdict !== 'unchecked'" class="qz-dx-key" :class="d.key_check.verdict">
+          <template v-if="d.key_check.verdict === 'disputed'">⚠ Check the key you entered ({{ d.key_check.provided }}). {{ d.key_check.note }}</template>
+          <template v-else>✓ Answer {{ d.key_guess }} matches your book's key<template v-if="d.key_check.verdict === 'upheld'"> (confirmed by a second check)</template>.</template>
+        </p>
         <p v-if="verdict" class="qz-dx-verdict" :class="d.chosen_correct ? 'good' : chosen ? 'bad' : ''">{{ verdict }}</p>
       </div>
     </header>
@@ -106,6 +110,8 @@ const verdict = computed(() => {
 .qz-dx-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .qz-tag { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--chip, rgba(127, 127, 127, 0.15)); }
 .qz-dx-verdict { margin: 0; font-weight: 800; font-size: 18px; line-height: 1.3; }
+.qz-dx-key { margin: 0; font-size: 13px; padding: 6px 10px; border-radius: 10px; background: var(--good-soft, rgba(46, 157, 91, 0.1)); color: var(--good, #2e9d5b); }
+.qz-dx-key.disputed { background: var(--warn-soft, rgba(183, 121, 31, 0.12)); color: var(--warn, #b7791f); }
 .qz-dx-verdict.good { color: var(--good, #2e9d5b); }
 .qz-dx-verdict.bad { color: var(--bad, #d0563b); }
 .qz-dx-section { display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: var(--radius, 12px); background: var(--surface, transparent); border: 1px solid var(--line, rgba(127, 127, 127, 0.25)); }

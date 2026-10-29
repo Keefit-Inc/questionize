@@ -138,7 +138,7 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     run.reload
 
     assert_equal "completed", run.status
-    assert_equal({ "images" => [ PHOTO, PHOTO ], "chosen_label" => "A", "level" => "gmat" }, client.payloads.first)
+    assert_equal({ "images" => [ PHOTO, PHOTO ], "chosen_label" => "A", "level" => "gmat", "practice_count" => 2 }, client.payloads.first)
     assert_nil Rails.cache.read(run.text_cache_key)
     entry = @user.error_log_entries.sole
     assert_equal [ "My CR Workbook", "42", "7", "A" ], [ entry.book, entry.page, entry.number, entry.chosen_label ]

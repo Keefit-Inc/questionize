@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_000009) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_000010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -132,6 +132,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000009) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "archived_at"
+    t.string "dataset"
+    t.index ["dataset"], name: "index_error_log_entries_on_dataset"
     t.index ["generation_run_id"], name: "index_error_log_entries_on_generation_run_id"
     t.index ["source_observation_id"], name: "index_error_log_entries_on_source_observation_id"
     t.index ["user_id"], name: "index_error_log_entries_on_user_id"
@@ -380,6 +382,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000009) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "level"
+    t.boolean "curator", default: false, null: false
     t.index ["api_token"], name: "index_users_on_api_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["handle"], name: "index_users_on_handle", unique: true

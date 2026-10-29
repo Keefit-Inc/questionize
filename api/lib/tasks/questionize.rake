@@ -15,4 +15,11 @@ namespace :questionize do
     end
     puts "Queued #{queued} jobs (#{count} question(s) each). Watch them with: bin/kamal logs"
   end
+
+  desc "Make a user a curator (learn-only captures with dataset tags). HANDLE=reader-xxxx (shown in Me); OFF=1 to remove."
+  task curator: :environment do
+    user = User.find_by!(handle: ENV.fetch("HANDLE"))
+    user.update!(curator: ENV["OFF"].blank?)
+    puts "#{user.handle}: curator=#{user.curator}"
+  end
 end

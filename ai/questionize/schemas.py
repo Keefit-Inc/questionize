@@ -407,7 +407,27 @@ class PhotoReading(BaseModel):
 class DiagnoseRequest(BaseModel):
     images: list[str] = Field(..., min_length=1, max_length=3, description="data: URLs of the parts of one question, in reading order")
     chosen_label: Label | None = None
+    # The answer from the book's key, if the learner entered it. Checked, not trusted blindly: the
+    # learner may have mistyped it, and our own reading may be wrong.
+    answer_key: Label | None = None
     level: LevelId = "gmat"
+    # 0 for curated items that are only learned from (docs/DECISIONS.md R3).
+    practice_count: int = Field(2, ge=0, le=2)
+
+
+class KeyReview(BaseModel):
+    """A second look when the book's key and our answer disagree."""
+
+    book_key_defensible: bool = Field(..., description="The book's answer can be defended as the single best answer")
+    reasoning: str = Field(..., description="Why, in under 80 words, without quoting the question")
+
+
+class KeyCheck(BaseModel):
+    provided: Label | None
+    first_reading: Label | None
+    solver_answer: Label | None = None
+    verdict: Literal["unchecked", "agrees", "upheld", "disputed"]
+    note: str = ""
 
 
 class PracticeRequest(BaseModel):
@@ -435,3 +455,4 @@ class Diagnosis(BaseModel):
     intent: str
     learning_objectives: list[str]
     option_reviews: list[OptionReview]
+    key_check: KeyCheck | None = None

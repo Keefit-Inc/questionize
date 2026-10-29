@@ -13,7 +13,8 @@ module Api
         end
         identity = current_user.identities.first
         render json: { handle: current_user.handle, anonymous: current_user.anonymous, xp: current_user.xp, ratings: ratings,
-                       account: identity && { provider: identity.provider, name: identity.name }, level: current_user.level }
+                       account: identity && { provider: identity.provider, name: identity.name }, level: current_user.level,
+                       curator: current_user.curator }
       end
 
       # PATCH /api/v1/me {level} — who the learner is studying as; what is written for them from now on.

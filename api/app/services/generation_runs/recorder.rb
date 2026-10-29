@@ -80,7 +80,7 @@ module GenerationRuns
         entry = Learning::ErrorLogEntry.create!(
           user: @run.user, generation_run: @run, source_observation: observation,
           book: @run.params["book"], page: @run.params["page"], number: @run.params["number"],
-          chosen_label: @run.params["chosen_label"], diagnosis: event.fetch("diagnosis")
+          chosen_label: @run.params["chosen_label"], diagnosis: event.fetch("diagnosis"), dataset: @run.params["dataset"]
         )
         Array(event["practice"]).each { |generated| persist(generated, origin: "pattern") }
       end
@@ -98,7 +98,11 @@ module GenerationRuns
 
       Knowledge::SourceObservation.create!(
         source_kind: "print_scan", source_ref: source_ref, stated_level: event.dig("observation", "stated_level"),
-        observed: event["observation"].merge("misconception" => event.dig("diagnosis", "misconception"), "chosen_trap" => event.dig("diagnosis", "chosen_trap")),
+        observed: event["observation"].merge(
+          "misconception" => event.dig("diagnosis", "misconception"), "chosen_trap" => event.dig("diagnosis", "chosen_trap"),
+          # Whether the key behind this design was checked against the book (the learning signal, R2).
+          "key_verdict" => event.dig("diagnosis", "key_check", "verdict"), "dataset" => @run.params["dataset"]
+        ).compact,
         extractor: "diagnose", leak_checks: event["leak_checks"] || {}
       )
     end

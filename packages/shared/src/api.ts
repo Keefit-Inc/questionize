@@ -85,6 +85,8 @@ export interface Me {
   account?: { provider: "facebook"; name: string | null } | null;
   /** Who the learner studies as; null until they choose. */
   level?: LevelId | null;
+  /** Curators can make learn-only captures tagged with a research dataset. */
+  curator?: boolean;
   ratings: { skill: string; rating: number; attempts: number; correct: number; provisional: boolean }[];
 }
 
@@ -210,6 +212,14 @@ export interface Diagnosis {
   intent?: string;
   learning_objectives?: string[];
   option_reviews?: OptionReview[];
+  /** How the answer key was settled when the learner entered the book's key. */
+  key_check?: {
+    provided: Label | null;
+    first_reading: Label | null;
+    solver_answer?: Label | null;
+    verdict: "unchecked" | "agrees" | "upheld" | "disputed";
+    note: string;
+  } | null;
 }
 
 /** One photographed question: where it lives in the learner's own book, our diagnosis, and new practice. */
@@ -223,6 +233,8 @@ export interface ErrorLogEntry {
   /** True when the abstract pattern passed the leak checks and joined the shared knowledge model. */
   contributed: boolean;
   archived?: boolean;
+  /** Curated research dataset this entry belongs to, if any. */
+  dataset?: string | null;
   practice: Item[];
   created_at: string;
 }
@@ -248,6 +260,12 @@ export interface ErrorLogCapture {
   page?: string;
   number?: string;
   chosen_label?: Label;
+  /** The answer from the book's key, if known. The server checks it rather than trusting it. */
+  answer_key?: Label;
+  /** Curators only: learn from the question without writing practice. */
+  learn_only?: boolean;
+  /** Curators only: research dataset tag, e.g. "official-cr-v1". */
+  dataset?: string;
 }
 
 export interface Recommendations {

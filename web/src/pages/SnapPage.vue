@@ -4,11 +4,12 @@
 // watch Miss Lab analyze it. Without a camera (or permission), pick a photo instead.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ApiError, eventKey, preparePhoto, replayRunState, subscribeToGeneration, type GenerationEvent, type Label, type PreparedPhoto } from "@questionize/shared";
+import { ApiError, type ApiClient, eventKey, preparePhoto, replayRunState, subscribeToGeneration, type GenerationEvent, type Label, type PreparedPhoto } from "@questionize/shared";
 import AnalysisScene from "../components/AnalysisScene.vue";
 import CropEditor from "../components/CropEditor.vue";
 import { ensureDevice, withDevice } from "../api";
 import { saveQuestion } from "../device";
+import { me } from "../profile";
 
 const router = useRouter();
 const LABELS: Label[] = ["A", "B", "C", "D", "E"];
@@ -27,7 +28,27 @@ const parts = ref<{ photo: PreparedPhoto; url: string }[]>([]);
 const stage = computed(() => (raw.value ? "crop" : parts.value.length && !adding.value ? "review" : "camera"));
 const adding = ref(false);
 const saved = ref<"pending" | "saved" | "failed" | null>(null);
-const form = reactive({ chosen: null as Label | null, book: "", page: "", number: "" });
+const form = reactive({ chosen: null as Label | null, key: null as Label | null, book: "", page: "", number: "" });
+
+// Curators photograph official-style items with their keys to build research datasets: several
+// photos in a row, learned from without practice, each tagged with a dataset.
+const DATASET_KEY = "questionize.dataset";
+const curator = computed(() => !!me.value?.curator);
+const curation = reactive({ learnOnly: true, dataset: storedDataset() });
+const queue = ref<Blob[]>([]);
+const sent = ref<{ runId: number; status: "reading" | "learned" | "failed" }[]>([]);
+const sentSummary = computed(() => {
+  const n = (s: string) => sent.value.filter((x) => x.status === s).length;
+  return { reading: n("reading"), learned: n("learned"), failed: n("failed") };
+});
+
+function storedDataset(): string {
+  try {
+    return localStorage.getItem(DATASET_KEY) || "official-cr-v1";
+  } catch {
+    return "official-cr-v1";
+  }
+}
 const showWhere = ref(false);
 const busy = ref(false);
 const error = ref("");
@@ -210,9 +231,12 @@ function shutter() {
 
 function pick(event: Event) {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files ?? []);
   input.value = "";
-  if (file) usePhoto(file);
+  if (!files.length) return;
+  // A curator can pick many photos; each is cropped and sent in turn.
+  queue.value = [...queue.value, ...files.slice(1)];
+  usePhoto(files[0]);
 }
 
 function startOver() {
@@ -220,6 +244,7 @@ function startOver() {
   lab.value = false;
   saved.value = null;
   form.chosen = null;
+  form.key = null;
   error.value = "";
   adding.value = false;
   clearShots();
@@ -260,11 +285,57 @@ async function keepQuestion(id: number, ready: boolean | undefined) {
   }
 }
 
+// Curated, learn-only captures run in the background: no Miss Lab, straight to the next photo.
+function followQuietly(runId: number, client: ApiClient) {
+  const row = { runId, status: "reading" as "reading" | "learned" | "failed" };
+  sent.value = [...sent.value, row];
+  const mark = (status: "learned" | "failed") => (sent.value = sent.value.map((x) => (x.runId === runId ? { ...x, status } : x)));
+  const seenHere = new Set<string>();
+  let close: (() => void) | null = null;
+  const handle = async (event: GenerationEvent) => {
+    const k = event.stage === "diagnosis" ? `diagnosis|${event.entry.id}` : eventKey(event);
+    if (seenHere.has(k)) return;
+    seenHere.add(k);
+    if (event.stage === "diagnosis" && event.question_ready) {
+      const question = await withDevice((c) => c.takeErrorLogQuestion(event.entry.id)).catch(() => null);
+      if (question) await saveQuestion(event.entry.id, question);
+    }
+    if (event.stage === "done") mark([...seenHere].some((x) => x.startsWith("diagnosis|")) ? "learned" : "failed");
+    if (event.stage === "declined" || event.stage === "failed") mark("failed");
+    if (["done", "declined", "failed"].includes(event.stage)) close?.();
+  };
+  close = subscribeToGeneration(client.cableUrl(), runId, handle, {
+    onConnected: async () => {
+      for (const e of replayRunState(await client.getRun(runId))) await handle(e);
+    },
+    onRejected: () => mark("failed"),
+  });
+}
+
+function nextCuratedPhoto() {
+  parts.value.forEach((p) => URL.revokeObjectURL(p.url));
+  parts.value = [];
+  form.chosen = null;
+  form.key = null;
+  form.number = "";
+  const next = queue.value.shift();
+  if (next) usePhoto(next);
+  else startCamera();
+}
+
 async function analyze() {
   if (!parts.value.length) return;
   busy.value = true;
   error.value = "";
+  const quiet = curator.value && curation.learnOnly;
   try {
+    if (curator.value) {
+      try {
+        localStorage.setItem(DATASET_KEY, curation.dataset);
+      } catch {
+        // ignore
+      }
+    }
     const res = await withDevice((c) =>
       c.captureErrorLog({
         images: parts.value.map((p) => p.photo.dataUrl),
@@ -272,8 +343,16 @@ async function analyze() {
         page: form.page || undefined,
         number: form.number || undefined,
         chosen_label: form.chosen ?? undefined,
+        answer_key: form.key ?? undefined,
+        learn_only: quiet || undefined,
+        dataset: curator.value && curation.dataset ? curation.dataset : undefined,
       }),
     );
+    if (quiet) {
+      followQuietly(res.run_id, await ensureDevice());
+      nextCuratedPhoto();
+      return;
+    }
     events.value = [];
     seen.clear();
     finished.value = false;
@@ -349,6 +428,18 @@ function showAnalysis() {
         <div class="chips">
           <button v-for="l in LABELS" :key="l" type="button" :aria-pressed="form.chosen === l" @click="form.chosen = form.chosen === l ? null : l">{{ l }}</button>
         </div>
+        <p class="ask">Correct answer <small>from your book's key, if you know it. We double-check it.</small></p>
+        <div class="chips key">
+          <button v-for="l in LABELS" :key="l" type="button" :aria-pressed="form.key === l" @click="form.key = form.key === l ? null : l">{{ l }}</button>
+        </div>
+        <div v-if="curator" class="curate">
+          <label class="check"><input v-model="curation.learnOnly" type="checkbox" /> Learn only (no practice, no Miss Lab)</label>
+          <label class="ds">Dataset <input v-model.trim="curation.dataset" maxlength="40" pattern="[a-z0-9][a-z0-9-]*" aria-label="Dataset" /></label>
+          <p class="qstat">
+            Sent {{ sent.length }} · learned {{ sentSummary.learned }} · reading {{ sentSummary.reading }}<template v-if="sentSummary.failed"> · failed {{ sentSummary.failed }}</template>
+            <template v-if="queue.length"> · {{ queue.length }} photo{{ queue.length === 1 ? "" : "s" }} waiting</template>
+          </p>
+        </div>
         <button v-if="!showWhere" type="button" class="link" @click="showWhere = true">Add book, page and question number</button>
         <div v-else class="where">
           <input v-model.trim="form.book" maxlength="200" placeholder="Book" aria-label="Book" />
@@ -358,7 +449,7 @@ function showAnalysis() {
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <div class="actions">
           <button type="button" class="ghost" @click="startOver">Start over</button>
-          <button type="button" class="primary" :disabled="busy" @click="analyze">{{ busy ? "Sending…" : "Analyze" }}</button>
+          <button type="button" class="primary" :disabled="busy" @click="analyze">{{ busy ? "Sending…" : curator && curation.learnOnly ? (queue.length ? "Send & next" : "Send") : "Analyze" }}</button>
         </div>
       </div>
     </div>
@@ -387,7 +478,7 @@ function showAnalysis() {
       <p v-if="error && camera === 'live'" class="error floating" role="alert">{{ error }}</p>
       <div class="controls">
         <label class="side" title="Choose from library">
-          <input type="file" accept="image/*" @change="pick" />
+          <input type="file" accept="image/*" :multiple="curator" @change="pick" />
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="m21 16-5-5-8 8" /></svg>
           <span class="sr">Choose from library</span>
         </label>
@@ -468,6 +559,13 @@ span.side { visibility: hidden; justify-self: end; }
 .chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .chips button { height: 46px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.25); background: transparent; color: inherit; font: inherit; font-weight: 700; font-size: 17px; cursor: pointer; }
 .chips button[aria-pressed="true"] { border-color: #ff8a7a; background: rgba(255, 138, 122, 0.16); color: #ff8a7a; }
+.chips.key button[aria-pressed="true"] { border-color: #6be3a0; background: rgba(107, 227, 160, 0.16); color: #6be3a0; }
+.ask small { font-weight: 400; font-size: 12px; opacity: 0.7; }
+.curate { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(79, 209, 197, 0.5); }
+.curate .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.curate .ds { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.curate .ds input { flex: 1; min-width: 0; font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: inherit; }
+.qstat { margin: 0; font-size: 12px; opacity: 0.8; }
 .where { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
 .where input { min-width: 0; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: inherit; }
 .actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }

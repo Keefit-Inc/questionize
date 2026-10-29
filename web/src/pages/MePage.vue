@@ -7,6 +7,7 @@ import { withDevice } from "../api";
 import InstallCard from "../components/InstallCard.vue";
 import AccountCard from "../components/AccountCard.vue";
 import LevelPicker from "../components/LevelPicker.vue";
+import CuratorExport from "../components/CuratorExport.vue";
 import { levelInfo, type LevelId } from "@questionize/shared";
 import { chooseLevel, loadMe } from "../profile";
 
@@ -90,6 +91,7 @@ onMounted(load);
     <LevelPicker v-if="changingLevel" :current="me.level" @pick="pickLevel" />
   </section>
   <AccountCard v-if="me" :me="me" @changed="load" />
+  <CuratorExport v-if="me?.curator" />
   <p v-if="me" class="muted">{{ me.handle }} · {{ me.xp }} XP</p>
   <div class="seg" role="tablist" aria-label="Profile views">
     <button role="tab" :aria-selected="view === 'analysis'" :class="{ on: view === 'analysis' }" @click="show('analysis')">Analysis</button>

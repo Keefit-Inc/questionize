@@ -209,9 +209,30 @@ every rationale, and a passage written entirely in your own words. Write for the
 given (language, length, distractors, explanation voice), and set `scene`."""
 
 
-def reader_user(chosen_label: str | None, audience: str = "") -> str:
+def reader_user(chosen_label: str | None, audience: str = "", confirmed_key: str | None = None) -> str:
     chosen = f"The learner chose option {chosen_label}." if chosen_label else "The learner did not say which option they chose."
-    return "\n\n".join(p for p in [audience, f"{chosen} Read the photographed question and diagnose it."] if p)
+    key = (
+        f"The correct answer is {confirmed_key} (the book's key, checked). Set key_guess to {confirmed_key} and explain why it is right."
+        if confirmed_key
+        else ""
+    )
+    return "\n\n".join(p for p in [audience, chosen, key, "Read the photographed question and diagnose it."] if p)
+
+
+KEY_REVIEW_SYSTEM = """You are a senior test editor. A learner photographed a practice question and entered \
+the answer from their book's key, but an independent reading chose a different option. Decide whether \
+the book's answer can be defended as the single best answer. Books are usually right; independent \
+readers are sometimes wrong; learners sometimes mistype a letter. Judge the logic only."""
+
+
+def key_review_user(question_text: str, book_key: str, model_answers: list[str]) -> str:
+    return "\n\n".join(
+        [
+            "QUESTION:\n" + question_text,
+            f"Book's key (as entered by the learner): {book_key}",
+            "Independent readings chose: " + ", ".join(model_answers),
+        ]
+    )
 
 
 def pattern_writer_user(pattern_json: str, practice_trap: str | None, difficulty: str, topic_hint: str, audience: str = "") -> str:

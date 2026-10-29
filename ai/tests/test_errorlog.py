@@ -140,3 +140,50 @@ def test_practice_endpoint():
     body = {"design": reading().pattern.model_dump(), "practice_trap": "irrelevant", "level": "high"}
     r = client.post("/v1/practice", json=body, headers={"X-Internal-Token": "t"})
     assert r.status_code == 200 and r.json()["level"] == "high" and len(r.json()["practice"]) == 1
+
+
+async def _diagnose(photo, *, solver_answer="C", review_ok=None, **request):
+    from questionize.schemas import KeyReview
+
+    queues = {"PhotoReading": [photo], "Question": [make_question("B")], "CriticResult": [passing_critic()]}
+    if review_ok is not None:
+        queues["KeyReview"] = [KeyReview(book_key_defensible=review_ok, reasoning="why")]
+    primary = ScriptedLLM(**queues)
+    blind = ScriptedLLM(SolverResult=[solver(solver_answer)])
+    out = await diagnose(QuestionPipeline(primary, blind), DiagnoseRequest(images=[IMAGE], **request), lambda e: _noop(), seed=5)
+    return out, primary, blind
+
+
+async def test_an_entered_key_that_matches_our_reading_is_simply_confirmed():
+    out, primary, _ = await _diagnose(reading(), chosen_label="A", answer_key="C")
+    check = out["diagnosis"]["key_check"]
+    assert (check["verdict"], out["diagnosis"]["key_guess"]) == ("agrees", "C")
+    assert [n for n, _ in primary.calls].count("PhotoReading") == 1
+
+
+async def test_a_key_our_first_reading_missed_is_upheld_by_a_second_solver_and_explained():
+    # Our reading said C; the learner's book says B; a blind solver also picks B.
+    out, primary, blind = await _diagnose(reading(), solver_answer="B", chosen_label="A", answer_key="B")
+    d = out["diagnosis"]
+    assert (d["key_check"]["verdict"], d["key_guess"], d["chosen_correct"]) == ("upheld", "B", False)
+    rereads = [u for n, u in primary.calls if n == "PhotoReading"]
+    assert len(rereads) == 2 and "The correct answer is B" in rereads[1]
+
+
+async def test_a_key_both_readings_and_the_review_reject_is_disputed_not_adopted():
+    out, primary, _ = await _diagnose(reading(), solver_answer="C", review_ok=False, chosen_label="B", answer_key="B")
+    d = out["diagnosis"]
+    assert (d["key_check"]["verdict"], d["key_guess"]) == ("disputed", "C")
+    assert "check the letter" in d["key_check"]["note"]
+    assert d["chosen_correct"] is False, "the learner's B is judged against the checked key"
+
+
+async def test_a_defensible_key_is_kept_even_when_two_readings_disagree():
+    out, _, _ = await _diagnose(reading(), solver_answer="C", review_ok=True, answer_key="E")
+    assert (out["diagnosis"]["key_check"]["verdict"], out["diagnosis"]["key_guess"]) == ("upheld", "E")
+
+
+async def test_learn_only_captures_write_no_practice():
+    out, primary, _ = await _diagnose(reading(), answer_key="C", practice_count=0)
+    assert out["practice"] == [] and "Question" not in [n for n, _ in primary.calls]
+    assert out["observation"] is not None

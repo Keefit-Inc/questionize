@@ -44,19 +44,27 @@ module Api
         render json: question
       end
 
-      # POST /api/v1/error_log {images: [data URL, ...] (1-3 parts of one question), book, page, number, chosen_label}
+      # POST /api/v1/error_log {images: [data URL, ...] (1-3 parts of one question), book, page, number,
+      #                        chosen_label, answer_key (from the book's key, optional and checked),
+      #                        learn_only, dataset (curators only)}
       def create
         return render(json: { error: "not_available" }, status: :forbidden) unless current_user.error_log_eligible?
 
         images = Array(params[:images].presence || params[:image]).map(&:to_s)
         return render(json: { error: "invalid_image" }, status: :unprocessable_entity) unless images.size.between?(1, MAX_PARTS) && images.all? { valid_image?(_1) }
         label = params[:chosen_label].presence&.upcase
-        return render(json: { error: "invalid_label" }, status: :unprocessable_entity) if label && !ItemVersion::LABELS.include?(label)
+        key = params[:answer_key].presence&.upcase
+        return render(json: { error: "invalid_label" }, status: :unprocessable_entity) if [ label, key ].compact.any? { !ItemVersion::LABELS.include?(_1) }
+        # Learn-only captures and dataset tags are for curators building research datasets.
+        learn_only = (current_user.curator && ActiveModel::Type::Boolean.new.cast(params[:learn_only])) || nil
+        dataset = current_user.curator ? params[:dataset].to_s.downcase.strip.presence : nil
+        return render(json: { error: "invalid_dataset" }, status: :unprocessable_entity) if dataset && !dataset.match?(/\A[a-z0-9][a-z0-9-]{0,39}\z/)
 
         run = GenerationRun.create!(
           user: current_user, kind: "error_log",
           params: { "book" => params[:book].to_s.strip.first(200), "page" => params[:page].to_s.strip.first(20),
-                    "number" => params[:number].to_s.strip.first(20), "chosen_label" => label, "level" => Level.for(current_user) }
+                    "number" => params[:number].to_s.strip.first(20), "chosen_label" => label, "answer_key" => key,
+                    "learn_only" => learn_only, "dataset" => dataset, "level" => Level.for(current_user) }.compact
         )
         run.cache_text!(images.to_json)
         GenerateQuestionsJob.perform_later(run.id)

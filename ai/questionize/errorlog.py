@@ -17,13 +17,12 @@ from typing import Any
 
 from . import levels, prompts
 from .pipeline import Declined, QuestionPipeline, longest_copied_run, normalize_question
-from .schemas import Diagnosis, DiagnoseRequest, PatternObservation, PhotoReading, PracticeRequest, Question
+from .schemas import Diagnosis, DiagnoseRequest, KeyCheck, KeyReview, PatternObservation, PhotoReading, PracticeRequest, Question, SolverResult, SourceQuestion
 
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
 # Longest run of words any stored field may share with the photographed question.
 MAX_FIELD_COPIED_WORDS = 8
-PRACTICE_ITEMS = 2
 TOPICS = ["city services", "small business", "ecology", "sports science", "museums", "public health", "farming", "transport", "astronomy", "music education"]
 
 
@@ -37,6 +36,15 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
     if reading.kind == "live_exam_suspected":
         raise Declined("live_exam", "This looks like a question from a live exam. We don't work with recalled or leaked exam content.")
+
+    key_check, key = await _check_key(pipeline, reading, req, emit)
+    if key is not None and key != reading.key_guess:
+        # Our first reading explained a different answer; explain the checked one instead.
+        reread = await pipeline.primary.complete(
+            prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level), key), PhotoReading,
+            temperature=0.0, images=req.images,
+        )
+        reading = reread.model_copy(update={"key_guess": key, "question": reading.question})
 
     transcript = reading.question.text()
     pattern, field_copied = _scrub(reading.pattern, transcript)
@@ -67,15 +75,16 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         chosen_trap=None if chosen_correct else reading.chosen_trap,
         misconception=None if chosen_correct else reading.misconception, explanation=explanation,
         difficulty=reading.difficulty, difficulty_drivers=[d for d in pattern.difficulty_drivers if d],
-        intent=intent, learning_objectives=objectives, option_reviews=reviews,
+        intent=intent, learning_objectives=objectives, option_reviews=reviews, key_check=key_check,
     )
     # The analysis screen animates from these: what the question measures, how hard it is, the verdict.
     await emit({"stage": "diagnosed", "message": f"Measures: {pattern.competency}", "competency": pattern.competency,
                 "family": pattern.family, "subtype": pattern.subtype, "difficulty": reading.difficulty,
                 "key_guess": reading.key_guess, "chosen_correct": chosen_correct})
 
-    await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
-    topics = rng.sample(TOPICS, PRACTICE_ITEMS)
+    if req.practice_count:
+        await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
+    topics = rng.sample(TOPICS, req.practice_count)
     results = await asyncio.gather(
         *(_practice(pipeline, i, pattern, diagnosis.chosen_trap, transcript, topic, emit, req.level) for i, topic in enumerate(topics)),
         return_exceptions=True,
@@ -99,6 +108,41 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         "practice": [p.model_dump() for p in practice],
         "source_question": reading.question.model_dump(),
     }
+
+
+async def _check_key(pipeline: QuestionPipeline, reading: PhotoReading, req: DiagnoseRequest, emit: Emit) -> tuple[KeyCheck, Any]:
+    """Decide which answer to explain. With no key entered, our reading stands. When the learner's key
+    and our reading disagree, a second, blind solver and an editor's review decide: the book is
+    usually right, but a mistyped letter should not become the 'correct' answer."""
+    provided, first = req.answer_key, reading.key_guess
+    if provided is None:
+        return KeyCheck(provided=None, first_reading=first, verdict="unchecked"), first
+    if provided == first:
+        return KeyCheck(provided=provided, first_reading=first, verdict="agrees"), provided
+
+    await emit({"stage": "checking", "message": f"Checking the key: you entered {provided}, our reading chose {first or 'none'}"})
+    solved = await pipeline.solver.complete(prompts.SOLVER_SYSTEM, _solver_text(reading.question), SolverResult, temperature=0.0)
+    if solved.answer_label == provided:
+        note = f"Our first reading chose {first}; an independent solver agreed with your key, {provided}."
+        return KeyCheck(provided=provided, first_reading=first, solver_answer=solved.answer_label, verdict="upheld", note=note), provided
+
+    review = await pipeline.primary.complete(
+        prompts.KEY_REVIEW_SYSTEM,
+        prompts.key_review_user(reading.question.text(), provided, [x for x in (first, solved.answer_label) if x]),
+        KeyReview,
+        temperature=0.0,
+    )
+    if review.book_key_defensible or solved.answer_label != first:
+        note = f"Two readings disagreed with {provided}, but a review found it defensible, so we kept your key."
+        return KeyCheck(provided=provided, first_reading=first, solver_answer=solved.answer_label, verdict="upheld", note=note), provided
+    note = (f"Two independent readings chose {first}, and a review could not defend {provided}. "
+            f"Please check the letter you entered; this analysis explains {first}.")
+    return KeyCheck(provided=provided, first_reading=first, solver_answer=solved.answer_label, verdict="disputed", note=note), first
+
+
+def _solver_text(q: SourceQuestion) -> str:
+    options = "\n".join(f"({c.label}) {c.text}" for c in q.choices)
+    return f"PASSAGE:\n{q.passage}\n\nQUESTION:\n{q.stem}\n\nOPTIONS:\n{options}"
 
 
 async def practice_for_level(pipeline: QuestionPipeline, req: PracticeRequest, seed: int | None = None) -> dict[str, Any]:

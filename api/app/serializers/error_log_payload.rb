@@ -14,6 +14,7 @@ class ErrorLogPayload
       diagnosis: @entry.diagnosis,
       contributed: @entry.source_observation_id.present?,
       archived: @entry.archived_at.present?,
+      dataset: @entry.dataset,
       practice: @entry.practice_items.map { |item| ItemPayload.for(item, user: @user).as_json },
       created_at: @entry.created_at
     }

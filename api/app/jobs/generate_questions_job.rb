@@ -19,7 +19,7 @@ class GenerateQuestionsJob < ApplicationJob
     handle = ->(event) { broadcast(run, recorder.record(event)) }
     case run.kind
     when "map" then client.map(payload.slice("title", "url", "selection", "text"), &handle)
-    when "error_log" then client.diagnose({ "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"], "level" => Level.for(run.user) }, &handle)
+    when "error_log" then client.diagnose(diagnose_payload(run, text), &handle)
     else client.generate(payload, &handle)
     end
     broadcast(run, recorder.fail!("The AI service ended the stream unexpectedly.")) if run.reload.status == "running"
@@ -38,6 +38,11 @@ class GenerateQuestionsJob < ApplicationJob
 
   def broadcast(run, payload)
     GenerationChannel.broadcast_to(run, payload)
+  end
+
+  def diagnose_payload(run, text)
+    { "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"], "answer_key" => run.params["answer_key"],
+      "level" => Level.for(run.user), "practice_count" => run.params["learn_only"] ? 0 : 2 }.compact
   end
 
   # The cached photo parts: a JSON list of data URLs (a single data URL from older clients).

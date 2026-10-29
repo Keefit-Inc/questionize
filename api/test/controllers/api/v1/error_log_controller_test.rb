@@ -86,4 +86,37 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
     get question_api_v1_error_log_path(entry), headers: auth_headers(@user)
     assert_response :not_found
   end
+
+  test "anyone can enter the book's key; only curators get learn-only captures and dataset tags" do
+    make_eligible
+    post api_v1_error_log_index_path, params: { image: PHOTO, chosen_label: "a", answer_key: "c", learn_only: true, dataset: "official-cr-v1" },
+                                      headers: auth_headers(@user), as: :json
+    params = GenerationRun.last.params
+    assert_equal [ "A", "C" ], params.values_at("chosen_label", "answer_key")
+    assert_nil params["learn_only"]
+    assert_nil params["dataset"]
+
+    @user.update!(curator: true)
+    post api_v1_error_log_index_path, params: { image: PHOTO, answer_key: "E", learn_only: true, dataset: "official-cr-v1" },
+                                      headers: auth_headers(@user), as: :json
+    assert_equal [ true, "official-cr-v1" ], GenerationRun.last.params.values_at("learn_only", "dataset")
+    post api_v1_error_log_index_path, params: { image: PHOTO, answer_key: "F" }, headers: auth_headers(@user), as: :json
+    assert_response :unprocessable_entity
+    post api_v1_error_log_index_path, params: { image: PHOTO, dataset: "../etc" }, headers: auth_headers(@user), as: :json
+    assert_response :unprocessable_entity
+  end
+
+  test "a curated learn-only run asks for no practice and tags its entry and observation" do
+    @user.update!(curator: true)
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: { "learn_only" => true, "dataset" => "official-cr-v1", "answer_key" => "C" })
+    assert_equal 0, GenerateQuestionsJob.new.send(:diagnose_payload, run, [ PHOTO ].to_json)["practice_count"]
+    event = diagnosis_event.merge("practice" => [])
+    event["diagnosis"] = event["diagnosis"].merge("key_check" => { "provided" => "C", "first_reading" => "C", "verdict" => "agrees" })
+    GenerationRuns::Recorder.new(run).record(event)
+    entry = @user.error_log_entries.sole
+    assert_equal "official-cr-v1", entry.dataset
+    assert_equal [ "agrees", "official-cr-v1" ], entry.source_observation.observed.values_at("key_verdict", "dataset")
+    get api_v1_me_path, headers: auth_headers(@user)
+    assert response.parsed_body["curator"]
+  end
 end
