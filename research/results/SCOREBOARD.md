@@ -7,8 +7,8 @@ Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do
 | C1.1 Capture: extract |  | items with every role right ≥ 98%; CER ≤ 1% scans, ≤ 2% photos | not measured yet |  |
 | C1.2 Capture: reconstruct |  | solvability equivalence ≥ 95% on items with figures | not measured yet |  |
 | C2 Understand the item |  | skill agreement ≥ 90%; trap tags ≥ 80%; difficulty ρ ≥ 0.4 | not measured yet |  |
-| C3.1 Solve |  | accuracy against the key ≥ 95% (CR) | not measured yet |  |
-| C3.2 Explain |  | explanations rated correct ≥ 90% | not measured yet |  |
+| C3.1 Solve | CR | accuracy against the key ≥ 95% (CR) | B0+M 1.00 [0.57, 1.00] (n=5) · B1+M 1.00 [0.57, 1.00] (n=5) | E1 v2 · 20261029T200138Z-60ec5a · muse-spark-1.3, muse-spark-1.3 |
+| C3.2 Explain | CR | explanations rated correct ≥ 90% | B0+M 1.00 [0.57, 1.00] (n=5) · B1+M 1.00 [0.57, 1.00] (n=5) | E1 v2 · 20261029T200138Z-60ec5a · muse-spark-1.3, muse-spark-1.3 |
 | C3.3 Explain at the learner's level |  | readability in band ≥ 90%; preferred to generic | not measured yet |  |
 | C4 Diagnose the learner |  | misconception top-3 ≥ 70%; next-miss AUC ≥ 0.65 | not measured yet |  |
 | C5 Write practice |  | first-draft verification rate rising with memory; two-answer rate ≤ 2% | not measured yet |  |
