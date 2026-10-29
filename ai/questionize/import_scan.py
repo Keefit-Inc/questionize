@@ -334,6 +334,9 @@ def model_dataset(structured: dict[int, tuple[PageStructure, str]], dataset: str
 # "1. Text", "1 Text" (OCR can drop the period; the text then starts with a capital), or the number alone.
 QUESTION_START = re.compile(r"^(\d{1,3})(?:[.)]\s*(\S.*)?|\s+([A-Z\"\u201c].*))?$")
 OPTION = re.compile(r"^[(\[]?([A-E])[)\]]\s*(.*)$")
+# Any single character in parentheses: OCR reads "(D)" as "(0)" or "(O)", "(C)" as "(G)", "(E)" as "(F)".
+# Inside a question's options, such a marker is taken as the next letter in order.
+LOOSE_OPTION = re.compile(r"^[(\[]\s*([A-Za-z0-9£€])\s*[)\]]\s*(.*)$")
 KEY_LINE = re.compile(r"(?:the\s+)?correct answer is\s*\(?([A-E])\)?", re.IGNORECASE)
 BANNER = re.compile(r"^(argument (construction|evaluation)|evaluation of a plan|argument|evaluation|construction)\b", re.IGNORECASE)
 TERMINAL = ('.', '?', '!', ':', '"', '\u201d', ')')
@@ -458,9 +461,9 @@ def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
     # Options (A)-(E) in order; each runs until the next marker; (E) runs until the banner.
     marks: list[tuple[str, int]] = []
     for i in range(first_option, len(lines)):
-        m = OPTION.match(lines[i])
-        if m and m.group(1) == "ABCDE"[len(marks)]:
-            marks.append((m.group(1), i))
+        m = OPTION.match(lines[i]) or LOOSE_OPTION.match(lines[i])
+        if m and (m.group(1) == "ABCDE"[len(marks)] or (marks and LOOSE_OPTION.match(lines[i]))):
+            marks.append(("ABCDE"[len(marks)], i))
             if len(marks) == 5:
                 break
     end_e = len(lines) - 1
@@ -472,7 +475,7 @@ def parse_question(segment: list[tuple[int, str]], key: str) -> dict | None:
     choices = []
     for j, (label, i) in enumerate(marks):
         stop = marks[j + 1][1] if j + 1 < len(marks) else end_e
-        text = join_lines([OPTION.match(lines[i]).group(2), *lines[i + 1 : stop]])
+        text = join_lines([(OPTION.match(lines[i]) or LOOSE_OPTION.match(lines[i])).group(2), *lines[i + 1 : stop]])
         choices.append({"label": label, "text": text})
     explanation = join_lines(lines[end_e:])
     if not passage or not stem:

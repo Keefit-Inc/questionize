@@ -239,3 +239,13 @@ def test_model_calls_stop_when_the_first_pages_all_fail():
     pages = {n: PAGE for n in range(1, 11)}
     out = asyncio.run(import_scan.structure_pages(Failing(), pages, concurrency=1))
     assert out == {} and Failing.calls == import_scan.STOP_AFTER_FAILURES
+
+
+def test_rules_take_misread_option_markers_in_order():
+    page = book_page(4, "B", header=False)
+    page[7] = "(G) The lanes are painted green."  # (C)
+    page[8] = "(0) Other cities built lanes."  # (D)
+    (item,) = import_scan.parse_book({1: page})
+    assert item["flags"] == [] and [c["label"] for c in item["question"]["choices"]] == list("ABCDE")
+    assert item["question"]["choices"][3]["text"] == "Other cities built lanes."
+    assert item["official_explanation"].startswith("Argument Evaluation")
