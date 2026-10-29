@@ -44,6 +44,28 @@ def _split_data_url(url: str) -> tuple[str, str]:
     return media_type, data
 
 
+def _clean_keys(value):
+    """Strip whitespace from object keys at every depth: some models emit "options " for "options"."""
+    if isinstance(value, dict):
+        return {k.strip() if isinstance(k, str) else k: _clean_keys(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clean_keys(v) for v in value]
+    return value
+
+
+def parse_structured(content: str, schema: type[T]) -> T:
+    """Validate a model's JSON reply against the schema, forgiving padded keys."""
+    raw = _extract_json(content)
+    try:
+        return schema.model_validate_json(raw)
+    except ValidationError as first:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            raise first from None
+        return schema.model_validate(_clean_keys(data))
+
+
 def _extract_json(text: str) -> str:
     """Pull a JSON object out of a reply that may wrap it in prose or fences."""
     fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
@@ -124,7 +146,7 @@ class OpenAICompatLLM:
 
             content = resp.choices[0].message.content or ""
             try:
-                return schema.model_validate_json(_extract_json(content))
+                return parse_structured(content, schema)
             except ValidationError as e:
                 last_error = e
                 log.warning("%s returned invalid %s (attempt %d)", self.provider, schema.__name__, attempt + 1)
@@ -133,7 +155,7 @@ class OpenAICompatLLM:
                     log.warning("output: %.800s\nerrors: %s", content, e)
                 messages = messages + [
                     {"role": "assistant", "content": content},
-                    {"role": "user", "content": f"That JSON did not match the schema: {e}. Return corrected JSON only."},
+                    {"role": "user", "content": f"That JSON did not match the schema: {e}. Use the schema's field names exactly, with no extra spaces. Return corrected JSON only."},
                 ]
         raise LLMError(f"{self.provider} failed to return valid {schema.__name__}: {last_error}")
 

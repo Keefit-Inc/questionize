@@ -99,3 +99,19 @@ async def test_claude_truncated_output_raises():
     llm, _ = fake_llm(SimpleNamespace(stop_reason="max_tokens", stop_details=None, parsed_output=None))
     with pytest.raises(LLMError, match="output tokens"):
         await llm.complete("sys", "user", SolverResult)
+
+
+def test_padded_keys_are_forgiven():
+    from questionize.import_scan import PageStructure
+    from questionize.llm import parse_structured
+
+    options = ", ".join(f'{{"label ": "{label}", "text": "Option {label}."}}' for label in "ABCDE")
+    reply = '{"kind": "question", "passage": "P.", "stem": "S?", "options ": [' + options + '], "answer_key ": "E", "continues_on_next_page ": false}'
+    page = parse_structured(reply, PageStructure)
+    assert page.answer_key == "E" and [o.label for o in page.options] == list("ABCDE")
+    # Truly broken JSON still fails as a validation error, so the caller's retry loop handles it.
+    import pydantic
+    import pytest
+
+    with pytest.raises(pydantic.ValidationError):
+        parse_structured('{"kind": "question", "options [{" : "A"', PageStructure)
