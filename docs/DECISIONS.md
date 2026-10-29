@@ -18,6 +18,7 @@ The product and technical decisions that shape Questionize, with the reason for 
 | P10 | **Built on Meta:** Muse Spark models by default, Facebook Login, sharing to Facebook, Threads, WhatsApp and Instagram. | The demo runs on Meta models; Meta's surfaces are where learners share. |
 | P11 | **13 and older; photo analysis in the United States at launch.** Grades 3–5 is for a parent or teacher with the child until parental-consent accounts exist. | Children's privacy law (COPPA) and a contained launch. |
 | P12 | **Licenses:** code MIT; questions and descriptive knowledge CC BY-NC-SA 4.0 from 2026-10-29 (CC BY-SA before); numeric data and learner analytics not openly licensed. | Open to learn from, while calibrated data remains Keefit's. |
+| P13 | **Capture is model-first.** The model is expected to know what a question can contain (passage, options, figures, tables, graphs, formulas, worked examples, the book's key and explanation) and to find and rebuild whatever this one has, returned as simple structured fields. OCR and layout rules check its text where they are available; they do not replace it. | Learners will snap every kind of question; parts cannot be hand-structured per subject, and a question missing its figure cannot be solved again. |
 
 ## Research
 
@@ -27,6 +28,7 @@ The product and technical decisions that shape Questionize, with the reason for 
 | R2 | **Answer keys are the learning signal.** Curated items enter with the book's key letter; designs learned without keys are not trusted to improve generation. | Accumulating observations without a signal can reinforce errors (see research/README.md, prior work). |
 | R3 | **Learn first, generate later.** Seeding extracts designs; level-wide generation waits for designs corroborated by several independent sources. | Early, unverified designs produce weak questions at scale. |
 | R4 | **Official items stay private.** Only aggregate results and our own abstract designs are published. | Copyright; evaluation use only. |
+| R5 | **AI work is organized as six capabilities**, each with a ground truth, a primary measure and a bar: C1 capture, C2 understand the item, C3 solve and explain, C4 diagnose the learner, C5 write practice, C6 choose practice. Each is measured in isolation and end to end; a change is kept only if it wins on its capability's measure; `research/results/SCOREBOARD.md` shows where each stands. | Errors flow downstream from capture to practice; measuring each step separately shows where to improve. |
 
 ## Data and modeling
 

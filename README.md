@@ -55,12 +55,20 @@ After publication, learners' answers, votes and reports keep checking each quest
 
 ## The core problem, and how we test our answer
 
-Asking a language model for "an LSAT question" is easy; getting one with exactly one defensible answer, distractors that fail for the right reasons, and an explanation that is actually correct is not. Questionize is built around two research questions, each answered with measurements rather than demos:
+Asking a language model for "an LSAT question" is easy; getting one with exactly one defensible answer, distractors that fail for the right reasons, and an explanation that is actually correct is not. Questionize relies on AI for six capabilities, and treats each as a claim to measure rather than a feature to demo:
 
-1. **Can a general LLM be turned into a reliable question writer and explainer without retraining it?** We compare, on the same official-style items with known answer keys: one model asked directly; our verification loop (blind solver, critic, Argument Judge); a debate between two different Meta models; and the loop plus a growing memory of question designs learned from real missed questions. Measures: solving accuracy against the key, explanation correctness rated blind by people, first-pass verification rate, judge margin, ambiguity rate, and, once published, real answer statistics.
-2. **Can a learner's own missed questions reveal their competencies and what to practice?** A profile built from snapped misses (skills, traps, misconceptions) is checked against what the learner gets wrong next, against expert labels of the misconception, and against whether same-trap practice lowers their rate of falling for that trap.
+| | Capability | Measured by |
+|---|---|---|
+| C1 | **Capture** the whole question from a photo, figures and tables included, so it can be solved again | Text error rate, every part in its role, same answer from the rebuilt question as from the photo |
+| C2 | **Understand the item**: skill, objective, difficulty, the trap in each option | Agreement with the book's labels and explanations; correlation with how learners actually answer |
+| C3 | **Solve and explain**, at the learner's level | Accuracy against the book's key; explanations rated blind by an expert |
+| C4 | **Diagnose the learner** from their misses | Misconception agreement with experts; predicting the learner's next misses |
+| C5 | **Write practice** that trains the same objective | Verification pass rate, judge margins, blind expert preference, real answer statistics |
+| C6 | **Choose practice** from the bank | Success rate on recommended questions; skill gains |
 
-Protocols, the experiment ledger and results live in [`research/`](research/README.md); decisions and their reasons are recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+Each experiment varies the two levers we control, verification (independent solvers, the Argument Judge, debate between two Meta models) and memory (designs learned from keyed items), and keeps a change only if it wins on its capability's measure.
+
+The capability map, protocols, the experiment ledger, a generated scoreboard and results live in [`research/`](research/README.md); decisions and their reasons are recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Repository layout
 

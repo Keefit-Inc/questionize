@@ -40,6 +40,7 @@ from .llm import StructuredLLM
 from .schemas import Label, SolverResult
 
 PROTOCOL, PROTOCOL_VERSION = "E1", 1
+CAPABILITIES = ["C3.1", "C3.2"]
 ROOT = Path(__file__).resolve().parent
 JUDGE_OVERRIDE_RATE = 0.8
 DEBATE_ROUNDS = 2  # exchanges after the independent answers
@@ -324,7 +325,7 @@ def main(argv: list[str] | None = None) -> None:
     run_dir = args.out / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
-        "run_id": run_id, "protocol": PROTOCOL, "protocol_version": PROTOCOL_VERSION, "started_at": started,
+        "run_id": run_id, "protocol": PROTOCOL, "protocol_version": PROTOCOL_VERSION, "capabilities": CAPABILITIES, "started_at": started,
         "git_sha": git_sha(), "prompts_hash": prompts_hash(),
         "models": {"primary": settings.primary.model, "solver": settings.solver.model},
         "providers": {"primary": settings.primary.name, "solver": settings.solver.name},
@@ -340,7 +341,7 @@ def main(argv: list[str] | None = None) -> None:
     write_rating_sheet(run_dir, outcomes, {i.entry_id: i for i in items}, random.Random(args.seed))
 
     # The ledger holds identifiers and aggregate numbers only: no item text, no local paths.
-    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded")}
+    line = {k: manifest[k] for k in ("run_id", "protocol", "protocol_version", "capabilities", "started_at", "git_sha", "prompts_hash", "models", "judge", "dataset_id", "dataset_hash", "n_items", "excluded")}
     line["summary"] = summary
     args.ledger.parent.mkdir(parents=True, exist_ok=True)
     with args.ledger.open("a") as f:

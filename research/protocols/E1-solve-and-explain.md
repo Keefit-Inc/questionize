@@ -1,6 +1,6 @@
 # E1: Solving and explaining official-style items (v1)
 
-- **Research question:** RQ1
+- **Capability:** C3.1, C3.2 (RQ1)
 - **Hypotheses:** H1a: B1 and B2 reach a higher solving accuracy against the answer key than B0, and their explanations are judged correct more often.
 - **Registered:** 2026-10-29, before any results were seen
 

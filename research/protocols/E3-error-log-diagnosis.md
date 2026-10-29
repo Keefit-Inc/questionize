@@ -1,6 +1,6 @@
 # E3: What a learner's missed questions reveal (pilot, v1)
 
-- **Research question:** RQ2
+- **Capability:** C4, C2 difficulty (RQ2)
 - **Hypotheses:** H2a (profile predicts next misses), H2b (misconception agreement), H2c (difficulty correlation); H2d with simulated students only.
 - **Registered:** 2026-10-29, before any results were seen
 

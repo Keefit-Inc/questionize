@@ -1,6 +1,6 @@
 # E<n>: <name> (v1)
 
-- **Research question:** RQ1 / RQ2
+- **Capability:** C1–C6 (research/README.md), with sub-task, e.g. C3.1
 - **Hypotheses:** H… (copy from research/README.md, sharpened for this run)
 - **Registered:** <date>, before any results were seen
 

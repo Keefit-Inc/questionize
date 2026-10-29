@@ -1,6 +1,6 @@
 # E2: Does a memory of question designs improve generated questions? (v1)
 
-- **Research question:** RQ1
+- **Capability:** C5 (RQ1)
 - **Hypotheses:** H1b: as the number of learned items n grows (0, 25, 50, 100), items generated with the design memory pass verification on the first draft more often, with larger Argument Judge margins and better blind expert ratings. H1c (secondary): designs learned without answer keys help less than designs learned with them.
 - **Registered:** 2026-10-29, before any results were seen
 
