@@ -43,7 +43,8 @@ module Research
       fresh = release ? UploadObservation.where("id > ?", release.observation_cursor) : UploadObservation.none
       daily_used = MemoryCycle.where("leased_at >= ?", Time.current.beginning_of_day).count
       {
-        schema_version: 1, runtime: "gmat-upload-learning-1", protocol: "E11", protocol_version: 1,
+        schema_version: 1, runtime: "gmat-upload-learning-2", protocol: "E11", protocol_version: 1,
+        verification_service: Feed.verification_service,
         storage: "Original questions, reference keys and expert explanations remain on user devices and the operator's local research files. Server research records contain abstract evidence only.",
         active_memory: release&.public_data,
         worker: { online: worker.present? && worker > 2.minutes.ago, last_seen_at: worker, mode: "private_local_evaluation" },

@@ -7,6 +7,7 @@ The learner service and the local evaluator are separate. A sleeping/offline Mac
 1. A capture-only call separates the question, visible reference key and publisher/teacher explanation.
 2. Two separate solving calls receive only question fields and their pinned memory context. Neither receives images, keys, reference explanations, learner choices or the other call's reasoning. Both calls may currently use the same Meta model: this is independent context, not independent model training.
 3. A separate diagnosis call can use attributed reference material after solving. AI agreement stays estimated. Conflicting printed/entered keys are disputed. Only explicit curator source attestation produces a confirmed reference label; it does not certify every interpretation or capture character.
+   Completion blanks and required emphasis must survive capture. Unresolved evidence cannot identify a correct option or diagnose a learner misconception. An explanation generated for another answer is withheld rather than relabeled. The service runtime and observed guard version are shown separately from the active solving-memory version.
 4. The source and captured reference explanation are delivered to the owner's IndexedDB. New clients acknowledge a committed local save before the temporary server cache is removed. Raw photos are consumed once; no permanent research question/explanation table is created.
 5. Server research records keep scrubbed abstract failure cards, source-confidence categories, model identifiers, normalized source-group fingerprints, agreement flags and applied memory hashes. Originals and reference answer corpora stay on user devices/local research files. Unverified and expert-reference-derived practice remains private.
 
@@ -30,11 +31,14 @@ Keep every configuration, token and corpus file outside Git. The local JSON conf
   "token_file": "PRIVATE_WORKER_TOKEN_FILE",
   "dataset": "PRIVATE_VERIFIED_DATASET_JSON",
   "artifacts": "PRIVATE_LOCAL_ARTIFACT_DIRECTORY",
-  "validation_items": 16
+  "validation_items": 24,
+  "method_references": "PRIVATE_ATTRIBUTED_METHOD_UNITS_JSON"
 }
 ```
 
 `datasets` may replace `dataset` with a list of separately cleared local files. Missing splits are assigned deterministically by normalized source-group hash; all aliases of a held-out group are excluded from training. AI-estimated or unchecked labels are not eligible for validation.
+
+`completion_validation` is a reserved validation split, never reassigned to training. A batch covers at least four available completion questions as well as subtype diversity. The optional method-reference file contains attributed, AI-authored abstract procedures with source hashes, explicit `ai_derived_from_open_reference` origin and `CC-BY-4.0` license. Relevant procedures can inform a candidate; reference documents are not GMAT gold labels. The frozen input hash includes this file. This does not automatically adopt the procedures or establish a measured benefit from them.
 
 Register only a token digest through `questionize:worker_register` on the server. Use `questionize:memory_bootstrap` once, then run from `ai/`:
 

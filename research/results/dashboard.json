@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-30T22:17:44.876868Z",
+  "updated_at": "2026-10-30T22:56:12.434987+00:00",
   "capabilities": [
     {
       "id": "C1.1",
@@ -627,6 +627,37 @@
       "measured_capabilities": [
         "C3.1"
       ]
+    },
+    {
+      "run_id": "20261030T225612Z-e12-c15459-cohorts",
+      "protocol": "E12",
+      "protocol_version": 1,
+      "started_at": "2026-10-30T22:56:12.434987+00:00",
+      "git_sha": "e721f0e49adb34362efe612fd7726c31bb46ec6a",
+      "prompts_hash": "9b2554c85efff986add532d9b1d9efa5f62b6dd3265f6f07ced87491a14073bd",
+      "dataset_id": "official-cr-v4",
+      "dataset_hash": "cf3f8706496ecf9d98103065d6c8204d4e8c359cc52b621c762dcfb254570487",
+      "n_items": 54,
+      "note": "Metadata correction only: registered cohorts have expected n=15, 15, 39 within 54 distinct items. Same frozen model responses; development evaluation, not independent repeated samples.",
+      "subject": "CR",
+      "scope": "trial",
+      "capabilities": [
+        "C3.1"
+      ],
+      "models": {
+        "primary": "muse-spark-1.3"
+      },
+      "qualifications": [
+        {
+          "id": "e12-format-development",
+          "summary": "Restored-format development cohorts. Fifteen completion questions observed twice are not thirty independent items. Input guard contracts do not prove whole-source fidelity or semantic reliability.",
+          "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E12.md"
+        }
+      ],
+      "memory": null,
+      "measured_capabilities": [
+        "C3.1"
+      ]
     }
   ],
   "records": [
@@ -1175,6 +1206,54 @@
       "expected_n": 16,
       "complete": true,
       "calls": 16
+    },
+    {
+      "run_id": "20261030T225612Z-e12-c15459-cohorts",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "completion_first",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 0.9333333333333333,
+      "n": 15,
+      "ci95": [
+        0.7018,
+        0.9881
+      ],
+      "expected_n": 15,
+      "complete": true
+    },
+    {
+      "run_id": "20261030T225612Z-e12-c15459-cohorts",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "completion_repeat",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 0.9333333333333333,
+      "n": 15,
+      "ci95": [
+        0.7018,
+        0.9881
+      ],
+      "expected_n": 15,
+      "complete": true
+    },
+    {
+      "run_id": "20261030T225612Z-e12-c15459-cohorts",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "previous_test",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 0.9743589743589743,
+      "n": 39,
+      "ci95": [
+        0.8682,
+        0.9955
+      ],
+      "expected_n": 39,
+      "complete": true
     }
   ],
   "evidence": {
@@ -1542,6 +1621,49 @@
           "api/app/services/learning/recommend.rb"
         ],
         "runs": []
+      },
+      {
+        "id": "knachel-2017-methods",
+        "title": "Fundamental Methods of Logic — Matthew Knachel (2017 original)",
+        "url": "https://wisconsin.pressbooks.pub/logicfundamentals/",
+        "capabilities": [
+          "C2",
+          "C3.1",
+          "C5"
+        ],
+        "claim": "Argument analysis, relevance, causality and counterexample procedures motivate explicit design checks.",
+        "limitations": "Selected primary passages reviewed; adapted method candidate, not GMAT answer-key evidence or a faithful research-paper reproduction. C5 comparison is an AI proxy; human ratings remain absent.",
+        "implementation_status": "implemented_under_evaluation",
+        "review_status": "selected_primary_passages_and_license_checked",
+        "protocols": [
+          "E2"
+        ],
+        "implementation_paths": [
+          "ai/questionize/cr_design.py",
+          "ai/questionize/local_research_worker.py",
+          "docs/RESEARCH_REFERENCES.md"
+        ],
+        "runs": []
+      },
+      {
+        "id": "forallx-methods",
+        "title": "forall x: Calgary — Fall 2025",
+        "url": "https://forallx.openlogicproject.org/",
+        "capabilities": [
+          "C2",
+          "C3.1",
+          "C5"
+        ],
+        "claim": "Distinguish validity from plausibility, use counterexamples, and separate necessary from sufficient conditions.",
+        "limitations": "Selected sections reviewed, textbook and solutions archived locally. Candidate context integration is implemented; no measured improvement is attributed to this reference.",
+        "implementation_status": "implemented_not_evaluated",
+        "review_status": "selected_primary_sections_and_license_checked",
+        "protocols": [],
+        "implementation_paths": [
+          "ai/questionize/local_research_worker.py",
+          "docs/RESEARCH_REFERENCES.md"
+        ],
+        "runs": []
       }
     ],
     "knowledge_assets": [
@@ -1577,6 +1699,17 @@
         "unit": "consolidated rules",
         "artifact_hash": "",
         "limitation": "Usage observations and AI agreement do not automatically become reference truth."
+      },
+      {
+        "id": "attributed-open-method-units-v1",
+        "namespace": "ai_derived_from_open_reference",
+        "derivation": "Six AI-authored abstract procedures from selected attributed logic-reference sections; relevant units can inform a local candidate.",
+        "evidence_status": "method_candidates; no automatic expert endorsement or adoption",
+        "rights_scope": "CC-BY-4.0 references; source archives local",
+        "count": 6,
+        "unit": "abstract method units from two independent works",
+        "artifact_hash": "d8946262a4aaa46580fe7ce989b6c3825d70884e5624c8221234a294c057a039",
+        "limitation": "Two full formal-logic PDFs share lineage; selected Knachel web excerpts are a partial archive. Reference page counts are not new GMAT question counts."
       }
     ],
     "capture_audits": [
@@ -1609,6 +1742,28 @@
         "ocr_engines": "Apple Vision + Tesseract",
         "stimulus_regions_aligned": 113,
         "unmatched_regions_for_review": 11
+      },
+      {
+        "id": "OG completion restoration v4",
+        "protocol": "E12",
+        "capabilities": [
+          "C1.1"
+        ],
+        "total": 124,
+        "eligible": 124,
+        "held_flagged": 0,
+        "repaired_items": 15,
+        "restored_emphasis_items": 0,
+        "restored_identifiers": 0,
+        "visual_review_scope": "correction fields only; not every character of every page",
+        "independent_human_review": false,
+        "dataset_hash": "cf3f8706496ecf9d98103065d6c8204d4e8c359cc52b621c762dcfb254570487",
+        "manifest_hash": "2bb63c5286d2902ca3f04abc803ca6a5f5a8f55351cd77aa7aeacd8971b2b17e",
+        "parent_hash": "c164092aebcea3f504a3bb428db68eac905f12d669d0e892123c9e19f0c90dc3",
+        "pdf_hash": "3544c17b987bd7fee3fe850d77006b7e9fe7ace2718369f0687f33fc200e7b74",
+        "remaining_mechanical_issues": 0,
+        "membership": "Existing 70 train and 39 test preserved; 15 previously excluded completion items reserved as separate validation. All 124 structurally eligible; this does not certify every source character.",
+        "report_path": "research/results/E12.md"
       }
     ],
     "evaluations": [
@@ -1724,6 +1879,54 @@
             "rejected": 26,
             "false_accepts": 0
           }
+        }
+      },
+      {
+        "run_id": "20261030T225612Z-e12-c15459-cohorts",
+        "protocol": "E12",
+        "scope": "development; restored format coverage",
+        "limitations": "15 completion items observed twice, plus 39 previous test items. Repeats share questions. Agent visual repairs are not human OCR certification. No 99.9% claim or human explanation rating.",
+        "decision": "Release the completion-format input guard: 124 normal inputs accepted, 15 missing-blank mutations blocked. Solver errors remain; no new solving-memory adoption.",
+        "report_path": "research/results/E12.md",
+        "summary": {
+          "completion_first": {
+            "n": 15,
+            "correct": 14,
+            "accuracy": 0.9333333333333333,
+            "ci95": [
+              0.7018,
+              0.9881
+            ]
+          },
+          "completion_repeat": {
+            "n": 15,
+            "correct": 14,
+            "accuracy": 0.9333333333333333,
+            "ci95": [
+              0.7018,
+              0.9881
+            ]
+          },
+          "previous_test": {
+            "n": 39,
+            "correct": 38,
+            "accuracy": 0.9743589743589743,
+            "ci95": [
+              0.8682,
+              0.9955
+            ]
+          },
+          "format_contract": {
+            "normal_accepted": 124,
+            "normal_n": 124,
+            "missing_blank_blocked": 15,
+            "defect_n": 15
+          },
+          "repeat_disagreements": 0,
+          "expected": 69,
+          "completed": 69,
+          "errors": 0,
+          "calls": 69
         }
       }
     ],

@@ -11,7 +11,7 @@ def public_url(value):
     if not isinstance(value, str):
         return False
     u = urlsplit(value)
-    return u.scheme == "https" and u.hostname in ("arxiv.org", "aclanthology.org", "github.com", "doi.org", "openreview.net") and not u.username and not u.password
+    return u.scheme == "https" and u.hostname in ("arxiv.org", "aclanthology.org", "github.com", "doi.org", "openreview.net", "wisconsin.pressbooks.pub", "forallx.openlogicproject.org") and not u.username and not u.password
 
 
 def project_registry(registry, rows):
@@ -37,7 +37,10 @@ def project_registry(registry, rows):
     metric_keys = {"expected", "completed", "errors", "calls", "parents", "correct", "n", "accuracy", "ci95", "coverage", "corrected", "corrupted",
         "unrated_explanations", "explanation_errors", "solver", "legacy", "guarded", "judge", "by_type", "valid_control", "wrong_key",
         "duplicate_correct_option", "contradictory_explanation", "missing_emphasis", "legacy_accepted", "guarded_accepted", "deterministically_blocked",
-        "rejected", "false_accepts"}
+        "rejected", "false_accepts", "completion_first", "completion_repeat", "previous_test", "repeat_disagreements",
+        "format_contract", "normal_accepted", "normal_n", "missing_blank_blocked", "defect_n", "baseline", "candidate",
+        "first_draft_pass_rate", "first_draft_pass_rate_n", "first_draft_pass_rate_ci95", "passed", "gained", "lost", "adopt",
+        "evidence_contract_passed", "source_text_roles_equal", "statuses", "ai_estimated", "unconfirmed", "disputed", "supplied_reference"}
     def metrics(value):
         if isinstance(value, dict):
             return {k: metrics(v) for k, v in value.items() if k in metric_keys}

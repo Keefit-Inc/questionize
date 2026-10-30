@@ -80,6 +80,24 @@
       },
       "summary": "Fresh paired local pilot with source-keyed labels. Repeated passes are correlated; results do not establish untouched-holdout generalization, human explanation quality or learner growth.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/protocols/E11-upload-driven-memory.md"
+    },
+    {
+      "id": "e12-format-development",
+      "applies_to": {
+        "protocol": "E12",
+        "protocol_version": 1
+      },
+      "summary": "Restored-format development cohorts. Fifteen completion questions observed twice are not thirty independent items. Input guard contracts do not prove whole-source fidelity or semantic reliability.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E12.md"
+    },
+    {
+      "id": "e2-v2-proxy",
+      "applies_to": {
+        "protocol": "E2",
+        "protocol_version": 2
+      },
+      "summary": "Twenty matched original generation tasks. First-draft verification by same-model agents is an AI proxy, not human item quality or learner benefit; v1 memory-size study remains unexecuted.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E2.md"
     }
   ]
 }

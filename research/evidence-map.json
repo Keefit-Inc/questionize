@@ -76,7 +76,7 @@
       "claim": "Extract reusable lessons from checked experience without changing weights.",
       "limitations": "Our adapted E1 memory produced no accuracy gain; this is not a faithful reproduction of ExpeL.",
       "implementation_status": "adapted_evaluated",
-      "review_status": "primary_abstract_or_documentation_checked",
+      "review_status": "selected_primary_full_text_sections_checked",
       "implementation_paths": [
         "ai/questionize/memory.py",
         "ai/questionize/eval_e1.py",
@@ -106,7 +106,7 @@
       "claim": "Store reusable experience outside model weights.",
       "limitations": "Our static subtype rules differ from an evolving cheatsheet; generated-question improvement is unmeasured.",
       "implementation_status": "adapted_evaluated",
-      "review_status": "primary_abstract_or_documentation_checked",
+      "review_status": "selected_primary_full_text_sections_checked",
       "implementation_paths": [
         "ai/questionize/memory.py",
         "ai/questionize/local_research_worker.py",
@@ -135,7 +135,7 @@
       "claim": "Measure harmful as well as helpful revisions; external evidence matters.",
       "limitations": "Older models and tested tasks do not prove all modern self-correction fails.",
       "implementation_status": "evaluation_design",
-      "review_status": "primary_abstract_or_documentation_checked",
+      "review_status": "selected_primary_full_text_sections_checked",
       "implementation_paths": [
         "ai/questionize/eval_reliability.py",
         "ai/questionize/operator_policy.py",
@@ -178,14 +178,17 @@
         "C5"
       ],
       "claim": "Retrieve suitable examples and evaluate distractors with expert judgments.",
-      "limitations": "Targeted example retrieval and E2 results are not yet implemented/completed.",
+      "limitations": "Ranked example retrieval and teacher-rated distractor evaluation remain unimplemented. E2 v2 tests a procedure scaffold, not this paper’s retrieval method.",
       "implementation_status": "planned",
-      "review_status": "primary_abstract_or_documentation_checked",
+      "review_status": "selected_primary_full_text_sections_checked",
       "implementation_paths": [
         "research/protocols/E2-design-memory.md"
       ],
       "protocols": [
         "E2"
+      ],
+      "result_conditions": [
+        "not_yet_run"
       ]
     },
     {
@@ -217,9 +220,9 @@
         "C5"
       ],
       "claim": "Test whether raw examples and condensed lessons causally affect decisions.",
-      "limitations": "Newly mapped; controlled raw-example versus rule ablation has not been run.",
+      "limitations": "Selected full-text findings reviewed: condensed experience may be ignored. Our rules-versus-raw-example causal ablation has not been run; a memory store alone is not evidence of learning.",
       "implementation_status": "planned",
-      "review_status": "primary_abstract_or_documentation_checked",
+      "review_status": "selected_primary_full_text_sections_checked",
       "implementation_paths": [
         "ai/questionize/memory.py"
       ],
@@ -268,6 +271,51 @@
       "protocols": [
         "E7"
       ]
+    },
+    {
+      "id": "knachel-2017-methods",
+      "title": "Fundamental Methods of Logic — Matthew Knachel (2017 original)",
+      "url": "https://wisconsin.pressbooks.pub/logicfundamentals/",
+      "capabilities": [
+        "C2",
+        "C3.1",
+        "C5"
+      ],
+      "claim": "Argument analysis, relevance, causality and counterexample procedures motivate explicit design checks.",
+      "limitations": "Selected primary passages reviewed; adapted method candidate, not GMAT answer-key evidence or a faithful research-paper reproduction. C5 comparison is an AI proxy; human ratings remain absent.",
+      "implementation_status": "implemented_under_evaluation",
+      "review_status": "selected_primary_passages_and_license_checked",
+      "implementation_paths": [
+        "ai/questionize/cr_design.py",
+        "ai/questionize/local_research_worker.py",
+        "docs/RESEARCH_REFERENCES.md"
+      ],
+      "protocols": [
+        "E2"
+      ],
+      "result_conditions": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "id": "forallx-methods",
+      "title": "forall x: Calgary — Fall 2025",
+      "url": "https://forallx.openlogicproject.org/",
+      "capabilities": [
+        "C2",
+        "C3.1",
+        "C5"
+      ],
+      "claim": "Distinguish validity from plausibility, use counterexamples, and separate necessary from sufficient conditions.",
+      "limitations": "Selected sections reviewed, textbook and solutions archived locally. Candidate context integration is implemented; no measured improvement is attributed to this reference.",
+      "implementation_status": "implemented_not_evaluated",
+      "review_status": "selected_primary_sections_and_license_checked",
+      "implementation_paths": [
+        "ai/questionize/local_research_worker.py",
+        "docs/RESEARCH_REFERENCES.md"
+      ],
+      "protocols": []
     }
   ],
   "capture_audits": [
@@ -300,6 +348,28 @@
       "ocr_engines": "Apple Vision + Tesseract",
       "stimulus_regions_aligned": 113,
       "unmatched_regions_for_review": 11
+    },
+    {
+      "id": "OG completion restoration v4",
+      "protocol": "E12",
+      "capabilities": [
+        "C1.1"
+      ],
+      "total": 124,
+      "eligible": 124,
+      "held_flagged": 0,
+      "repaired_items": 15,
+      "restored_emphasis_items": 0,
+      "restored_identifiers": 0,
+      "dataset_hash": "cf3f8706496ecf9d98103065d6c8204d4e8c359cc52b621c762dcfb254570487",
+      "manifest_hash": "2bb63c5286d2902ca3f04abc803ca6a5f5a8f55351cd77aa7aeacd8971b2b17e",
+      "parent_hash": "c164092aebcea3f504a3bb428db68eac905f12d669d0e892123c9e19f0c90dc3",
+      "pdf_hash": "3544c17b987bd7fee3fe850d77006b7e9fe7ace2718369f0687f33fc200e7b74",
+      "visual_review_scope": "correction fields only; not every character of every page",
+      "independent_human_review": false,
+      "remaining_mechanical_issues": 0,
+      "membership": "Existing 70 train and 39 test preserved; 15 previously excluded completion items reserved as separate validation. All 124 structurally eligible; this does not certify every source character.",
+      "report_path": "research/results/E12.md"
     }
   ],
   "evaluations": [
@@ -416,6 +486,55 @@
           "false_accepts": 0
         }
       }
+    },
+    {
+      "run_id": "20261030T225612Z-e12-c15459-cohorts",
+      "protocol": "E12",
+      "scope": "development; restored format coverage",
+      "summary": {
+        "completion_first": {
+          "n": 15,
+          "correct": 14,
+          "accuracy": 0.9333333333333333,
+          "ci95": [
+            0.7018,
+            0.9881
+          ]
+        },
+        "completion_repeat": {
+          "n": 15,
+          "correct": 14,
+          "accuracy": 0.9333333333333333,
+          "ci95": [
+            0.7018,
+            0.9881
+          ]
+        },
+        "previous_test": {
+          "n": 39,
+          "correct": 38,
+          "accuracy": 0.9743589743589743,
+          "ci95": [
+            0.8682,
+            0.9955
+          ]
+        },
+        "format_contract": {
+          "normal_accepted": 124,
+          "normal_n": 124,
+          "missing_blank_blocked": 15,
+          "defect_n": 15
+        },
+        "repeat_disagreements": 0,
+        "expected": 69,
+        "completed": 69,
+        "errors": 0,
+        "calls": 69,
+        "wall_seconds": 257.19
+      },
+      "decision": "Release the completion-format input guard: 124 normal inputs accepted, 15 missing-blank mutations blocked. Solver errors remain; no new solving-memory adoption.",
+      "limitations": "15 completion items observed twice, plus 39 previous test items. Repeats share questions. Agent visual repairs are not human OCR certification. No 99.9% claim or human explanation rating.",
+      "report_path": "research/results/E12.md"
     }
   ],
   "knowledge_policy": {
@@ -457,6 +576,28 @@
       "unit": "consolidated rules",
       "artifact_hash": "",
       "limitation": "Usage observations and AI agreement do not automatically become reference truth."
+    },
+    {
+      "id": "attributed-open-method-units-v1",
+      "namespace": "ai_derived_from_open_reference",
+      "derivation": "Six AI-authored abstract procedures from selected attributed logic-reference sections; relevant units can inform a local candidate.",
+      "evidence_status": "method_candidates; no automatic expert endorsement or adoption",
+      "rights_scope": "CC-BY-4.0 references; source archives local",
+      "count": 6,
+      "unit": "abstract method units from two independent works",
+      "artifact_hash": "d8946262a4aaa46580fe7ce989b6c3825d70884e5624c8221234a294c057a039",
+      "limitation": "Two full formal-logic PDFs share lineage; selected Knachel web excerpts are a partial archive. Reference page counts are not new GMAT question counts."
+    },
+    {
+      "id": "primary-paper-archive-20261030",
+      "namespace": "research_method_references",
+      "derivation": "Ten primary preprints archived locally; selected method/conclusion sections of five reviewed in addition to prior abstract review.",
+      "evidence_status": "reference literature, not a GMAT gold dataset",
+      "rights_scope": "private reference review; no paper text redistributed",
+      "count": 10,
+      "unit": "primary paper PDFs",
+      "artifact_hash": "3875f026944e2502b498fbe81ce2ab062accc141ab6a7a042b8b5e722f399593",
+      "limitation": "Acquisition does not mean every method was implemented, reproduced or improves our system; inspect each capability mapping."
     }
   ]
 }

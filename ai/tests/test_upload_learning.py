@@ -6,7 +6,7 @@ from test_errorlog import IMAGE, reading
 from questionize.evolution import content_hash
 from questionize.schemas import DiagnoseRequest, FlatPhotoReading, LearningMemory, SourceQuestion, Choice
 from questionize.pipeline import QuestionPipeline
-from questionize.upload_learning import Capture, read_and_assess, solver_prompt, fingerprint, canonical_subtype, explanation_contract
+from questionize.upload_learning import Capture, UploadAnalysis, read_and_assess, solver_prompt, fingerprint, canonical_subtype, explanation_contract
 
 
 def capture(**changes):
@@ -26,7 +26,7 @@ async def emit(_):
 
 
 async def test_reference_and_images_are_withheld_from_both_independent_solver_calls():
-    main = ScriptedLLM(Capture=[capture()], SolverResult=[solver("C")], FlatPhotoReading=[FlatPhotoReading.from_reading(reading())])
+    main = ScriptedLLM(Capture=[capture()], SolverResult=[solver("C")], UploadAnalysis=[UploadAnalysis.model_validate(FlatPhotoReading.from_reading(reading()).model_dump())])
     control = ScriptedLLM(model="control", SolverResult=[solver("B")])
     result = await read_and_assess(QuestionPipeline(main, control), DiagnoseRequest(images=[IMAGE], answer_key="B", source_attested=True, learning_policy=memory()), emit)
     _, _, observation, trace, reference_text = result
@@ -44,7 +44,7 @@ async def test_reference_and_images_are_withheld_from_both_independent_solver_ca
 
 
 async def test_ai_agreement_never_becomes_a_confirmed_reference():
-    main = ScriptedLLM(Capture=[capture(printed_key=None, reference_explanation="")], SolverResult=[solver("B")], FlatPhotoReading=[FlatPhotoReading.from_reading(reading())])
+    main = ScriptedLLM(Capture=[capture(printed_key=None, reference_explanation="")], SolverResult=[solver("B")], UploadAnalysis=[UploadAnalysis.model_validate(FlatPhotoReading.from_reading(reading()).model_dump())])
     control = ScriptedLLM(SolverResult=[solver("B")])
     _, _, observation, trace, _ = await read_and_assess(QuestionPipeline(main, control), DiagnoseRequest(images=[IMAGE]), emit)
     assert observation["reference_status"] == "ai_estimated"
@@ -53,7 +53,7 @@ async def test_ai_agreement_never_becomes_a_confirmed_reference():
 
 
 async def test_conflicting_printed_and_entered_keys_are_not_promoted_by_curator_attestation():
-    main = ScriptedLLM(Capture=[capture(printed_key="A")], SolverResult=[solver("B")], FlatPhotoReading=[FlatPhotoReading.from_reading(reading())])
+    main = ScriptedLLM(Capture=[capture(printed_key="A")], SolverResult=[solver("B")], UploadAnalysis=[UploadAnalysis.model_validate(FlatPhotoReading.from_reading(reading()).model_dump())])
     control = ScriptedLLM(SolverResult=[solver("B")])
     r, _, observation, _, _ = await read_and_assess(QuestionPipeline(main, control), DiagnoseRequest(images=[IMAGE], answer_key="B", source_attested=True), emit)
     assert observation["reference_status"] == "disputed"
@@ -92,3 +92,19 @@ def test_unresolved_evidence_cannot_identify_a_correct_option_or_learner_misconc
     estimated, issue = explanation_contract(reading(), "C", "ai_estimated")
     assert estimated.explanation.startswith("AI estimate")
     assert estimated.misconception is None and issue is None
+
+
+async def test_failed_detailed_analysis_preserves_capture_and_independent_results():
+    def unavailable():
+        raise TimeoutError("analyst unavailable")
+    main = ScriptedLLM(Capture=[capture()], SolverResult=[solver("B")], UploadAnalysis=[unavailable])
+    control = ScriptedLLM(SolverResult=[solver("B")])
+    r, _, observation, trace, _ = await read_and_assess(QuestionPipeline(main, control), DiagnoseRequest(images=[IMAGE]), emit)
+    assert r.question.passage == capture().passage
+    assert r.key_guess == "B" and r.option_reviews == []
+    assert observation["outcome"] == "reference_match"
+    assert trace["detailed_explanation_available"] is False
+
+
+def test_analysis_schema_cannot_replace_or_retranscribe_the_captured_question():
+    assert not {"passage", "stem", "option_a", "readable", "personal_data_present"} & UploadAnalysis.model_fields.keys()

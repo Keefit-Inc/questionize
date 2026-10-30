@@ -58,6 +58,10 @@ A new subject is added as a **subject pack** in [`subjects/`](subjects/): its sk
 | E9 | C1 source recovery and separated C3.1 Solver/Judge evaluation | Executed v1/v2; known development data | [E9 v2](protocols/E9-repaired-input-reliability-v2.md), [results](results/E9.md) |
 | E10 | C3.4 constructed defect rejection and normal-control acceptance | Executed v1/v2; parent-clustered contracts | [E10 v2](protocols/E10-defect-rejection-v2.md), [results](results/E10.md) |
 | E11 | C3.1 new-upload blind observations → private local memory proposal → fresh paired validation → held/adopted release | Implemented; real outcomes recorded separately from scripted integration tests | [E11](protocols/E11-upload-driven-memory.md), [operations](../docs/UPLOAD_LEARNING.md) |
+| E12 | C1 completion-format recovery and C3.1 repeated blind solving | Executed; development cohorts, fifteen restored completion items plus previous 39 | [E12](protocols/E12-completion-readiness.md), [results](results/E12.md) |
+| E13 | Real-photo source capture and evidence-handling contracts | Registered; selected difficult source parents | [E13](protocols/E13-photo-evidence-readiness.md) |
+
+E2 v2 first tests a smaller, matched [design-procedure scaffold](protocols/E2-procedure-scaffold-v2.md). It does not substitute for the original memory-size experiment, human item ratings or learner outcomes.
 
 Run with `ai/eval` runners; every run appends one line to [`ledger.jsonl`](ledger.jsonl) with the capability it measures, and `python -m questionize.scoreboard` turns the ledger into [`results/SCOREBOARD.md`](results/SCOREBOARD.md) (the latest result for each capability against its bar) and each capability's `HISTORY.md` (every run, what changed, the result).
 

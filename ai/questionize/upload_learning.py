@@ -5,7 +5,7 @@ import asyncio
 import hashlib
 import json
 import re
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from . import prompts, levels
 from .integrity import integrity_issues
@@ -51,6 +51,13 @@ class Capture(BaseModel):
     def question(self):
         return SourceQuestion(passage=self.passage, stem=self.stem,
             choices=[Choice(label=l, text=getattr(self, f"option_{l.lower()}")) for l in "ABCDE"])
+
+
+# The analyst interprets an already captured question. Asking it to transcribe again
+# lengthens responses and reintroduces source errors. Keep the provider schema flat.
+_CAPTURE_FIELDS = {"readable", "kind", "personal_data_present", "passage", "stem", *(f"option_{l.lower()}" for l in "ABCDE")}
+UploadAnalysis = create_model("UploadAnalysis", **{name: (field.annotation, field)
+    for name, field in FlatPhotoReading.model_fields.items() if name not in _CAPTURE_FIELDS})
 
 
 def fingerprint(question: SourceQuestion):
@@ -140,16 +147,24 @@ Do not claim that AI agreement proves an answer. If unresolved, key_guess must b
 model_failure_kind describes a possible MAIN SOLVER failure, not a learner misconception: task_operator, scope, alternative_cause, necessity, capture, or unknown.
 model_failure_lesson is at most 240 characters, abstract, and contains no source names, numbers, wording or specific answer letters.
 If the main answer agrees with a supplied key, leave the model failure lesson empty. Any unverified key makes the lesson a tentative hypothesis.
-Use your own words for all explanations, not the publisher's wording. Preserve the supplied question fields exactly."""
+Use your own words for all explanations, not the publisher's wording. Return analysis only; do not transcribe the question again."""
     context = {"question": question.model_dump(exclude={"local_reference"}), "reference_status": status,
         "reference_key": reference, "expert_reference_explanation": captured.reference_explanation,
         "ai_main": main, "ai_control": control, "selected_answer": selected, "learner_choice": req.chosen_label}
     detail_available = True
     try:
-        raw = await asyncio.wait_for(pipeline.primary.complete(analysis + "\n" + levels.brief(req.level), json.dumps(context, ensure_ascii=False), FlatPhotoReading, temperature=0), timeout=75)
+        detail = await asyncio.wait_for(pipeline.primary.complete(analysis + "\n" + levels.brief(req.level), json.dumps(context, ensure_ascii=False), UploadAnalysis, temperature=0), timeout=75)
+        if not detail.explanation.strip() or not detail.competency.strip():
+            raise ValueError("Detailed analysis is incomplete")
+        raw = FlatPhotoReading(**detail.model_dump(), readable=True, kind="practice_question",
+            personal_data_present=captured.personal_data_present, passage=question.passage, stem=question.stem,
+            **{f"option_{c.label.lower()}": c.text for c in question.choices})
     except Exception:
         detail_available = False
         fallback = PhotoReading(readable=True, kind="practice_question", question=question, key_guess=selected,
+            personal_data_present=captured.personal_data_present, difficulty=3,
+            intent="Detailed item analysis was unavailable; no item-specific learning objective has been confirmed.",
+            learning_objectives=["Review the question's logical demand with your reference"],
             pattern=PatternObservation(family="CR", subtype="unknown", competency="Interpret the logical demand of the question", stimulus_features=[], key_rule="", distractor_traps=[], difficulty_drivers=[]),
             explanation="The question and independent solving results were saved, but the detailed explanation could not finish. Please check the reference in your book; any AI-only answer remains an estimate.")
         raw = FlatPhotoReading.from_reading(fallback)

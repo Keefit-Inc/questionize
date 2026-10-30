@@ -65,7 +65,7 @@ def subject_of(run: dict) -> str:
 def scope_of(run: dict) -> str:
     """Honor explicit scope; recognize legacy trial notes without guessing from sample size."""
     explicit = run.get("evaluation_scope") or run.get("scope") or run.get("run_kind")
-    if explicit in ("trial", "pilot", "smoke"):
+    if explicit in ("trial", "pilot", "smoke", "development"):
         return "trial"
     if explicit == "full":
         return "full"
@@ -297,7 +297,8 @@ def render_data(rows: list[dict], qualifications: dict | None = None) -> dict:
                 measured = metric_for(result, cap)
                 if measured is None:
                     continue
-                n, expected = measured["n"], count(row.get("n_items"))
+                n = measured["n"]
+                expected = count(result.get("expected_n", row.get("n_items")))
                 record = {
                     "run_id": row["run_id"], "capability": cap, "subject": run["subject"], "condition": condition,
                     "scope": run["scope"], "metric": METRICS[cap], **measured, "expected_n": expected,

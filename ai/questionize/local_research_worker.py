@@ -24,7 +24,7 @@ from .memory_research import propose
 from .schemas import LearningMemory, SourceQuestion
 from .upload_learning import fingerprint, solve
 
-SOURCE_FILES = ("local_research_worker.py", "memory_research.py", "upload_learning.py", "schemas.py", "llm.py", "prompts.py", "pipeline.py")
+SOURCE_FILES = ("local_research_worker.py", "memory_research.py", "upload_learning.py", "schemas.py", "llm.py", "prompts.py", "pipeline.py", "integrity.py")
 
 
 def source_hash():
@@ -58,6 +58,9 @@ def prepare_data(config, lease):
     def fp(i):
         return fingerprint(SourceQuestion(**i.question.model_dump()))
     for item in items:
+        if item.split == "completion_validation":
+            item.split = "test"
+            continue
         if item.split not in ("train", "test"):
             item.split = "test" if int(fp(item)[:8], 16) % 5 == 0 else "train"
     heldout_groups = {fp(i) for i in items if i.split == "test"}
@@ -69,7 +72,11 @@ def prepare_data(config, lease):
     # Membership is frozen before any proposal. Cover subtypes, then fill deterministically.
     rng = random.Random(11)
     rng.shuffle(validation)
-    selected, covered = [], set()
+    # Completion was previously wholly absent. Keep a reserved format stratum,
+    # as well as subtype coverage, rather than letting a random sample omit it.
+    from .integrity import is_completion
+    selected = [i for i in validation if is_completion(i.question.stem)][:4]
+    covered = {i.subtype for i in selected}
     for i in validation:
         if i.subtype not in covered:
             selected.append(i)
@@ -86,6 +93,24 @@ def prepare_data(config, lease):
     types = {o["subtype"] for o in lease["observations"]}
     examples = [{"subtype": i.subtype, "question": i.question.model_dump(), "reference_key": i.answer_key,
                  "expert_explanation": i.official_explanation} for i in train if i.subtype in types][:3]
+    reference_file = config.get("method_references")
+    if reference_file:
+        import hashlib
+        path = Path(reference_file).expanduser().resolve()
+        if path.is_relative_to(Path(__file__).resolve().parents[2]):
+            raise ValueError("Reference archives must remain private")
+        reference = json.loads(path.read_text())
+        if reference.get("namespace") != "ai_derived_from_open_reference":
+            raise ValueError("Reference origin must be explicit")
+        for unit in reference.get("units", []):
+            if unit.get("license") != "CC-BY-4.0" or not unit.get("source_sha256"):
+                raise ValueError("Missing method reference rights or provenance")
+            if types.intersection(unit["subtypes"]):
+                examples.append({"kind": "attributed_method_reference", "subtype": unit["subtypes"],
+                    "reference_method": unit["lesson"], "source": unit["source_id"], "source_sha256": unit["source_sha256"]})
+        # Bind the candidate's input registration to references as well as item data.
+        registration["dataset_hash"] = content_hash({"item_dataset_hash": digest,
+            "method_reference_hash": hashlib.sha256(path.read_bytes()).hexdigest()})
     return selected, registration, examples
 
 
@@ -182,6 +207,9 @@ def main():
             response.raise_for_status()
             return None if response.status_code == 204 else response.json()
         while True:
+            if source_hash() != LOADED_SOURCE_HASH:
+                print(json.dumps({"status": "source_changed_restart_required"}), flush=True)
+                return
             lease = None
             try:
                 lease = post("/lease", {})

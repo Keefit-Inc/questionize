@@ -5,6 +5,15 @@ import pytest
 from questionize import scoreboard
 
 
+def test_development_cohorts_have_their_own_registered_denominators():
+    row = {"run_id": "coverage", "protocol": "E12", "evaluation_scope": "development", "n_items": 54,
+        "capabilities": ["C3.1"], "summary": {"completion": {"accuracy": 14/15, "n": 15, "expected_n": 15}}}
+    data = scoreboard.render_data([row])
+    assert data["runs"][0]["scope"] == "trial"
+    assert data["records"][0]["expected_n"] == 15
+    assert data["records"][0]["complete"] is True
+
+
 def test_scoreboard_shows_the_latest_valid_run_per_capability(tmp_path):
     ledger = tmp_path / "ledger.jsonl"
     runs = [

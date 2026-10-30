@@ -34,7 +34,7 @@ class Counted:
 
 
 def rate(k, n):
-    return {"n": n, "correct": k, "accuracy": k / n if n else None, "ci95": wilson(k, n) if n else None}
+    return {"n": n, "expected_n": n, "correct": k, "accuracy": k / n if n else None, "ci95": wilson(k, n) if n else None}
 
 
 def tasks():
