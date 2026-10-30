@@ -43,6 +43,7 @@ env:
     RAILS_MAX_THREADS: 3
     JOB_CONCURRENCY: 1
     RAILS_LOG_TO_STDOUT: "1"
+    RESEARCH_EVOLUTION_ENABLED: "true"
 
 aliases:
   console: app exec --interactive --reuse "bin/rails console"

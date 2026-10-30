@@ -66,6 +66,14 @@ Pushing to `main` builds images; it does not deploy the running app. Both web an
 
 The learner app shows GMAT, LSAT and GRE by default. `VITE_ALL_LEVELS=true` during the web build restores all seven choices; the complete level catalog and existing profiles remain intact. The service worker is served with `Cache-Control: no-cache` so installed apps can discover releases, and it does not cache the research console as the learner app's offline shell.
 
+### Research policy cycles
+
+The Evolution console needs both current app and AI images. After an AI source change, refresh the `ai` accessory as well as deploying the app. E8's migration adds a cycle registry and immutable versions; it does not import any questions or change learner records.
+
+Prepare a private replay pack with `python -m questionize.build_evolution_benchmark --help` in `ai/`. The builder reads private E1 inputs but exports only abstract decision records with hashed identifiers and answer letters. From `api/`, the operator can import that pack on stdin with `bin/rails questionize:research_import`, queue one cycle with `bin/rails questionize:research_cycle`, and inspect it with `bin/rails questionize:research_status`. In production these commands run inside the app container. Do not place the private pack or environment values in the repository.
+
+`RESEARCH_EVOLUTION_ENABLED=true` enables usage-triggered eligibility checks. The initial scope waits for three new independent keyed GMAT CR observations or twenty new rated answers, with a 24-hour automatic cooldown, one in-flight cycle and a daily two-proposal limit. Delayed checks coalesce events; the recurring job also checks readiness. These are proposal gates, not assertions that a learner miss proves a bad item. A held or failed cycle does not advance the active policy. An operator-requested research replay is visibly labeled separately from a usage batch.
+
 Useful commands: `bin/kamal logs`, `bin/kamal console`, `bin/kamal accessory logs ai`, `bin/kamal app details`.
 
 ## 5. Check

@@ -19,5 +19,6 @@ export default defineConfig({
     },
   }],
   build: { assetsDir: "admin-assets" },
+  server: { proxy: { "/admin/cycles": "http://localhost:3000", "/api/v1/research": "http://localhost:3000" } },
   test: { environment: "jsdom" },
 });

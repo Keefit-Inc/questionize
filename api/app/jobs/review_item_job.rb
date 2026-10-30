@@ -10,8 +10,14 @@ class ReviewItemJob < ApplicationJob
     review = ItemReview.find(review_id)
     item = review.item
     version = review.from_version
+    review.with_lock do
+      unless review.policy_pinned
+        review.update!(capability_policy: Research::Release.context_for(level: item.level, family: item.family), policy_pinned: true)
+      end
+    end
     flags = version.feedbacks.where(kind: "flag").map { |f| { reason: f.reason, comment: f.comment.to_s } }
-    result = ai_client_factory.call.review(question: version.to_question, flags: flags, crowd: Quality::Triggers.new(item).crowd_stats)
+    result = ai_client_factory.call.review(question: version.to_question, flags: flags, crowd: Quality::Triggers.new(item).crowd_stats,
+      level: item.level || "gmat", capability_policy: review.capability_policy)
     decision = result.fetch("decision")
     review.update!(verdict: decision["verdict"], findings: decision["findings"])
 

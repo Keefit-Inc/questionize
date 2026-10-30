@@ -102,7 +102,7 @@ module GenerationRuns
           "misconception" => event.dig("diagnosis", "misconception"), "chosen_trap" => event.dig("diagnosis", "chosen_trap"),
           # Whether the key behind this design was checked against the book (the learning signal, R2).
           "key_verdict" => event.dig("diagnosis", "key_check", "verdict"), "dataset" => @run.params["dataset"]
-        ).compact,
+        ).merge("level" => @run.params["level"] || Level.for(@run.user)).compact,
         extractor: "diagnose", leak_checks: event["leak_checks"] || {}
       )
     end

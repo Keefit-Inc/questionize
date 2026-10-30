@@ -10,6 +10,7 @@ class GenerationRun < ApplicationRecord
 
   validates :status, inclusion: { in: STATUSES }
   validates :kind, inclusion: { in: KINDS }
+  before_validation :pin_capability_policy, on: :create
 
   scope :completed_maps, -> { where(kind: "map", status: "completed").where.not(result: nil) }
 
@@ -23,5 +24,17 @@ class GenerationRun < ApplicationRecord
 
   def cache_text!(text)
     Rails.cache.write(text_cache_key, text, expires_in: kind == "error_log" ? IMAGE_TTL : TEXT_TTL)
+  end
+
+  private
+
+  def pin_capability_policy
+    return unless %w[questions error_log practice].include?(kind)
+
+    # The public caller cannot select a research policy. Even a legacy nil context is pinned,
+    # so requests already queued when a release changes retain their original semantics.
+    self.params = (params || {}).except("capability_policy").merge(
+      "capability_policy" => Research::Release.context_for(level: params&.fetch("level", nil) || Level.for(user))
+    )
   end
 end

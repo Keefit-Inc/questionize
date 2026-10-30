@@ -67,6 +67,8 @@ def scope_of(run: dict) -> str:
         return "trial"
     if explicit == "full":
         return "full"
+    if explicit == "regression":
+        return "regression"
     if run.get("limit") or run.get("item_limit"):
         return "trial"
     return "trial" if re.search(r"\b(trial|pilot|smoke)\b", run.get("note") or "", re.IGNORECASE) else "full"
@@ -195,7 +197,7 @@ def render(rows: list[dict], qualifications: dict | None = None) -> str:
         subjects = sorted({subject_of(r) for r in runs}) or [""]
         for subject in subjects:
             mine = [r for r in runs if subject_of(r) == subject]
-            scopes = [s for s in ("full", "trial") if any(scope_of(r) == s for r in mine)] or [""]
+            scopes = [s for s in ("full", "trial", "regression") if any(scope_of(r) == s for r in mine)] or [""]
             for scope in scopes:
                 candidates = [r for r in mine if scope_of(r) == scope]
                 # Pending ratings must not hide earlier completed ratings in the same scope.

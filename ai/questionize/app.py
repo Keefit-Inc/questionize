@@ -32,6 +32,7 @@ from .mapper import MapPipeline
 from .pipeline import Declined, QuestionPipeline
 from .errorlog import diagnose, practice_for_level
 from .reviewer import review
+from . import evolution
 from .schemas import DiagnoseRequest, GenerateRequest, JudgeRequest, JudgeResult, MapRequest, PracticeRequest, ReviewRequest, ReviewResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -89,6 +90,18 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             req = req.model_copy(update={"text": req.text[: settings.max_article_chars]})
         return req
 
+    def proposal_model():
+        # Tests inject a scripted pipeline. Production creates an isolated, bounded Meta client;
+        # this never changes retry policy on the shared generation pipeline.
+        if pipeline is not None:
+            return get_pipeline().primary
+        if settings.primary.name != "meta":
+            raise HTTPException(status_code=503, detail="The research proposal service requires the Meta provider")
+        model = make_llm(settings.primary, timeout=60)
+        model._max_retries = 0
+        model._client = model._client.with_options(max_retries=0, timeout=60)
+        return model
+
     @app.get("/health")
     async def health() -> dict[str, Any]:
         return {
@@ -107,6 +120,28 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             return await pipeline.judge.judge(req)
         except LLMError as e:
             raise HTTPException(status_code=502, detail=str(e)) from e
+
+    @v1.post("/research/propose")
+    async def propose_policy(req: evolution.ProposalRequest) -> dict:
+        model = proposal_model()
+        try:
+            return await evolution.propose(model, req)
+        except LLMError as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        finally:
+            if pipeline is None:
+                await model._client.close()
+
+    @v1.post("/research/evaluate")
+    async def evaluate_policy(req: evolution.EvaluationRequest) -> dict:
+        try:
+            return evolution.evaluate(req)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+
+    @v1.post("/research/probe")
+    async def probe_policy(req: evolution.ProbeRequest) -> dict:
+        return evolution.probe(req)
 
     @v1.post("/diagnose")
     async def diagnose_photo(req: DiagnoseRequest) -> StreamingResponse:

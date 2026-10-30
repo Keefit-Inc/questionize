@@ -2,6 +2,12 @@
   "schema_version": 1,
   "qualifications": [
     {
+      "id": "e8-development-replay",
+      "applies_to": { "protocol": "E8", "protocol_version": 1 },
+      "summary": "Recorded policy decisions on a known development regression set. No new solver inference, untouched holdout or learner-growth measurement. Adoption is limited to a bounded EXCEPT guard.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/protocols/E8-policy-evolution.md"
+    },
+    {
       "id": "capture-emphasis-spans",
       "applies_to": {
         "dataset_hash": "f8478fddd1285fd5"

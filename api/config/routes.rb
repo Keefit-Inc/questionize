@@ -7,6 +7,8 @@ Rails.application.routes.draw do
   get "sw.js", to: "service_worker#show", format: false
   get "admin", to: "research_console#show"
   get "admin/data", to: "research_console#data"
+  get "admin/cycles", to: "research_console#cycles"
+  get "admin/cycles/ledger", to: "research_console#ledger"
 
   # Shared question links get social preview tags.
   get "q/:public_id", to: "share_pages#show", as: :share_page
@@ -33,6 +35,9 @@ Rails.application.routes.draw do
       get "review", to: "review#index"
       get "config", to: "config#show"
       get "recommendations", to: "recommendations#index"
+      namespace :research do
+        resources :cycles, only: :create
+      end
       namespace :auth do
         post "facebook", to: "facebook#create"
         post "facebook/data_deletion", to: "facebook#data_deletion"

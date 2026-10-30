@@ -28,6 +28,10 @@ module AiService
     # POST /v1/practice: verified practice from an abstract design at one level.
     def practice(payload) = json("/v1/practice", payload)
 
+    def propose_policy(payload) = json("/v1/research/propose", payload)
+    def evaluate_policy(payload) = json("/v1/research/evaluate", payload)
+    def probe_policy(payload) = json("/v1/research/probe", payload)
+
     private
 
     def json(path, payload)

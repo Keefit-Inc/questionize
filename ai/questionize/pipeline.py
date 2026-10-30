@@ -24,11 +24,13 @@ from typing import Any
 from . import levels, prompts
 from .judge import ArgumentJudge, judge_feedback
 from .llm import StructuredLLM
+from .operator_policy import policy_trace, task_operator
 from .schemas import (
     LABELS,
     SUBTYPES,
     ArticleAnalysis,
     CriticResult,
+    CapabilityPolicy,
     GenerateRequest,
     GenerateResponse,
     Question,
@@ -161,7 +163,8 @@ class QuestionPipeline:
             qtype,
         )
 
-        return await self.verify(idx, req.title, req.text, draft, qtype, emit, audience=levels.brief(req.level))
+        return await self.verify(idx, req.title, req.text, draft, qtype, emit, audience=levels.brief(req.level),
+                                 capability_policy=req.capability_policy, level=req.level)
 
     async def verify(
         self,
@@ -173,6 +176,8 @@ class QuestionPipeline:
         emit: Emit,
         first_guidance: str = "",
         audience: str = "",
+        capability_policy: CapabilityPolicy | None = None,
+        level: str = "gmat",
     ) -> VerifiedQuestion:
         """Solve, critique and judge a draft, revising until it passes or revisions run out.
 
@@ -195,7 +200,10 @@ class QuestionPipeline:
         solver_result: SolverResult | None = None
         critic: CriticResult | None = None
         judged = None
+        trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
         while True:
+            trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
+            trace.update(judge_gate_reached=False, judge_called=False)
             copied, copied_text = longest_copied_run(draft.passage, text)
             if copied > self.max_copied_words:
                 # Not worth a solver call: this passage can't ship either way.
@@ -240,7 +248,9 @@ class QuestionPipeline:
                 )
             passed = agrees and critic is not None and _critic_passes(critic)
             judged = None
-            if passed and self.judge is not None:
+            trace["judge_gate_reached"] = bool(passed and self.judge is not None)
+            if passed and self.judge is not None and not trace["judge_abstained"]:
+                trace["judge_called"] = True
                 await emit({"stage": "judge", "index": idx, "attempt": attempts, "message": "Argument Judge measuring every option"})
                 judged = await self.judge.judge(draft)
                 passed = judged.verdict in ("pass", "not_applicable")
@@ -254,6 +264,7 @@ class QuestionPipeline:
                     "intended_answer": draft.correct_label,
                     "message": _verdict_message(passed, agrees, solver_result, draft, critic, judged),
                     **({"judge": _judge_summary(judged)} if judged else {}),
+                    **({"capability_policy": trace} if capability_policy else {}),
                 }
             )
             if passed or attempts > self.max_revisions:
@@ -295,6 +306,7 @@ class QuestionPipeline:
                 distractor_quality=critic.distractor_quality if critic else 0,
                 issues=issues,
                 copied_words=copied,
+                capability_policy=trace if capability_policy else None,
             ),
             judge=judged,
         )

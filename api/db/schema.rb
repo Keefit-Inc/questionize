@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_000010) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -189,6 +189,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000010) do
     t.jsonb "findings", default: [], null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "capability_policy"
+    t.boolean "policy_pinned", default: false, null: false
     t.index ["from_version_id"], name: "index_item_reviews_on_from_version_id"
     t.index ["item_id"], name: "index_item_reviews_on_item_id"
     t.index ["to_version_id"], name: "index_item_reviews_on_to_version_id"
@@ -284,6 +286,94 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000010) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["node_type", "node_id"], name: "index_node_status_events_on_node"
+  end
+
+  create_table "research_benchmarks", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.string "name", null: false
+    t.string "subject", default: "CR", null: false
+    t.string "level", default: "gmat", null: false
+    t.string "kind", default: "decision_replay", null: false
+    t.string "purpose", default: "development_regression", null: false
+    t.string "content_hash", null: false
+    t.jsonb "cases", default: [], null: false
+    t.jsonb "provenance", default: {}, null: false
+    t.boolean "enabled", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["content_hash"], name: "index_research_benchmarks_on_content_hash", unique: true
+    t.index ["public_id"], name: "index_research_benchmarks_on_public_id", unique: true
+  end
+
+  create_table "research_cycle_events", force: :cascade do |t|
+    t.bigint "cycle_id", null: false
+    t.string "stage", null: false
+    t.string "message", null: false
+    t.jsonb "data", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.index ["cycle_id"], name: "index_research_cycle_events_on_cycle_id"
+  end
+
+  create_table "research_cycles", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.bigint "release_id", null: false
+    t.bigint "benchmark_id", null: false
+    t.bigint "baseline_policy_id", null: false
+    t.bigint "candidate_policy_id"
+    t.bigint "requested_by_id"
+    t.string "status", default: "queued", null: false
+    t.string "trigger", null: false
+    t.string "code_revision", null: false
+    t.jsonb "source_snapshot", default: {}, null: false
+    t.jsonb "criteria", default: {}, null: false
+    t.jsonb "proposal", default: {}, null: false
+    t.jsonb "evaluation", default: {}, null: false
+    t.jsonb "decision_reasons", default: [], null: false
+    t.jsonb "service_verification", default: {}, null: false
+    t.jsonb "ledger_entry", default: {}, null: false
+    t.datetime "decided_at"
+    t.datetime "activated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["baseline_policy_id"], name: "index_research_cycles_on_baseline_policy_id"
+    t.index ["benchmark_id"], name: "index_research_cycles_on_benchmark_id"
+    t.index ["candidate_policy_id"], name: "index_research_cycles_on_candidate_policy_id"
+    t.index ["public_id"], name: "index_research_cycles_on_public_id", unique: true
+    t.index ["release_id"], name: "index_one_running_research_cycle", unique: true, where: "((status)::text = ANY ((ARRAY['queued'::character varying, 'generating'::character varying, 'evaluating'::character varying, 'activating'::character varying])::text[]))"
+    t.index ["release_id"], name: "index_research_cycles_on_release_id"
+    t.index ["requested_by_id"], name: "index_research_cycles_on_requested_by_id"
+  end
+
+  create_table "research_policy_versions", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.string "subject", default: "CR", null: false
+    t.string "level", default: "gmat", null: false
+    t.string "capability", default: "C3.1", null: false
+    t.string "kind", default: "judge_operator", null: false
+    t.integer "version", null: false
+    t.jsonb "payload", null: false
+    t.string "content_hash", null: false
+    t.jsonb "provenance", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["public_id"], name: "index_research_policy_versions_on_public_id", unique: true
+    t.index ["subject", "level", "capability", "version"], name: "index_research_policy_version_scope", unique: true
+  end
+
+  create_table "research_releases", force: :cascade do |t|
+    t.string "subject", default: "CR", null: false
+    t.string "level", default: "gmat", null: false
+    t.string "capability", default: "C3.1", null: false
+    t.bigint "policy_version_id", null: false
+    t.integer "generation", default: 1, null: false
+    t.bigint "source_cursor", default: 0, null: false
+    t.bigint "attempt_cursor", default: 0, null: false
+    t.datetime "last_automatic_at"
+    t.datetime "activated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["policy_version_id"], name: "index_research_releases_on_policy_version_id"
+    t.index ["subject", "level", "capability"], name: "index_research_releases_on_subject_and_level_and_capability", unique: true
   end
 
   create_table "saved_items", force: :cascade do |t|
@@ -418,6 +508,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_000010) do
   add_foreign_key "items", "item_versions", column: "current_version_id"
   add_foreign_key "items", "sources"
   add_foreign_key "judge_measurements", "item_versions"
+  add_foreign_key "research_cycle_events", "research_cycles", column: "cycle_id"
+  add_foreign_key "research_cycles", "research_benchmarks", column: "benchmark_id"
+  add_foreign_key "research_cycles", "research_policy_versions", column: "baseline_policy_id"
+  add_foreign_key "research_cycles", "research_policy_versions", column: "candidate_policy_id"
+  add_foreign_key "research_cycles", "research_releases", column: "release_id"
+  add_foreign_key "research_cycles", "users", column: "requested_by_id"
+  add_foreign_key "research_releases", "research_policy_versions", column: "policy_version_id"
   add_foreign_key "saved_items", "items"
   add_foreign_key "saved_items", "users"
   add_foreign_key "skill_ratings", "users"

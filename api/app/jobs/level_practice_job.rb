@@ -13,7 +13,8 @@ class LevelPracticeJob < ApplicationJob
     run = GenerationRun.create!(kind: "practice", status: "running",
                                 params: { "level" => level, "origin" => origin, "subtype" => design["subtype"] })
     result = ai_client_factory.call.practice(
-      "design" => design.slice(*DESIGN_FIELDS), "practice_trap" => practice_trap, "level" => level, "count" => count
+      "design" => design.slice(*DESIGN_FIELDS), "practice_trap" => practice_trap, "level" => level, "count" => count,
+      "capability_policy" => run.params["capability_policy"]
     )
     recorder = GenerationRuns::Recorder.new(run)
     Array(result["practice"]).each { |generated| recorder.persist(generated, origin: "pattern") }

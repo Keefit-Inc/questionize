@@ -11,6 +11,30 @@ Difficulty = Literal["easy", "medium", "hard"]
 Label = Literal["A", "B", "C", "D", "E"]
 LABELS: tuple[str, ...] = ("A", "B", "C", "D", "E")
 
+
+class CapabilityPolicyPayload(BaseModel):
+    """The first bounded evolution experiment changes one verifier decision only."""
+
+    model_config = {"extra": "forbid"}
+    except_mode: Literal["legacy", "abstain"] = "legacy"
+
+
+class CapabilityPolicy(BaseModel):
+    model_config = {"extra": "forbid"}
+    id: str = Field(..., min_length=1, max_length=120)
+    hash: str = Field(..., pattern=r"^[0-9a-f]{16,64}$")
+    payload: CapabilityPolicyPayload
+
+    @model_validator(mode="after")
+    def verify_hash(self) -> CapabilityPolicy:
+        import hashlib
+        import json
+
+        expected = hashlib.sha256(json.dumps(self.payload.model_dump(), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if not expected.startswith(self.hash):
+            raise ValueError("capability policy hash does not match its payload")
+        return self
+
 # Why an option is right or wrong. Tagging every distractor lets the app show a user which
 # traps they fall for, not just which items they miss.
 TrapType = Literal[
@@ -67,6 +91,7 @@ class GenerateRequest(BaseModel):
     count_per_type: int = Field(1, ge=1, le=3)
     difficulty: Difficulty = "medium"
     level: LevelId = Field("gmat", description="Who the questions are written for (questionize/levels.py)")
+    capability_policy: CapabilityPolicy | None = None
 
 
 class Choice(BaseModel):
@@ -117,6 +142,7 @@ class Verification(BaseModel):
     distractor_quality: int
     issues: list[str] = Field(default_factory=list)
     copied_words: int = Field(0, description="Longest run of consecutive words the passage shares with the article")
+    capability_policy: dict | None = None
 
 
 # ------------------------------------------------------------- Argument Judge
@@ -329,6 +355,8 @@ class ReviewRequest(BaseModel):
     question: Question
     flags: list[Flag] = Field(default_factory=list)
     crowd: CrowdStats = Field(default_factory=CrowdStats)
+    level: LevelId = "gmat"
+    capability_policy: CapabilityPolicy | None = None
 
 
 class ReviewDecision(BaseModel):
@@ -341,6 +369,7 @@ class ReviewResult(BaseModel):
     decision: ReviewDecision
     judge: JudgeResult | None = None
     revised: VerifiedQuestion | None = None
+    capability_policy: dict | None = None
 
 
 # ------------------------------------------------------------- Error log (photo → diagnosis)
@@ -527,6 +556,7 @@ class DiagnoseRequest(BaseModel):
     level: LevelId = "gmat"
     # 0 for curated items that are only learned from (docs/DECISIONS.md R3).
     practice_count: int = Field(2, ge=0, le=2)
+    capability_policy: CapabilityPolicy | None = None
 
 
 class KeyReview(BaseModel):
@@ -552,6 +582,7 @@ class PracticeRequest(BaseModel):
     practice_trap: TrapType | None = None
     level: LevelId = "gmat"
     count: int = Field(1, ge=1, le=3)
+    capability_policy: CapabilityPolicy | None = None
 
 
 class Diagnosis(BaseModel):

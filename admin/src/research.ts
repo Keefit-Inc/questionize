@@ -2,7 +2,7 @@ export interface Capability { id: string; name: string; bar: string; metric: str
 export interface Qualification { id: string; summary: string; report_url?: string }
 export interface Run {
   run_id: string; protocol: string; protocol_version: number; started_at: string; subject: string;
-  scope: "full" | "trial"; n_items: number; dataset_id: string; dataset_hash: string;
+  scope: "full" | "trial" | "regression"; n_items: number; dataset_id: string; dataset_hash: string;
   split: string; prompts_hash: string; git_sha: string; models: Record<string, string>;
   judge: Record<string, unknown>; memory: { hash: string; lessons: number } | null;
   baseline_run: string | null; note: string; capabilities: string[]; measured_capabilities: string[];
@@ -10,7 +10,7 @@ export interface Run {
 }
 export interface Comparison { b?: number; c?: number; p?: number; n?: number; baseline_accuracy?: number; diff_ci95?: [number, number] }
 export interface Measurement {
-  run_id: string; capability: string; subject: string; condition: string; scope: "full" | "trial";
+  run_id: string; capability: string; subject: string; condition: string; scope: "full" | "trial" | "regression";
   metric: string; value: number; n: number | null; ci95: [number, number] | null;
   expected_n: number | null; complete: boolean | null; calls?: number; ece?: number;
   vs_B0?: Comparison; vs_baseline?: Comparison;
@@ -81,7 +81,8 @@ export function comparisonIssues(before: Run, after: Run, left?: Measurement, ri
   else if (sorted(before.models) !== sorted(after.models)) issues.push("Models differ between runs.");
   if (!recorded(before.judge) || !recorded(after.judge)) issues.push("Judge settings were not recorded for both runs.");
   else if (sorted(before.judge) !== sorted(after.judge)) issues.push("Judge settings differ between runs.");
-  if (!["full", "trial"].includes(before.scope) || !["full", "trial"].includes(after.scope)) issues.push("Evaluation scope was not recorded for both runs.");
+  if (before.scope === "regression" || after.scope === "regression") issues.push("Recorded policy regression results are not fresh model-quality evaluations.");
+  else if (!["full", "trial"].includes(before.scope) || !["full", "trial"].includes(after.scope)) issues.push("Evaluation scope was not recorded for both runs.");
   else if (before.scope !== "full" || after.scope !== "full") issues.push("This comparison includes a trial run.");
   if (!positiveCount(before.n_items) || !positiveCount(after.n_items)) issues.push("Expected run sample sizes were not recorded for both runs.");
   else if (before.n_items !== after.n_items) issues.push("The expected run sample sizes differ.");

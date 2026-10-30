@@ -33,7 +33,7 @@ class GenerateQuestionsJob < ApplicationJob
   private
 
   def request_payload(run, text)
-    run.params.slice("title", "url", "selection", "types", "difficulty", "count_per_type").merge("text" => text, "level" => run.params["level"] || Level.for(run.user))
+    run.params.slice("title", "url", "selection", "types", "difficulty", "count_per_type", "capability_policy").merge("text" => text, "level" => run.params["level"] || Level.for(run.user)).compact
   end
 
   def broadcast(run, payload)
@@ -42,7 +42,8 @@ class GenerateQuestionsJob < ApplicationJob
 
   def diagnose_payload(run, text)
     { "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"], "answer_key" => run.params["answer_key"],
-      "level" => Level.for(run.user), "practice_count" => run.params["learn_only"] ? 0 : 2 }.compact
+      "level" => run.params["level"] || Level.for(run.user), "practice_count" => run.params["learn_only"] ? 0 : 2,
+      "capability_policy" => run.params["capability_policy"] }.compact
   end
 
   # The cached photo parts: a JSON list of data URLs (a single data URL from older clients).

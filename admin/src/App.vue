@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watchEffect } from "vue";
 import { GROUPS, baseCondition, comparisonIssues, comparisonView, measurements, percentage, shortId, subjectName, timestamp, validateData, type Measurement, type ResearchData } from "./research";
+import EvolutionConsole from "./EvolutionConsole.vue";
 
+const view = ref<"research" | "evolution">(window.location.hash === "#evolution" ? "evolution" : "research");
 const data = ref<ResearchData | null>(null);
 const error = ref("");
 const loading = ref(false);
@@ -54,6 +56,17 @@ const comparison = computed(() => comparisonView(before.value, after.value, left
 const difference = computed(() => comparison.value.difference);
 const paired = computed(() => comparison.value.paired);
 
+function showCapability(id: string) {
+  group.value = id;
+  view.value = "research";
+  if (window.location.hash === "#evolution") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+}
+
+function showEvolution() {
+  view.value = "evolution";
+  window.history.replaceState(null, "", "#evolution");
+}
+
 watchEffect(() => {
   if (capabilities.value.length && !capabilities.value.some((c) => c.id === capability.value)) capability.value = capabilities.value[0].id;
   if (condition.value !== "all" && !conditions.value.includes(condition.value)) condition.value = "all";
@@ -96,16 +109,18 @@ onMounted(refresh);
       <div class="workspace"><span class="status-dot" /> Research workspace <span class="workspace-tag">v1</span></div>
       <p class="nav-label">CAPABILITIES</p>
       <nav aria-label="Capabilities">
-        <button v-for="item in GROUPS" :key="item.id" :class="['nav-item', { active: group === item.id }]" :aria-pressed="group === item.id" @click="group = item.id">
+        <button v-for="item in GROUPS" :key="item.id" :class="['nav-item', { active: view === 'research' && group === item.id }]" :aria-pressed="view === 'research' && group === item.id" @click="showCapability(item.id)">
           <span class="cap-id">{{ item.id }}</span><span>{{ item.name }}<small>{{ item.detail }}</small></span><span :class="['measure-dot', { measured: groupMeasured(item.id) }]" :title="groupMeasured(item.id) ? 'Has full evaluation results' : 'Not measured yet'" />
         </button>
       </nav>
+      <button :class="['workflow-nav', { active: view === 'evolution' }]" :aria-pressed="view === 'evolution'" @click="showEvolution"><span>↻</span><span>Evolution<small>GMAT CR · evidence to service</small></span></button>
       <div class="sidebar-bottom"><span class="ledger-icon">≡</span><strong>Evidence before claims</strong><p>Protocols, versioned runs and measured outcomes.</p><a href="https://github.com/Keefit-Inc/questionize/tree/main/research" target="_blank" rel="noreferrer">Open research record ↗</a><a href="/snap">Open learner app ↗</a></div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> Published aggregates · read only</span></header>
-      <div class="content">
+      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ view === 'evolution' ? 'Evolution' : GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> {{ view === 'evolution' ? 'Live cycle registry' : 'Published aggregates · read only' }}</span></header>
+      <EvolutionConsole v-if="view === 'evolution'" @completed="refresh" />
+      <div v-else class="content">
         <div class="page-heading"><div><p class="eyebrow">CONTINUOUS CAPABILITY EVALUATION</p><h1>Measure. Compare. Improve.</h1><p class="subtitle">A shared record of what changed, what was tested, and what the evidence supports.</p></div><button class="button" :disabled="loading" @click="refresh">↻ {{ loading ? "Refreshing…" : "Refresh" }}</button></div>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <p v-if="!data && loading" class="empty">Loading the experiment ledger…</p>
@@ -113,18 +128,18 @@ onMounted(refresh);
           <div class="filters">
             <label>SUBJECT<select v-model="subject" aria-label="Subject"><option v-for="item in data.subjects" :key="item" :value="item">{{ subjectName(item) }} ({{ item }})</option></select></label>
             <label>MEASURE<select v-model="capability" aria-label="Measure"><option v-for="item in capabilities" :key="item.id" :value="item.id">{{ item.id }} · {{ item.name }}</option></select></label>
-            <label>EVALUATION SCOPE<select v-model="scope" aria-label="Evaluation scope"><option value="full">Full evaluations</option><option value="trial">Trial runs</option><option value="all">All runs</option></select></label>
+            <label>EVALUATION SCOPE<select v-model="scope" aria-label="Evaluation scope"><option value="full">Full evaluations</option><option value="trial">Trial runs</option><option value="regression">Replay regressions</option><option value="all">All runs</option></select></label>
             <label>CONDITION<select v-model="condition" aria-label="Result condition"><option value="all">All conditions</option><option v-for="item in conditions" :key="item">{{ item }}</option></select></label>
           </div>
           <div class="stats-grid">
-            <div class="stat"><p>Recorded runs <span>↗</span></p><strong>{{ data.runs.filter((run) => run.subject === subject).length }}</strong><small>{{ data.runs.filter((run) => run.subject === subject && run.scope === 'full').length }} full evaluations · {{ data.runs.filter((run) => run.subject === subject && run.scope === 'trial').length }} trials</small></div>
+            <div class="stat"><p>Recorded runs <span>↗</span></p><strong>{{ data.runs.filter((run) => run.subject === subject).length }}</strong><small>{{ data.runs.filter((run) => run.subject === subject && run.scope === 'full').length }} full · {{ data.runs.filter((run) => run.subject === subject && run.scope === 'trial').length }} trials · {{ data.runs.filter((run) => run.subject === subject && run.scope === 'regression').length }} regressions</small></div>
             <div class="stat"><p>Measured capabilities <span>◎</span></p><strong>{{ measuredGroups.size }}<span class="denom"> / 6</span></strong><small>{{ metricCount }} measured {{ metricCount === 1 ? 'sub-capability' : 'sub-capabilities' }} · {{ subject }}</small></div>
             <div class="stat"><p>Evidence in this view <span>▤</span></p><strong>{{ records.length }}</strong><small>Condition results · {{ scope === 'all' ? 'all scopes' : scope + ' only' }}</small></div>
             <div class="stat"><p>Last recorded run <span>◷</span></p><strong class="date-stat">{{ timestamp(data.updated_at).split(',')[0] }}</strong><small>{{ timestamp(data.updated_at) }}</small></div>
           </div>
 
           <section class="panel performance">
-            <div class="panel-heading"><div><p class="eyebrow">{{ capability }} · {{ subjectName(subject) }}</p><h2>{{ selectedCapability?.name }} over time</h2></div><span :class="['scope-badge', { trial: scope !== 'full' }]">{{ scope === 'full' ? 'FULL EVALUATIONS' : scope === 'trial' ? 'TRIAL RUNS' : 'MIXED SCOPES' }}</span></div>
+            <div class="panel-heading"><div><p class="eyebrow">{{ capability }} · {{ subjectName(subject) }}</p><h2>{{ selectedCapability?.name }} over time</h2></div><span :class="['scope-badge', { trial: scope !== 'full' }]">{{ scope === 'full' ? 'FULL EVALUATIONS' : scope === 'trial' ? 'TRIAL RUNS' : scope === 'regression' ? 'RECORDED REPLAY' : 'MIXED SCOPES' }}</span></div>
             <p class="bar-text">Evaluation bar: {{ selectedCapability?.bar }}</p>
             <details v-if="qualifications.length" class="quality-note">
               <summary><strong>Provisional evidence</strong> · {{ qualifications.length }} data or method qualifications</summary>
@@ -171,3 +186,11 @@ onMounted(refresh);
     </main>
   </div>
 </template>
+
+<style scoped>
+.workflow-nav { width:100%; display:flex; align-items:center; gap:14px; border:1px solid #304552; background:#192c37; color:#a5c0c9; padding:13px; margin-top:20px; border-radius:7px; text-align:left; font-weight:600; font-size:12px; }
+.workflow-nav>span:first-child { font-size:22px; color:#7fbfa8; }
+.workflow-nav small { display:block; font-weight:400; font-size:10px; color:#738e9c; margin-top:5px; }
+.workflow-nav.active { background:#294739; border-color:#456956; color:#e0eee5; }
+@media(max-width:760px) { .workflow-nav { margin-top:10px; padding:9px 12px; justify-content:center; font-size:11px; }.workflow-nav small { display:inline; margin-left:8px; font-size:9px; }.workflow-nav>span:first-child { font-size:17px; } }
+</style>

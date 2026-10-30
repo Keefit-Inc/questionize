@@ -90,7 +90,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
     topics = rng.sample(TOPICS, req.practice_count)
     results = await asyncio.gather(
-        *(_practice(pipeline, i, pattern, diagnosis.chosen_trap, transcript, topic, emit, req.level) for i, topic in enumerate(topics)),
+        *(_practice(pipeline, i, pattern, diagnosis.chosen_trap, transcript, topic, emit, req.level, req.capability_policy) for i, topic in enumerate(topics)),
         return_exceptions=True,
     )
     practice = [r for r in results if not isinstance(r, BaseException) and r.verification.copied_words <= pipeline.max_copied_words]
@@ -161,14 +161,14 @@ async def practice_for_level(pipeline: QuestionPipeline, req: PracticeRequest, s
     rng = random.Random(seed)
     topics = rng.sample(TOPICS, req.count)
     results = await asyncio.gather(
-        *(_practice(pipeline, i, req.design, req.practice_trap, "", topic, quiet, req.level) for i, topic in enumerate(topics)),
+        *(_practice(pipeline, i, req.design, req.practice_trap, "", topic, quiet, req.level, req.capability_policy) for i, topic in enumerate(topics)),
         return_exceptions=True,
     )
     practice = [r for r in results if not isinstance(r, BaseException) and r.verification.verified]
     return {"level": req.level, "skipped": None, "practice": [p.model_dump() for p in practice]}
 
 
-async def _practice(pipeline, index, pattern: PatternObservation, practice_trap, transcript, topic, emit, level=None):
+async def _practice(pipeline, index, pattern: PatternObservation, practice_trap, transcript, topic, emit, level=None, capability_policy=None):
     audience = levels.brief(level)
     draft = normalize_question(
         await pipeline.primary.complete(
@@ -180,7 +180,8 @@ async def _practice(pipeline, index, pattern: PatternObservation, practice_trap,
         pattern.family,
     )
     # The photographed question is the "source" no practice passage may copy from.
-    return await pipeline.verify(index, "", transcript, draft, pattern.family, emit, audience=audience)
+    return await pipeline.verify(index, "", transcript, draft, pattern.family, emit, audience=audience,
+                                 capability_policy=capability_policy, level=level or "gmat")
 
 
 def _scrub(pattern, transcript: str):
