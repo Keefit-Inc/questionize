@@ -204,15 +204,14 @@ class QuestionPipeline:
         critic: CriticResult | None = None
         judged = None
         trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
-        defects = integrity_issues(draft) if self.integrity_checks else []
-        if defects:
-            return VerifiedQuestion(id=uuid.uuid4().hex[:12], question=draft, verification=Verification(
-                verified=False, attempts=0, solver_model=self.solver.model, solver_answer="", solver_confidence=0,
-                critic_verdict="integrity_rejected", distractor_quality=0, issues=defects,
-                integrity_version=INTEGRITY_VERSION,
-                capability_policy=trace if capability_policy else None))
         while True:
             trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
+            defects = integrity_issues(draft) if self.integrity_checks else []
+            if defects:
+                return VerifiedQuestion(id=uuid.uuid4().hex[:12], question=draft, verification=Verification(
+                    verified=False, attempts=attempts - 1, solver_model=self.solver.model, solver_answer="", solver_confidence=0,
+                    critic_verdict="integrity_rejected", distractor_quality=0, issues=defects,
+                    integrity_version=INTEGRITY_VERSION, capability_policy=trace if capability_policy else None))
             trace.update(judge_gate_reached=False, judge_called=False)
             copied, copied_text = longest_copied_run(draft.passage, text)
             if copied > self.max_copied_words:

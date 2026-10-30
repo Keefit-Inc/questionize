@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from conftest import ScriptedLLM, make_question
+from conftest import ScriptedLLM, make_question, solver
 from questionize.capture_audit import issues, repair
 from questionize.eval_reliability import aggregate
 from questionize.integrity import integrity_issues
@@ -45,6 +45,19 @@ async def test_integrity_blocks_duplicate_answers_without_a_model_call():
     assert not r.verification.verified
     assert r.verification.issues == ["duplicate_choice_text"]
     assert llm.calls == []
+
+
+async def test_a_revision_cannot_bypass_integrity_checks():
+    original = make_question("B")
+    revised = original.model_copy(deep=True)
+    revised.choices[0].text = revised.choices[1].text
+    llm = ScriptedLLM(SolverResult=[solver("A")], Question=[revised])
+    async def emit(_):
+        pass
+    result = await QuestionPipeline(llm, llm).verify(0, "", "", original, "CR", emit)
+    assert not result.verification.verified
+    assert result.verification.issues == ["duplicate_choice_text"]
+    assert sum(name == "SolverResult" for name, _ in llm.calls) == 1
 
 
 def test_missing_required_formatting_is_not_inferred_from_the_answer():
