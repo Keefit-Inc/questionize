@@ -51,9 +51,11 @@ module Research
     def self.merge_scoreboard(data)
       cycles = Cycle.where(status: Cycle::TERMINAL).order(:id).to_a
       live_runs = cycles.map { LedgerExport.run_data(_1) }
+      memory_cycles = MemoryCycle.where(status: MemoryCycle::TERMINAL).includes(:candidate).select { MemoryLedgerExport.entry(_1) }
+      live_runs += memory_cycles.map { MemoryLedgerExport.run_data(_1) }
       ids = live_runs.map { _1["run_id"] }
       runs = Array(data["runs"]).reject { ids.include?(_1["run_id"]) } + live_runs
-      records = Array(data["records"]).reject { ids.include?(_1["run_id"]) } + cycles.flat_map { LedgerExport.records(_1) }
+      records = Array(data["records"]).reject { ids.include?(_1["run_id"]) } + cycles.flat_map { LedgerExport.records(_1) } + memory_cycles.flat_map { MemoryLedgerExport.records(_1) }
       data.merge("runs" => runs, "records" => records, "subjects" => (Array(data["subjects"]) + (cycles.any? ? [ "CR" ] : [])).uniq.sort,
         "updated_at" => runs.map { _1["started_at"] }.compact.max)
     end

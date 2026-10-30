@@ -30,11 +30,16 @@ TOPICS = ["city services", "small business", "ecology", "sports science", "museu
 async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit, seed: int | None = None) -> dict[str, Any]:
     rng = random.Random(seed)
     await emit({"stage": "reading", "message": "Reading the photographed question"})
-    reading = (
-        await pipeline.primary.complete(
-            prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level)), FlatPhotoReading, temperature=0.0, images=req.images,
-        )
-    ).reading
+    assessed = None
+    if req.upload_learning and req.level == "gmat":
+        from .upload_learning import read_and_assess
+        assessed = await read_and_assess(pipeline, req, emit)
+    if assessed:
+        reading, key_check, research_observation, learning_trace, reference_text = assessed
+    else:
+        reading = (await pipeline.primary.complete(
+            prompts.READER_SYSTEM, prompts.reader_user(req.chosen_label, levels.brief(req.level)), FlatPhotoReading, temperature=0.0, images=req.images)).reading
+        research_observation, learning_trace, reference_text = None, None, ""
     if not reading.readable or reading.kind == "not_a_question":
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
     if reading.kind == "live_exam_suspected":
@@ -42,7 +47,10 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     if integrity_issues(reading.question):
         raise Declined("capture_incomplete", "The captured choices or required emphasis are incomplete. Photograph the full question and its marked passages clearly.")
 
-    key_check, key = await _check_key(pipeline, reading, req, emit)
+    if assessed:
+        key = reading.key_guess
+    else:
+        key_check, key = await _check_key(pipeline, reading, req, emit)
     if key is not None and key != reading.key_guess:
         # Our first reading explained a different answer; explain the checked one instead.
         reread = (
@@ -53,7 +61,7 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         ).reading
         reading = reread.model_copy(update={"key_guess": key, "question": reading.question})
 
-    transcript = reading.question.text()
+    transcript = reading.question.text() + ("\n" + reference_text if reference_text else "")
     pattern, field_copied = _scrub(reading.pattern, transcript)
     explanation = reading.explanation
     explanation_copied, _ = longest_copied_run(explanation, transcript)
@@ -76,6 +84,8 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     )
 
     chosen_correct = None if req.chosen_label is None or reading.key_guess is None else req.chosen_label == reading.key_guess
+    if learning_trace and learning_trace["reference_status"] in ("ai_estimated", "unconfirmed", "disputed"):
+        chosen_correct = None
     diagnosis = Diagnosis(
         family=pattern.family, subtype=pattern.subtype, competency=pattern.competency, key_guess=reading.key_guess,
         chosen_label=req.chosen_label, chosen_correct=chosen_correct,
@@ -88,6 +98,9 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     await emit({"stage": "diagnosed", "message": f"Measures: {pattern.competency}", "competency": pattern.competency,
                 "family": pattern.family, "subtype": pattern.subtype, "difficulty": reading.difficulty,
                 "key_guess": reading.key_guess, "chosen_correct": chosen_correct})
+    if research_observation:
+        await emit({"stage": "upload_assessed", "observation": research_observation,
+                    "message": "Independent solving recorded with attributed reference confidence"})
 
     if req.practice_count:
         await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
@@ -105,11 +118,12 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         "max_field_copied_words": max(field_copied, explanation_copied, private_copied),
         "max_practice_copied_words": practice_copied,
         "personal_data_present": reading.personal_data_present,
-        "passed": max(field_copied, private_copied) <= MAX_FIELD_COPIED_WORDS and practice_copied <= pipeline.max_copied_words,
+        "passed": not reading.personal_data_present and max(field_copied, private_copied) <= MAX_FIELD_COPIED_WORDS and practice_copied <= pipeline.max_copied_words,
     }
     return {
         "stage": "diagnosis",
-        "diagnosis": diagnosis.model_dump(),
+        "diagnosis": {**diagnosis.model_dump(), **({"learning_trace": learning_trace} if learning_trace else {})},
+        "research_observation": research_observation,
         "observation": pattern.model_dump() if leak_checks["passed"] else None,
         "leak_checks": leak_checks,
         "practice": [p.model_dump() for p in practice],

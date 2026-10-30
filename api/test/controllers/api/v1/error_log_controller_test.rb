@@ -87,6 +87,22 @@ class Api::V1::ErrorLogControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "new clients retain source material until their local save is acknowledged" do
+    run = GenerationRun.create!(user: @user, kind: "error_log", params: {})
+    GenerationRuns::Recorder.new(run).record(diagnosis_event)
+    entry = @user.error_log_entries.sole
+    2.times do
+      get question_api_v1_error_log_path(entry), params: { retain_until_saved: "1" }, headers: auth_headers(@user)
+      assert_response :success
+    end
+    delete question_api_v1_error_log_path(entry), headers: auth_headers(User.create!)
+    assert_response :not_found
+    delete question_api_v1_error_log_path(entry), headers: auth_headers(@user)
+    assert_response :no_content
+    get question_api_v1_error_log_path(entry), params: { retain_until_saved: "1" }, headers: auth_headers(@user)
+    assert_response :not_found
+  end
+
   test "anyone can enter the book's key; only curators get learn-only captures and dataset tags" do
     make_eligible
     post api_v1_error_log_index_path, params: { image: PHOTO, chosen_label: "a", answer_key: "c", learn_only: true, dataset: "official-cr-v1" },

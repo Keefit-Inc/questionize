@@ -94,6 +94,10 @@ async function flag(id: string, reason: FlagReason, comment: string) {
     <DetailBar v-if="entry" :list="list" :card-key="`snap:${id}`" :archived="!!entry.archived" :busy="busy" @archive="archive" />
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <template v-if="entry">
+      <p v-if="entry.diagnosis.learning_trace" class="hint">
+        Answer evidence: {{ entry.diagnosis.learning_trace.reference_status.replaceAll('_', ' ') }} · independent analysis uses memory v{{ entry.diagnosis.learning_trace.policy_version ?? 'baseline' }}.
+        <span v-if="['ai_estimated','unconfirmed'].includes(entry.diagnosis.learning_trace.reference_status)">AI agreement is an estimate, not a verified answer key.</span>
+      </p>
       <div class="seg" role="tablist" aria-label="This question">
         <button role="tab" :aria-selected="view === 'question'" :class="{ on: view === 'question' }" @click="show('question')">Question</button>
         <button role="tab" :aria-selected="view === 'analysis'" :class="{ on: view === 'analysis' }" @click="show('analysis')">Analysis</button>
@@ -109,10 +113,13 @@ async function flag(id: string, reason: FlagReason, comment: string) {
           </div>
         </template>
 
-        <DiagnosisReport v-else-if="view === 'analysis'" :entry="entry" />
+        <template v-else-if="view === 'analysis'">
+          <DiagnosisReport :entry="entry" />
+          <details v-if="question?.local_reference?.explanation" class="box"><summary>Reference explanation extracted from your photo · saved on this device</summary><p style="white-space:pre-wrap">{{ question.local_reference.explanation }}</p></details>
+        </template>
 
         <template v-else>
-          <p v-if="entry.practice.length" class="hint">New questions on different topics, built to catch the same mistake. They're shared with everyone in the Bank, so rate them after you answer.</p>
+          <p v-if="entry.practice.length" class="hint">New questions on different topics, built to practise the same skill. Rate them after you answer.</p>
           <div v-else class="box"><p>No practice questions passed verification for this one. Snap another question on the same skill to get more.</p></div>
           <div v-for="item in entry.practice" :key="item.id">
             <template v-if="practice.get(item.id)">

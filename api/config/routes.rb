@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   get "admin/data", to: "research_console#data"
   get "admin/cycles", to: "research_console#cycles"
   get "admin/cycles/ledger", to: "research_console#ledger"
+  get "admin/uploads", to: "research_console#uploads"
 
   # Shared question links get social preview tags.
   get "q/:public_id", to: "share_pages#show", as: :share_page
@@ -26,6 +27,7 @@ Rails.application.routes.draw do
       post "me/eligibility", to: "eligibility#create", as: :eligibility
       resources :error_log, only: %i[index show create update], controller: "error_log" do
         get :question, on: :member
+        delete :question, on: :member, action: :acknowledge_question
       end
       resources :items, only: %i[index show] do
         resources :attempts, only: :create
@@ -37,6 +39,12 @@ Rails.application.routes.draw do
       get "recommendations", to: "recommendations#index"
       namespace :research do
         resources :cycles, only: :create
+        resources :memory_cycles, only: :show
+        post "worker/lease", to: "worker#lease"
+        post "worker/heartbeat", to: "worker#heartbeat"
+        post "worker/:id/candidate", to: "worker#candidate"
+        post "worker/:id/report", to: "worker#report"
+        post "worker/:id/failure", to: "worker#failure"
       end
       namespace :auth do
         post "facebook", to: "facebook#create"

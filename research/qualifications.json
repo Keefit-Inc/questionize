@@ -71,6 +71,15 @@
       },
       "summary": "Constructed mutations share eight parent items. Controls and capture limitations differ by protocol version. Not independent population defect samples or evidence of learner benefit.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E10.md"
+    },
+    {
+      "id": "e11-private-local-pilot",
+      "applies_to": {
+        "protocol": "E11",
+        "protocol_version": 1
+      },
+      "summary": "Fresh paired local pilot with source-keyed labels. Repeated passes are correlated; results do not establish untouched-holdout generalization, human explanation quality or learner growth.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/protocols/E11-upload-driven-memory.md"
     }
   ]
 }

@@ -24,7 +24,7 @@ class GenerateQuestionsJob < ApplicationJob
     end
     broadcast(run, recorder.fail!("The AI service ended the stream unexpectedly.")) if run.reload.status == "running"
   rescue AiService::Error => e
-    Rails.logger.error("[GenerateQuestionsJob] run #{run_id}: #{e.message}")
+    Rails.logger.error("[GenerateQuestionsJob] run #{run_id}: #{e.class.name}")
     broadcast(run, recorder.fail!("Question generation is unavailable right now. Please try again shortly."))
   ensure
     Rails.cache.delete(run.text_cache_key) if run
@@ -43,7 +43,10 @@ class GenerateQuestionsJob < ApplicationJob
   def diagnose_payload(run, text)
     { "images" => photo_parts(text), "chosen_label" => run.params["chosen_label"], "answer_key" => run.params["answer_key"],
       "level" => run.params["level"] || Level.for(run.user), "practice_count" => run.params["learn_only"] ? 0 : 2,
-      "capability_policy" => run.params["capability_policy"] }.compact
+      "capability_policy" => run.params["capability_policy"], "upload_learning" => true,
+      "learning_policy" => Research::MemoryVersion.find_by(public_id: run.params["learning_policy_id"])&.context,
+      "control_policy" => Research::MemoryVersion.find_by(public_id: run.params["control_policy_id"])&.context,
+      "source_attested" => run.params["source_attested"] == true }.compact
   end
 
   # The cached photo parts: a JSON list of data URLs (a single data URL from older clients).

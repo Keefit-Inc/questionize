@@ -1208,11 +1208,14 @@
         "review_status": "primary_abstract_or_documentation_checked",
         "protocols": [
           "E1",
-          "E2"
+          "E2",
+          "E11"
         ],
         "implementation_paths": [
           "ai/questionize/memory.py",
-          "ai/questionize/eval_e1.py"
+          "ai/questionize/eval_e1.py",
+          "ai/questionize/local_research_worker.py",
+          "ai/questionize/memory_research.py"
         ],
         "runs": [
           {
@@ -1243,10 +1246,13 @@
         "review_status": "primary_abstract_or_documentation_checked",
         "protocols": [
           "E1",
-          "E2"
+          "E2",
+          "E11"
         ],
         "implementation_paths": [
-          "ai/questionize/memory.py"
+          "ai/questionize/memory.py",
+          "ai/questionize/local_research_worker.py",
+          "ai/questionize/memory_research.py"
         ],
         "runs": [
           {
@@ -1277,11 +1283,13 @@
         "review_status": "primary_abstract_or_documentation_checked",
         "protocols": [
           "E9",
-          "E10"
+          "E10",
+          "E11"
         ],
         "implementation_paths": [
           "ai/questionize/eval_reliability.py",
-          "ai/questionize/operator_policy.py"
+          "ai/questionize/operator_policy.py",
+          "api/app/services/research/memory_gate.rb"
         ],
         "runs": [
           {

@@ -1,6 +1,6 @@
 module Research
   class CycleJob < ApplicationJob
-    queue_as :default
+    queue_as :research
     class_attribute :ai_client_factory, default: -> { AiService::Client.new(read_timeout: 90) }
 
     def perform(cycle_id)

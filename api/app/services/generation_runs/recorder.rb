@@ -22,6 +22,7 @@ module GenerationRuns
         when "question" then question(event)
         when "map" then argument_map(event)
         when "diagnosis" then error_log_entry(event)
+        when "upload_assessed" then upload_assessed(event)
         when "done" then finish("completed", { "stage" => "done", "count" => @run.items.count })
         when "declined" then finish("declined", event.slice("stage", "reason", "message"))
         when "failed" then finish("failed", event.slice("stage", "message"))
@@ -55,6 +56,14 @@ module GenerationRuns
 
     private
 
+    def upload_assessed(event)
+      observation = Research::UploadLearning.record(@run, event.fetch("observation"))
+      { "stage" => "upload_assessed", "message" => event["message"], "observation_id" => observation&.public_id }
+    rescue StandardError => e
+      Rails.logger.warn("[UploadLearning] recording unavailable for run #{@run.id}: #{e.class.name}")
+      { "stage" => "upload_assessed", "message" => "The learning analysis continues; research recording needs attention.", "research_status" => "unavailable" }
+    end
+
     def analyzed(event)
       @content_flags = Array(event.dig("analysis", "content_flags"))
       { "stage" => "analyzed", "message" => event["message"], "content_flags" => @content_flags }
@@ -75,6 +84,8 @@ module GenerationRuns
     # other item; the abstract design (if it passed the leak checks) becomes an observation.
     def error_log_entry(event)
       entry = nil
+      @private_reference = event.dig("research_observation", "knowledge_origin") == "expert_reference" || event.dig("leak_checks", "personal_data_present") == true
+      @private_reference ||= event["research_observation"].present? && event.dig("research_observation", "reference_status") != "confirmed_reference"
       Item.transaction do
         observation = observation_from(event)
         entry = Learning::ErrorLogEntry.create!(
@@ -96,6 +107,10 @@ module GenerationRuns
     def observation_from(event)
       return unless event["observation"]
 
+      research = event["research_observation"] || {}
+      expert = research["knowledge_origin"] == "expert_reference"
+      @private_reference ||= expert
+      cleared = research.empty? || research["reference_status"] == "confirmed_reference"
       Knowledge::SourceObservation.create!(
         source_kind: "print_scan", source_ref: source_ref, stated_level: event.dig("observation", "stated_level"),
         observed: event["observation"].merge(
@@ -106,10 +121,11 @@ module GenerationRuns
           "label_status" => @run.params["answer_key"].present? ? event.dig("diagnosis", "key_check", "verdict") : "unconfirmed"
         ).merge("level" => @run.params["level"] || Level.for(@run.user)).compact,
         extractor: "diagnose", leak_checks: event["leak_checks"] || {},
-        knowledge_origin: "user_experience", evidence_status: "ai_estimated",
-        rights_scope: event.dig("leak_checks", "passed") == true ? "shared_abstract" : "private_research",
+        knowledge_origin: expert ? "expert_reference" : "user_experience", evidence_status: "ai_estimated",
+        rights_scope: !expert && cleared && event.dig("leak_checks", "passed") == true ? "shared_abstract" : "private_research",
         provenance: { "derivation" => "model_extracted", "label_origin" => @run.params["answer_key"].present? ? "user_provided_key" : "model_inferred",
-          "verification" => "model_key_check", "namespace" => "user_experience" }
+          "verification" => "model_key_check", "namespace" => expert ? "expert_reference_derived" : "user_experience",
+          "source_digest" => research["question_fingerprint"] }
       )
     end
 
@@ -124,6 +140,7 @@ module GenerationRuns
 
     # Unverified items stay with their creator; sensitive ones wait for review before the public feed.
     def visibility(verified)
+      return "private" if @private_reference
       return "private" unless verified
 
       @content_flags.empty? ? "public" : "held"

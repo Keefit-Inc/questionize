@@ -35,6 +35,29 @@ class CapabilityPolicy(BaseModel):
             raise ValueError("capability policy hash does not match its payload")
         return self
 
+
+class LearningMemoryPayload(BaseModel):
+    model_config = {"extra": "forbid"}
+    expert_rules: list[str] = Field(default_factory=list, max_length=4)
+    experience_rules: list[str] = Field(default_factory=list, max_length=4)
+
+
+class LearningMemory(BaseModel):
+    model_config = {"extra": "forbid"}
+    id: str
+    version: int = Field(..., ge=1)
+    hash: str = Field(..., pattern=r"^[0-9a-f]{64}$")
+    payload: LearningMemoryPayload
+
+    @model_validator(mode="after")
+    def check_hash(self):
+        import hashlib
+        import json
+        value = json.dumps(self.payload.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        if hashlib.sha256(value.encode()).hexdigest() != self.hash:
+            raise ValueError("Learning-memory hash mismatch")
+        return self
+
 # Why an option is right or wrong. Tagging every distractor lets the app show a user which
 # traps they fall for, not just which items they miss.
 TrapType = Literal[
@@ -413,6 +436,7 @@ class SourceQuestion(BaseModel):
     passage: str = Field(..., description="The passage or argument exactly as printed; empty if there is none")
     stem: str = Field(..., description="The question being asked, exactly as printed")
     choices: list[Choice] = Field(..., min_length=2, max_length=5, description="Every answer option, exactly as printed")
+    local_reference: dict | None = Field(None, description="Private reference material returned only to the owner's device; never included in blind solving")
 
     def text(self) -> str:
         return "\n".join([self.passage, self.stem, *(f"({c.label}) {c.text}" for c in self.choices)])
@@ -476,6 +500,8 @@ class FlatPhotoReading(BaseModel):
     review_c: str = ""
     review_d: str = ""
     review_e: str = ""
+    model_failure_kind: str = ""
+    model_failure_lesson: str = ""
 
     _reading: PhotoReading | None = PrivateAttr(default=None)
 
@@ -558,6 +584,10 @@ class DiagnoseRequest(BaseModel):
     # 0 for curated items that are only learned from (docs/DECISIONS.md R3).
     practice_count: int = Field(2, ge=0, le=2)
     capability_policy: CapabilityPolicy | None = None
+    upload_learning: bool = False
+    learning_policy: LearningMemory | None = None
+    control_policy: LearningMemory | None = None
+    source_attested: bool = False
 
 
 class KeyReview(BaseModel):

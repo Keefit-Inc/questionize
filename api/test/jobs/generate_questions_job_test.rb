@@ -138,7 +138,9 @@ class GenerateQuestionsJobTest < ActiveJob::TestCase
     run.reload
 
     assert_equal "completed", run.status
-    assert_equal({ "images" => [ PHOTO, PHOTO ], "chosen_label" => "A", "level" => "gmat", "practice_count" => 2 }, client.payloads.first)
+    assert_equal({ "images" => [ PHOTO, PHOTO ], "chosen_label" => "A", "level" => "gmat", "practice_count" => 2 }, client.payloads.first.slice("images", "chosen_label", "level", "practice_count"))
+    assert_equal true, client.payloads.first["upload_learning"]
+    assert_equal Research::MemoryRelease.current.memory_version.content_hash, client.payloads.first.dig("learning_policy", "hash")
     assert_nil Rails.cache.read(run.text_cache_key)
     entry = @user.error_log_entries.sole
     assert_equal [ "My CR Workbook", "42", "7", "A" ], [ entry.book, entry.page, entry.number, entry.chosen_label ]

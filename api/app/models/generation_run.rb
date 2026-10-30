@@ -7,6 +7,7 @@ class GenerationRun < ApplicationRecord
   belongs_to :source, optional: true
   has_many :items, dependent: :nullify
   has_many :challenge_answers, class_name: "Learning::ChallengeAnswer", dependent: :destroy
+  has_one :upload_observation, class_name: "Research::UploadObservation", dependent: :nullify
 
   validates :status, inclusion: { in: STATUSES }
   validates :kind, inclusion: { in: KINDS }
@@ -36,5 +37,11 @@ class GenerationRun < ApplicationRecord
     self.params = (params || {}).except("capability_policy").merge(
       "capability_policy" => Research::Release.context_for(level: params&.fetch("level", nil) || Level.for(user))
     )
+    if kind == "error_log" && (params["level"] || Level.for(user)) == "gmat"
+      release = Research::MemoryRelease.bootstrap!
+      self.params = params.except("learning_policy_id", "control_policy_id").merge(
+        "learning_policy_id" => release.memory_version.public_id,
+        "control_policy_id" => release.memory_version.parent&.public_id)
+    end
   end
 end

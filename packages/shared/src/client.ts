@@ -106,9 +106,13 @@ export class ApiClient {
     return this.request("GET", `/api/v1/error_log/${id}`);
   }
 
-  /** The printed question, available once, right after its analysis; 404 afterwards. */
+  /** Private source delivery; retained temporarily until the device acknowledges a committed save. */
   takeErrorLogQuestion(id: number): Promise<SourceQuestion> {
-    return this.request("GET", `/api/v1/error_log/${id}/question`);
+    return this.request("GET", `/api/v1/error_log/${id}/question?retain_until_saved=1`);
+  }
+
+  acknowledgeErrorLogQuestion(id: number): Promise<void> {
+    return this.request("DELETE", `/api/v1/error_log/${id}/question`);
   }
 
   captureErrorLog(body: ErrorLogCapture): Promise<{ status: "queued"; run_id: number }> {

@@ -10,6 +10,10 @@
 #     schedule: at 5am every day
 
 production:
+  upload_learning_check:
+    class: Research::UploadScheduleJob
+    queue: research
+    schedule: every minute
   research_evolution_check:
     class: Research::ScheduleJob
     schedule: every hour at minute 32

@@ -34,7 +34,7 @@ const form = reactive({ chosen: null as Label | null, key: null as Label | null,
 // photos in a row, learned from without practice, each tagged with a dataset.
 const DATASET_KEY = "questionize.dataset";
 const curator = computed(() => !!me.value?.curator);
-const curation = reactive({ learnOnly: true, dataset: storedDataset() });
+const curation = reactive({ learnOnly: true, dataset: storedDataset(), sourceAttested: false });
 const queue = ref<Blob[]>([]);
 const sent = ref<{ runId: number; status: "reading" | "learned" | "failed" }[]>([]);
 const sentSummary = computed(() => {
@@ -280,6 +280,7 @@ async function keepQuestion(id: number, ready: boolean | undefined) {
   try {
     const question = await withDevice((c) => c.takeErrorLogQuestion(id));
     saved.value = (await saveQuestion(id, question)) ? "saved" : "failed";
+    if (saved.value === "saved") await withDevice((c) => c.acknowledgeErrorLogQuestion(id)).catch(() => undefined);
   } catch {
     saved.value = "failed";
   }
@@ -291,6 +292,7 @@ function followQuietly(runId: number, client: ApiClient) {
   sent.value = [...sent.value, row];
   const mark = (status: "learned" | "failed") => (sent.value = sent.value.map((x) => (x.runId === runId ? { ...x, status } : x)));
   const seenHere = new Set<string>();
+  let locallySaved = false;
   let close: (() => void) | null = null;
   const handle = async (event: GenerationEvent) => {
     const k = event.stage === "diagnosis" ? `diagnosis|${event.entry.id}` : eventKey(event);
@@ -298,9 +300,12 @@ function followQuietly(runId: number, client: ApiClient) {
     seenHere.add(k);
     if (event.stage === "diagnosis" && event.question_ready) {
       const question = await withDevice((c) => c.takeErrorLogQuestion(event.entry.id)).catch(() => null);
-      if (question) await saveQuestion(event.entry.id, question);
+      if (question) {
+        locallySaved = await saveQuestion(event.entry.id, question);
+        if (locallySaved) await withDevice((c) => c.acknowledgeErrorLogQuestion(event.entry.id)).catch(() => undefined);
+      }
     }
-    if (event.stage === "done") mark([...seenHere].some((x) => x.startsWith("diagnosis|")) ? "learned" : "failed");
+    if (event.stage === "done") mark(locallySaved && [...seenHere].some((x) => x.startsWith("diagnosis|")) ? "learned" : "failed");
     if (event.stage === "declined" || event.stage === "failed") mark("failed");
     if (["done", "declined", "failed"].includes(event.stage)) close?.();
   };
@@ -313,6 +318,7 @@ function followQuietly(runId: number, client: ApiClient) {
 }
 
 function nextCuratedPhoto() {
+  curation.sourceAttested = false;
   parts.value.forEach((p) => URL.revokeObjectURL(p.url));
   parts.value = [];
   form.chosen = null;
@@ -321,6 +327,11 @@ function nextCuratedPhoto() {
   const next = queue.value.shift();
   if (next) usePhoto(next);
   else startCamera();
+}
+
+function chooseKey(label: Label) {
+  form.key = form.key === label ? null : label;
+  curation.sourceAttested = false;
 }
 
 async function analyze() {
@@ -344,6 +355,7 @@ async function analyze() {
         number: form.number || undefined,
         chosen_label: form.chosen ?? undefined,
         answer_key: form.key ?? undefined,
+        source_attested: curator.value && !!form.key && curation.sourceAttested,
         learn_only: quiet || undefined,
         dataset: curator.value && curation.dataset ? curation.dataset : undefined,
       }),
@@ -430,16 +442,18 @@ function showAnalysis() {
         </div>
         <p class="ask">Correct answer <small>from your book's key, if you know it. We double-check it.</small></p>
         <div class="chips key">
-          <button v-for="l in LABELS" :key="l" type="button" :aria-pressed="form.key === l" @click="form.key = form.key === l ? null : l">{{ l }}</button>
+          <button v-for="l in LABELS" :key="l" type="button" :aria-pressed="form.key === l" @click="chooseKey(l)">{{ l }}</button>
         </div>
         <div v-if="curator" class="curate">
-          <label class="check"><input v-model="curation.learnOnly" type="checkbox" /> Learn only (no practice, no Miss Lab)</label>
+          <label class="check"><input v-model="curation.sourceAttested" type="checkbox" :disabled="!form.key" /> I checked this answer against the original source</label>
+          <label class="check"><input v-model="curation.learnOnly" type="checkbox" /> Register only (no practice, no Miss Lab)</label>
           <label class="ds">Dataset <input v-model.trim="curation.dataset" maxlength="40" pattern="[a-z0-9][a-z0-9-]*" aria-label="Dataset" /></label>
           <p class="qstat">
-            Sent {{ sent.length }} · learned {{ sentSummary.learned }} · reading {{ sentSummary.reading }}<template v-if="sentSummary.failed"> · failed {{ sentSummary.failed }}</template>
+            Sent {{ sent.length }} · recorded {{ sentSummary.learned }} · reading {{ sentSummary.reading }}<template v-if="sentSummary.failed"> · failed {{ sentSummary.failed }}</template>
             <template v-if="queue.length"> · {{ queue.length }} photo{{ queue.length === 1 ? "" : "s" }} waiting</template>
           </p>
         </div>
+        <p class="qstat">For GMAT CR, independent solvers do not see the reference answer or explanation. Originals stay on this device; abstract evaluation records help improve the service.</p>
         <button v-if="!showWhere" type="button" class="link" @click="showWhere = true">Add book, page and question number</button>
         <div v-else class="where">
           <input v-model.trim="form.book" maxlength="200" placeholder="Book" aria-label="Book" />

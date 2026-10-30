@@ -20,8 +20,10 @@ def append_records(path: Path, rows: list[dict]) -> int:
                 for row in [json.loads(line)] if row.get("run_id")} if path.exists() else {}
     pending = []
     for row in rows:
-        if row.get("protocol") != "E8" or row.get("evaluation_scope") != "regression" or not str(row.get("run_id", "")).startswith("cycle-"):
-            raise ValueError("Only aggregate E8 regression cycle records are accepted")
+        e8 = row.get("protocol") == "E8" and row.get("evaluation_scope") == "regression" and str(row.get("run_id", "")).startswith("cycle-")
+        e11 = row.get("protocol") == "E11" and row.get("evaluation_scope") == "trial" and str(row.get("run_id", "")).startswith("memory-cycle-")
+        if not (e8 or e11):
+            raise ValueError("Only aggregate E8 regression or E11 local-pilot cycle records are accepted")
         if row["run_id"] in existing:
             if existing[row["run_id"]] != row:
                 raise ValueError(f"Published cycle changed after recording: {row['run_id']}")
@@ -51,7 +53,7 @@ def main() -> None:
     if len(raw) > 1_000_000:
         parser.error("Aggregate feed exceeded the size limit")
     rows = [json.loads(line) for line in raw.decode().splitlines() if line.strip()]
-    print(f"Appended {append_records(args.ledger, rows)} new E8 records; previous ledger lines were preserved.")
+    print(f"Appended {append_records(args.ledger, rows)} new E8/E11 records; previous ledger lines were preserved.")
 
 
 if __name__ == "__main__":

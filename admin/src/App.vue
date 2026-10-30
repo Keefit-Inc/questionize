@@ -3,8 +3,9 @@ import { computed, onMounted, ref, watchEffect } from "vue";
 import { GROUPS, baseCondition, comparisonIssues, comparisonView, measurements, percentage, shortId, subjectName, timestamp, validateData, type Measurement, type ResearchData } from "./research";
 import EvolutionConsole from "./EvolutionConsole.vue";
 import EvidenceConsole from "./EvidenceConsole.vue";
+import UploadLearningConsole from "./UploadLearningConsole.vue";
 
-const view = ref<"research" | "evolution" | "evidence">(window.location.hash === "#evolution" ? "evolution" : window.location.hash === "#evidence" ? "evidence" : "research");
+const view = ref<"research" | "evolution" | "evidence" | "uploads">(window.location.hash === "#uploads" ? "uploads" : window.location.hash === "#evolution" ? "evolution" : window.location.hash === "#evidence" ? "evidence" : "research");
 const data = ref<ResearchData | null>(null);
 const error = ref("");
 const loading = ref(false);
@@ -71,6 +72,7 @@ function showEvidence() {
   view.value = "evidence";
   window.history.replaceState(null, "", "#evidence");
 }
+function showUploads() { view.value = "uploads"; window.history.replaceState(null, "", "#uploads"); }
 
 watchEffect(() => {
   if (capabilities.value.length && !capabilities.value.some((c) => c.id === capability.value)) capability.value = capabilities.value[0].id;
@@ -120,13 +122,15 @@ onMounted(refresh);
       </nav>
       <button :class="['workflow-nav', { active: view === 'evolution' }]" :aria-pressed="view === 'evolution'" @click="showEvolution"><span>↻</span><span>Evolution<small>GMAT CR · evidence to service</small></span></button>
       <button :class="['workflow-nav', { active: view === 'evidence' }]" :aria-pressed="view === 'evidence'" @click="showEvidence"><span>▤</span><span>Evidence &amp; sources<small>Literature · reliability · provenance</small></span></button>
+      <button :class="['workflow-nav', { active: view === 'uploads' }]" :aria-pressed="view === 'uploads'" @click="showUploads"><span>⇄</span><span>Upload learning<small>New evidence · local evaluation</small></span></button>
       <div class="sidebar-bottom"><span class="ledger-icon">≡</span><strong>Evidence before claims</strong><p>Protocols, versioned runs and measured outcomes.</p><a href="https://github.com/Keefit-Inc/questionize/tree/main/research" target="_blank" rel="noreferrer">Open research record ↗</a><a href="/snap">Open learner app ↗</a></div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ view === 'evolution' ? 'Evolution' : view === 'evidence' ? 'Evidence & sources' : GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> {{ view === 'evolution' ? 'Live cycle registry' : 'Published aggregates · read only' }}</span></header>
+      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ view === 'uploads' ? 'Upload learning' : view === 'evolution' ? 'Evolution' : view === 'evidence' ? 'Evidence & sources' : GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> {{ view === 'evolution' || view === 'uploads' ? 'Live cycle registry' : 'Published aggregates · read only' }}</span></header>
       <EvolutionConsole v-if="view === 'evolution'" @completed="refresh" />
       <EvidenceConsole v-else-if="view === 'evidence'" :registry="data?.evidence" />
+      <UploadLearningConsole v-else-if="view === 'uploads'" />
       <div v-else class="content">
         <div class="page-heading"><div><p class="eyebrow">CONTINUOUS CAPABILITY EVALUATION</p><h1>Measure. Compare. Improve.</h1><p class="subtitle">A shared record of what changed, what was tested, and what the evidence supports.</p></div><button class="button" :disabled="loading" @click="refresh">↻ {{ loading ? "Refreshing…" : "Refresh" }}</button></div>
         <p v-if="error" class="error" role="alert">{{ error }}</p>

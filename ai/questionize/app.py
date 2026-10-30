@@ -33,6 +33,8 @@ from .pipeline import Declined, QuestionPipeline
 from .errorlog import diagnose, practice_for_level
 from .reviewer import review
 from . import evolution
+from . import memory_research
+from .upload_learning import RUNTIME_VERSION as UPLOAD_RUNTIME_VERSION
 from .integrity import INTEGRITY_VERSION
 from .schemas import DiagnoseRequest, GenerateRequest, JudgeRequest, JudgeResult, MapRequest, PracticeRequest, ReviewRequest, ReviewResult
 
@@ -111,6 +113,7 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             "model": settings.primary.model,
             "solver_model": settings.solver.model,
             "integrity_guard": {"version": INTEGRITY_VERSION, "enabled": True},
+            "upload_learning_runtime": UPLOAD_RUNTIME_VERSION,
         }
 
     @v1.post("/judge", response_model=JudgeResult)
@@ -144,6 +147,15 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
     @v1.post("/research/probe")
     async def probe_policy(req: evolution.ProbeRequest) -> dict:
         return evolution.probe(req)
+
+    @v1.post("/research/memory/probe")
+    async def probe_memory(req: memory_research.ProbeRequest) -> dict:
+        model = get_proposal_model()
+        try:
+            return await memory_research.probe(model, req)
+        finally:
+            if pipeline is None:
+                await model._client.close()
 
     @v1.post("/diagnose")
     async def diagnose_photo(req: DiagnoseRequest) -> StreamingResponse:
@@ -215,8 +227,8 @@ def stream(run) -> StreamingResponse:
             except Declined as e:
                 await queue.put({"stage": "declined", "reason": e.reason, "message": e.message})
             except Exception as e:  # surfaced to the client as a final event
-                log.exception("pipeline failed")
-                await queue.put({"stage": "failed", "message": str(e)})
+                log.error("pipeline failed: %s", type(e).__name__)
+                await queue.put({"stage": "failed", "message": f"The AI analysis could not finish ({type(e).__name__}). Please try again."})
             finally:
                 await queue.put(None)
 

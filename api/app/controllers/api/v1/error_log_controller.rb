@@ -40,8 +40,14 @@ module Api
         question = Rails.cache.read(key)
         return render(json: { error: "not_available" }, status: :not_found) unless question
 
-        Rails.cache.delete(key)
+        Rails.cache.delete(key) unless params[:retain_until_saved] == "1"
         render json: question
+      end
+
+      def acknowledge_question
+        entry = current_user.error_log_entries.find(params[:id])
+        Rails.cache.delete(GenerationRuns::Recorder.question_cache_key(entry))
+        head :no_content
       end
 
       # POST /api/v1/error_log {images: [data URL, ...] (1-3 parts of one question), book, page, number,
@@ -64,6 +70,8 @@ module Api
           user: current_user, kind: "error_log",
           params: { "book" => params[:book].to_s.strip.first(200), "page" => params[:page].to_s.strip.first(20),
                     "number" => params[:number].to_s.strip.first(20), "chosen_label" => label, "answer_key" => key,
+                    "source_attested" => current_user.curator && key.present? && ActiveModel::Type::Boolean.new.cast(params[:source_attested]),
+                    "operator_test" => Rails.cache.read("research/operator-test-user/#{current_user.id}") == true,
                     "learn_only" => learn_only, "dataset" => dataset, "level" => Level.for(current_user) }.compact
         )
         run.cache_text!(images.to_json)

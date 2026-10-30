@@ -129,7 +129,8 @@ export type GenerationEvent =
   | { stage: "analyzed"; message: string; content_flags: string[] }
   | { stage: "question"; index: number; item: HiddenItem }
   | { stage: "map"; map: ArgumentMapPayload }
-  | { stage: "reading" | "practice"; message: string }
+  | { stage: "reading" | "practice" | "checking"; message: string }
+  | { stage: "upload_assessed"; message: string; observation_id?: string; research_status?: string }
   | { stage: "diagnosed"; message: string; competency?: string; family?: string; subtype?: string; difficulty?: number; key_guess?: Label | null; chosen_correct?: boolean | null }
   | { stage: "diagnosis"; entry: ErrorLogEntry; question_ready?: boolean }
   | { stage: "done"; count: number }
@@ -196,6 +197,8 @@ export interface OptionReview {
 }
 
 export interface Diagnosis {
+  learning_trace?: { reference_status: string; reference_source: string; main_answer: Label | null; control_answer: Label | null;
+    policy_id: string | null; policy_version: number | null; policy_hash: string | null; runtime_version: string };
   family: string;
   subtype: string;
   competency: string;
@@ -224,6 +227,7 @@ export interface Diagnosis {
 
 /** One photographed question: where it lives in the learner's own book, our diagnosis, and new practice. */
 export interface ErrorLogEntry {
+  research?: { id: string; reference_status: string; outcome: string; memory_version: number | null } | null;
   id: number;
   book: string | null;
   page: string | null;
@@ -250,6 +254,7 @@ export interface SourceQuestion {
   passage: string;
   stem: string;
   choices: Choice[];
+  local_reference?: { key: Label | null; explanation: string; status: string; source: string } | null;
 }
 
 export interface ErrorLogCapture {
@@ -262,6 +267,8 @@ export interface ErrorLogCapture {
   chosen_label?: Label;
   /** The answer from the book's key, if known. The server checks it rather than trusting it. */
   answer_key?: Label;
+  /** Curators only: explicitly checked against the original source, not AI consensus. */
+  source_attested?: boolean;
   /** Curators only: learn from the question without writing practice. */
   learn_only?: boolean;
   /** Curators only: research dataset tag, e.g. "official-cr-v1". */

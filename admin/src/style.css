@@ -65,6 +65,7 @@ a:hover {
   min-height:100vh
 }
 .sidebar {
+  overflow-y:auto;
   width:254px;
   background:#111e2b;
   color:#dae3ed;

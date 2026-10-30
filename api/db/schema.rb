@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_195000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_213000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -344,6 +344,55 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_195000) do
     t.index ["requested_by_id"], name: "index_research_cycles_on_requested_by_id"
   end
 
+  create_table "research_memory_cycles", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.bigint "baseline_id", null: false
+    t.bigint "candidate_id"
+    t.string "status", default: "queued", null: false
+    t.string "trigger", default: "usage_batch", null: false
+    t.jsonb "observation_ids", default: [], null: false
+    t.jsonb "registration", default: {}, null: false
+    t.jsonb "evaluation", default: {}, null: false
+    t.jsonb "decision_reasons", default: [], null: false
+    t.jsonb "service_verification", default: {}, null: false
+    t.jsonb "events", default: [], null: false
+    t.string "lease_digest"
+    t.datetime "leased_at"
+    t.datetime "lease_expires_at"
+    t.datetime "decided_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "ledger_entry", default: {}, null: false
+    t.index ["baseline_id"], name: "index_research_memory_cycles_on_baseline_id"
+    t.index ["candidate_id"], name: "index_research_memory_cycles_on_candidate_id"
+    t.index ["public_id"], name: "index_research_memory_cycles_on_public_id", unique: true
+    t.index ["status"], name: "index_one_queued_memory_cycle", unique: true, where: "((status)::text = 'queued'::text)"
+  end
+
+  create_table "research_memory_releases", force: :cascade do |t|
+    t.bigint "memory_version_id", null: false
+    t.integer "generation", default: 1, null: false
+    t.bigint "observation_cursor", default: 0, null: false
+    t.datetime "activated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["memory_version_id"], name: "index_research_memory_releases_on_memory_version_id"
+  end
+
+  create_table "research_memory_versions", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.integer "version", null: false
+    t.bigint "parent_id"
+    t.string "content_hash", null: false
+    t.text "payload_ciphertext", null: false
+    t.jsonb "provenance", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["parent_id"], name: "index_research_memory_versions_on_parent_id"
+    t.index ["public_id"], name: "index_research_memory_versions_on_public_id", unique: true
+    t.index ["version"], name: "index_research_memory_versions_on_version", unique: true
+  end
+
   create_table "research_policy_versions", force: :cascade do |t|
     t.string "public_id", null: false
     t.string "subject", default: "CR", null: false
@@ -374,6 +423,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_195000) do
     t.datetime "updated_at", null: false
     t.index ["policy_version_id"], name: "index_research_releases_on_policy_version_id"
     t.index ["subject", "level", "capability"], name: "index_research_releases_on_subject_and_level_and_capability", unique: true
+  end
+
+  create_table "research_upload_observations", force: :cascade do |t|
+    t.string "public_id", null: false
+    t.bigint "generation_run_id"
+    t.bigint "memory_version_id"
+    t.string "question_fingerprint", null: false
+    t.string "reference_status", null: false
+    t.string "reference_source", null: false
+    t.string "knowledge_origin", null: false
+    t.string "subtype", null: false
+    t.string "outcome", null: false
+    t.jsonb "abstract_evidence", default: {}, null: false
+    t.jsonb "measurements", default: {}, null: false
+    t.boolean "operator_test", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["generation_run_id"], name: "index_research_upload_observations_on_generation_run_id"
+    t.index ["generation_run_id"], name: "index_upload_observation_per_run", unique: true
+    t.index ["memory_version_id"], name: "index_research_upload_observations_on_memory_version_id"
+    t.index ["public_id"], name: "index_research_upload_observations_on_public_id", unique: true
+    t.index ["question_fingerprint"], name: "index_research_upload_observations_on_question_fingerprint"
+  end
+
+  create_table "research_worker_credentials", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "token_digest", null: false
+    t.datetime "last_seen_at"
+    t.datetime "revoked_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token_digest"], name: "index_research_worker_credentials_on_token_digest", unique: true
   end
 
   create_table "saved_items", force: :cascade do |t|
@@ -519,7 +600,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_195000) do
   add_foreign_key "research_cycles", "research_policy_versions", column: "candidate_policy_id"
   add_foreign_key "research_cycles", "research_releases", column: "release_id"
   add_foreign_key "research_cycles", "users", column: "requested_by_id"
+  add_foreign_key "research_memory_cycles", "research_memory_versions", column: "baseline_id"
+  add_foreign_key "research_memory_cycles", "research_memory_versions", column: "candidate_id"
+  add_foreign_key "research_memory_releases", "research_memory_versions", column: "memory_version_id"
+  add_foreign_key "research_memory_versions", "research_memory_versions", column: "parent_id"
   add_foreign_key "research_releases", "research_policy_versions", column: "policy_version_id"
+  add_foreign_key "research_upload_observations", "generation_runs"
+  add_foreign_key "research_upload_observations", "research_memory_versions", column: "memory_version_id"
   add_foreign_key "saved_items", "items"
   add_foreign_key "saved_items", "users"
   add_foreign_key "skill_ratings", "users"

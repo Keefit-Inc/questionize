@@ -1,6 +1,6 @@
 module Research
   class ScheduleJob < ApplicationJob
-    queue_as :default
+    queue_as :research
 
     def perform
       StartCycle.call(automatic: true)

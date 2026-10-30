@@ -28,6 +28,12 @@ class ResearchConsoleController < ActionController::Base
   def ledger
     response.headers["Cache-Control"] = "no-store"
     rows = Research::Cycle.where(status: Research::Cycle::TERMINAL).order(:id).filter_map { _1.ledger_entry.presence }
+    rows += Research::MemoryCycle.where(status: Research::MemoryCycle::TERMINAL).order(:id).filter_map { Research::MemoryLedgerExport.entry(_1) }
     render plain: rows.map(&:to_json).join("\n") + (rows.any? ? "\n" : ""), content_type: "application/x-ndjson"
+  end
+
+  def uploads
+    response.headers["Cache-Control"] = "no-store"
+    render json: Research::UploadLearning.feed
   end
 end

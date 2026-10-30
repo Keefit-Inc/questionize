@@ -32,9 +32,13 @@ async function exportDataset() {
       entry_id: e.id,
       book: e.book, page: e.page, number: e.number,
       chosen_label: e.chosen_label,
-      answer_key: d.key_check?.provided ?? null,
-      key_verdict: d.key_check?.verdict ?? "unchecked",
+      answer_key: question.local_reference?.key ?? d.key_check?.provided ?? null,
+      key_verdict: d.learning_trace?.reference_status === "confirmed_reference" ? "book" : d.key_check?.verdict ?? "unchecked",
       checked_key: d.key_guess,
+      official_explanation: question.local_reference?.explanation ?? "",
+      ai_explanation: d.explanation,
+      reference_status: question.local_reference?.status ?? "legacy_unconfirmed",
+      knowledge_origin: question.local_reference?.explanation ? "expert_reference" : "user_experience",
       family: d.family, subtype: d.subtype, difficulty: d.difficulty ?? null,
       question,
     });
@@ -52,7 +56,7 @@ async function exportDataset() {
 <template>
   <section class="curator">
     <h2>Research dataset</h2>
-    <p class="muted">Questions you curated, with their checked keys. The file stays private: use it for local evaluation runs only.</p>
+    <p class="muted">Your private captures, source explanations and separate AI analyses. Unverified answers stay marked unverified. Export for private local research only.</p>
     <p v-if="!datasets.length" class="muted">No curated questions yet. Turn on Learn only in Snap to start a dataset.</p>
     <div v-else class="row">
       <select v-model="dataset" aria-label="Dataset">
