@@ -1,0 +1,5 @@
+# E13 v3: Require explicit analytical fields; suppress ungrounded practice
+
+Registered after v2: all three source records were delivered, but detailed analysis was unavailable in all three cases. A separate analyst diagnostic timed out after 90 seconds. The new analysis-only schema had no required fields. Require explicit fields (empty values remain possible where appropriate) and record a safe error category when analysis is unavailable. If no coherent detailed analysis exists, return the source/evidence result without inventing a practice design.
+
+Repeat the same three frozen images and source inputs once, with the same Meta model and normal capture/solve/analysis time limits, at most twelve logical calls and no retries. Preserve v1/v2 and the diagnostic as negative operational evidence. No timeout increase or source/key change is part of this repair. Record detailed-analysis availability separately from source delivery and answer correctness. If details still fail, hold learner-readiness claims and investigate rather than counting a fallback as successful explanation quality.
