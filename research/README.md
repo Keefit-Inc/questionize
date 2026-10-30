@@ -54,6 +54,7 @@ A new subject is added as a **subject pack** in [`subjects/`](subjects/): its sk
 | E5 | C2 item understanding: skill, objective and traps against the book | Planned | |
 | E6 | C3.3 level-adapted explanations | Planned | |
 | E7 | C6 recommendations: success rate and gains, simulated students first | Planned | |
+| E8 | C3.1 GMAT CR policy proposal, recorded decision replay, acceptance/hold and verified service application | Registered (v1); engineering regression scope, not fresh model accuracy | [E8](protocols/E8-policy-evolution.md) |
 
 Run with `ai/eval` runners; every run appends one line to [`ledger.jsonl`](ledger.jsonl) with the capability it measures, and `python -m questionize.scoreboard` turns the ledger into [`results/SCOREBOARD.md`](results/SCOREBOARD.md) (the latest result for each capability against its bar) and each capability's `HISTORY.md` (every run, what changed, the result).
 
