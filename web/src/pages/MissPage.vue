@@ -114,12 +114,14 @@ async function flag(id: string, reason: FlagReason, comment: string) {
         </template>
 
         <template v-else-if="view === 'analysis'">
-          <DiagnosisReport :entry="entry" />
+          <div v-if="entry.diagnosis.learning_trace?.detailed_explanation_available === false" class="box"><p>{{ entry.diagnosis.explanation }}</p><p>Check your reference before using this as a learning diagnosis. Your captured question is still saved.</p></div>
+          <DiagnosisReport v-else :entry="entry" />
           <details v-if="question?.local_reference?.explanation" class="box"><summary>Reference explanation extracted from your photo · saved on this device</summary><p style="white-space:pre-wrap">{{ question.local_reference.explanation }}</p></details>
         </template>
 
         <template v-else>
           <p v-if="entry.practice.length" class="hint">New questions on different topics, built to practise the same skill. Rate them after you answer.</p>
+          <div v-else-if="entry.diagnosis.learning_trace?.detailed_explanation_available === false" class="box"><p>Practice is waiting until the answer and explanation can be checked. No learning diagnosis has been assumed from an unresolved answer.</p></div>
           <div v-else class="box"><p>No practice questions passed verification for this one. Snap another question on the same skill to get more.</p></div>
           <div v-for="item in entry.practice" :key="item.id">
             <template v-if="practice.get(item.id)">

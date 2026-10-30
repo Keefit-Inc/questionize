@@ -5,7 +5,9 @@ import asyncio
 import hashlib
 import json
 import re
+from copy import deepcopy
 from pydantic import BaseModel, Field, create_model
+from pydantic_core import PydanticUndefined
 
 from . import prompts, levels
 from .integrity import integrity_issues
@@ -56,8 +58,17 @@ class Capture(BaseModel):
 # The analyst interprets an already captured question. Asking it to transcribe again
 # lengthens responses and reintroduces source errors. Keep the provider schema flat.
 _CAPTURE_FIELDS = {"readable", "kind", "personal_data_present", "passage", "stem", *(f"option_{l.lower()}" for l in "ABCDE")}
-UploadAnalysis = create_model("UploadAnalysis", **{name: (field.annotation, field)
-    for name, field in FlatPhotoReading.model_fields.items() if name not in _CAPTURE_FIELDS})
+def _analysis_fields():
+    fields = {}
+    for name, field in FlatPhotoReading.model_fields.items():
+        if name not in _CAPTURE_FIELDS:
+            required = deepcopy(field)
+            required.default, required.default_factory = PydanticUndefined, None
+            fields[name] = (field.annotation, required)
+    return fields
+
+
+UploadAnalysis = create_model("UploadAnalysis", **_analysis_fields())
 
 
 def fingerprint(question: SourceQuestion):
@@ -151,7 +162,7 @@ Use your own words for all explanations, not the publisher's wording. Return ana
     context = {"question": question.model_dump(exclude={"local_reference"}), "reference_status": status,
         "reference_key": reference, "expert_reference_explanation": captured.reference_explanation,
         "ai_main": main, "ai_control": control, "selected_answer": selected, "learner_choice": req.chosen_label}
-    detail_available = True
+    detail_available, analysis_status = True, "completed"
     try:
         detail = await asyncio.wait_for(pipeline.primary.complete(analysis + "\n" + levels.brief(req.level), json.dumps(context, ensure_ascii=False), UploadAnalysis, temperature=0), timeout=75)
         if not detail.explanation.strip() or not detail.competency.strip():
@@ -159,8 +170,9 @@ Use your own words for all explanations, not the publisher's wording. Return ana
         raw = FlatPhotoReading(**detail.model_dump(), readable=True, kind="practice_question",
             personal_data_present=captured.personal_data_present, passage=question.passage, stem=question.stem,
             **{f"option_{c.label.lower()}": c.text for c in question.choices})
-    except Exception:
+    except Exception as error:
         detail_available = False
+        analysis_status = "unavailable_" + type(error).__name__
         fallback = PhotoReading(readable=True, kind="practice_question", question=question, key_guess=selected,
             personal_data_present=captured.personal_data_present, difficulty=3,
             intent="Detailed item analysis was unavailable; no item-specific learning objective has been confirmed.",
@@ -192,7 +204,8 @@ Use your own words for all explanations, not the publisher's wording. Return ana
             "logical_calls": 4, "runtime_version": RUNTIME_VERSION, "memory_hash": main["policy_hash"]}}
     trace = {"reference_status": status, "reference_source": source, "main_answer": main["answer_label"], "control_answer": control["answer_label"],
         "policy_id": main["policy_id"], "policy_version": main["policy_version"], "policy_hash": main["policy_hash"], "runtime_version": RUNTIME_VERSION,
-        "detailed_explanation_available": detail_available, "explanation_issue": explanation_issue}
+        "detailed_explanation_available": detail_available, "explanation_issue": explanation_issue,
+        "analysis_status": analysis_status}
     if captured.personal_data_present:
         observation["abstract_evidence"] = {"failure_kind": "unknown", "lesson": "", "competency": "", "key_rule": ""}
     question.local_reference = {"key": captured.printed_key or req.answer_key, "provided_key": req.answer_key, "explanation": captured.reference_explanation, "status": status, "source": source}

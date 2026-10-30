@@ -40,7 +40,8 @@ def project_registry(registry, rows):
         "rejected", "false_accepts", "completion_first", "completion_repeat", "previous_test", "repeat_disagreements",
         "format_contract", "normal_accepted", "normal_n", "missing_blank_blocked", "defect_n", "baseline", "candidate",
         "first_draft_pass_rate", "first_draft_pass_rate_n", "first_draft_pass_rate_ci95", "passed", "gained", "lost", "adopt",
-        "evidence_contract_passed", "source_text_roles_equal", "statuses", "ai_estimated", "unconfirmed", "disputed", "supplied_reference"}
+        "evidence_contract_passed", "source_text_roles_equal", "statuses", "ai_estimated", "unconfirmed", "disputed", "supplied_reference",
+        "detailed_available", "analysis_completed", "explanation_withheld"}
     def metrics(value):
         if isinstance(value, dict):
             return {k: metrics(v) for k, v in value.items() if k in metric_keys}

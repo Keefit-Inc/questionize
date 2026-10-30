@@ -198,7 +198,8 @@ export interface OptionReview {
 
 export interface Diagnosis {
   learning_trace?: { reference_status: string; reference_source: string; main_answer: Label | null; control_answer: Label | null;
-    policy_id: string | null; policy_version: number | null; policy_hash: string | null; runtime_version: string };
+    policy_id: string | null; policy_version: number | null; policy_hash: string | null; runtime_version: string;
+    detailed_explanation_available?: boolean; explanation_issue?: string | null; analysis_status?: string };
   family: string;
   subtype: string;
   competency: string;

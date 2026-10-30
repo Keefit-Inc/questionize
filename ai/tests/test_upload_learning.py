@@ -108,3 +108,16 @@ async def test_failed_detailed_analysis_preserves_capture_and_independent_result
 
 def test_analysis_schema_cannot_replace_or_retranscribe_the_captured_question():
     assert not {"passage", "stem", "option_a", "readable", "personal_data_present"} & UploadAnalysis.model_fields.keys()
+    assert set(UploadAnalysis.model_json_schema()["required"]) == set(UploadAnalysis.model_fields)
+
+
+async def test_unavailable_analysis_does_not_generate_ungrounded_practice():
+    from questionize.errorlog import diagnose
+    def unavailable():
+        raise TimeoutError("analyst unavailable")
+    main = ScriptedLLM(Capture=[capture()], SolverResult=[solver("B")], UploadAnalysis=[unavailable])
+    control = ScriptedLLM(SolverResult=[solver("B")])
+    result = await diagnose(QuestionPipeline(main, control), DiagnoseRequest(images=[IMAGE], level="gmat", upload_learning=True, chosen_label="A", practice_count=2), emit)
+    assert result["source_question"]["passage"] == capture().passage
+    assert result["practice"] == []
+    assert result["diagnosis"]["learning_trace"]["analysis_status"] == "unavailable_TimeoutError"

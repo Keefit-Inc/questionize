@@ -65,13 +65,15 @@ async def evaluate(config, root):
         "evidence_contract_passed":sum(r["evidence_contract"] for r in results),
         "source_text_roles_equal":sum(all(r.get("source_roles_equal",{}).values()) and r.get("choice_texts_equal",False) for r in results),
         "detailed_available":sum(r.get("detailed_available",False) for r in results),
+        "analysis_completed":sum(r.get("output",{}).get("diagnosis",{}).get("learning_trace",{}).get("analysis_status") == "completed" for r in results),
+        "explanation_withheld":sum(bool(r.get("output",{}).get("diagnosis",{}).get("learning_trace",{}).get("explanation_issue")) for r in results),
         "statuses":{s:sum(r.get("status")==s for r in results) for s in ["ai_estimated","unconfirmed","disputed","supplied_reference"]}}
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config",type=Path)
-    parser.add_argument("--version",type=int,choices=[1,2],default=1)
+    parser.add_argument("--version",type=int,choices=[1,2,3],default=1)
     args=parser.parse_args()
     if inside_repo(args.config):raise SystemExit("Private local configuration required")
     config=json.loads(args.config.read_text())

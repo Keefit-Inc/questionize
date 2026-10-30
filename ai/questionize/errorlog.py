@@ -102,9 +102,13 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         await emit({"stage": "upload_assessed", "observation": research_observation,
                     "message": "Independent solving recorded with attributed reference confidence"})
 
-    if req.practice_count:
+    practice_count = req.practice_count
+    if learning_trace and not learning_trace["detailed_explanation_available"]:
+        # An unresolved or missing analysis supplies no checked design to practice.
+        practice_count = 0
+    if practice_count:
         await emit({"stage": "practice", "message": "Writing new practice on the same trap"})
-    topics = rng.sample(TOPICS, req.practice_count)
+    topics = rng.sample(TOPICS, practice_count)
     results = await asyncio.gather(
         *(_practice(pipeline, i, pattern, diagnosis.chosen_trap, transcript, topic, emit, req.level, req.capability_policy) for i, topic in enumerate(topics)),
         return_exceptions=True,

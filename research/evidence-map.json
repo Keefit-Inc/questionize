@@ -283,7 +283,7 @@
       ],
       "claim": "Argument analysis, relevance, causality and counterexample procedures motivate explicit design checks.",
       "limitations": "Selected primary passages reviewed; adapted method candidate, not GMAT answer-key evidence or a faithful research-paper reproduction. C5 comparison is an AI proxy; human ratings remain absent.",
-      "implementation_status": "implemented_under_evaluation",
+      "implementation_status": "adapted_evaluated_held",
       "review_status": "selected_primary_passages_and_license_checked",
       "implementation_paths": [
         "ai/questionize/cr_design.py",
@@ -535,6 +535,126 @@
       "decision": "Release the completion-format input guard: 124 normal inputs accepted, 15 missing-blank mutations blocked. Solver errors remain; no new solving-memory adoption.",
       "limitations": "15 completion items observed twice, plus 39 previous test items. Repeats share questions. Agent visual repairs are not human OCR certification. No 99.9% claim or human explanation rating.",
       "report_path": "research/results/E12.md"
+    },
+    {
+      "run_id": "20261030T225620Z-e2-2994f9",
+      "protocol": "E2",
+      "scope": "development; twenty matched original tasks",
+      "summary": {
+        "baseline": {
+          "first_draft_pass_rate": 0.9,
+          "first_draft_pass_rate_n": 20,
+          "first_draft_pass_rate_ci95": [
+            0.699,
+            0.9721
+          ],
+          "passed": 18,
+          "calls": 119,
+          "errors": 0
+        },
+        "candidate": {
+          "first_draft_pass_rate": 0.9,
+          "first_draft_pass_rate_n": 20,
+          "first_draft_pass_rate_ci95": [
+            0.699,
+            0.9721
+          ],
+          "passed": 18,
+          "calls": 114,
+          "errors": 0
+        },
+        "gained": 1,
+        "lost": 1,
+        "expected": 40,
+        "completed": 40,
+        "errors": 0,
+        "calls": 233,
+        "adopt": false,
+        "wall_seconds": 1508.27
+      },
+      "decision": "Held: 18/20 passes in both conditions, one gained pair and one lost pair. Current production writer retained.",
+      "limitations": "Same-model verification is a proxy. Human ratings, semantic objective adherence and learner benefit are unmeasured. This is not the v1 OG memory-size study.",
+      "report_path": "research/results/E2.md"
+    },
+    {
+      "run_id": "20261030T230404Z-e13-photos",
+      "protocol": "E13",
+      "scope": "development photo engineering v1",
+      "summary": {
+        "expected": 3,
+        "completed": 1,
+        "errors": 2,
+        "parents": 2,
+        "calls": 12,
+        "correct": 0,
+        "evidence_contract_passed": 1,
+        "source_text_roles_equal": 1,
+        "statuses": {
+          "ai_estimated": 1,
+          "unconfirmed": 0,
+          "disputed": 0,
+          "supplied_reference": 0
+        },
+        "analysis_completed": 0,
+        "explanation_withheld": 0
+      },
+      "decision": "Superseded by a documented repair; preserve failures and missing detailed analyses.",
+      "limitations": "Three scenarios share two selected hard parents. Source delivery, analyst availability, source-key match and human correctness are different outcomes. Local Meta inference, not learner traffic.",
+      "report_path": "research/results/E13.md"
+    },
+    {
+      "run_id": "20261030T231016Z-e13-photos",
+      "protocol": "E13",
+      "scope": "development photo engineering v2",
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "errors": 0,
+        "parents": 2,
+        "calls": 12,
+        "correct": 1,
+        "evidence_contract_passed": 3,
+        "source_text_roles_equal": 3,
+        "detailed_available": 0,
+        "statuses": {
+          "ai_estimated": 1,
+          "unconfirmed": 1,
+          "disputed": 0,
+          "supplied_reference": 1
+        },
+        "analysis_completed": 0,
+        "explanation_withheld": 1
+      },
+      "decision": "Superseded by a documented repair; preserve failures and missing detailed analyses.",
+      "limitations": "Three scenarios share two selected hard parents. Source delivery, analyst availability, source-key match and human correctness are different outcomes. Local Meta inference, not learner traffic.",
+      "report_path": "research/results/E13.md"
+    },
+    {
+      "run_id": "20261030T231836Z-e13-photos",
+      "protocol": "E13",
+      "scope": "development photo engineering v3",
+      "summary": {
+        "expected": 3,
+        "completed": 3,
+        "errors": 0,
+        "parents": 2,
+        "calls": 12,
+        "correct": 2,
+        "evidence_contract_passed": 3,
+        "source_text_roles_equal": 3,
+        "detailed_available": 1,
+        "statuses": {
+          "ai_estimated": 0,
+          "unconfirmed": 2,
+          "disputed": 0,
+          "supplied_reference": 1
+        },
+        "analysis_completed": 3,
+        "explanation_withheld": 2
+      },
+      "decision": "Small reference-backed operator pilot; three structured analyses, one explanation delivered and two uncertainty holds.",
+      "limitations": "Three scenarios share two selected hard parents. Source delivery, analyst availability, source-key match and human correctness are different outcomes. Local Meta inference, not learner traffic.",
+      "report_path": "research/results/E13.md"
     }
   ],
   "knowledge_policy": {
