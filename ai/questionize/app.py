@@ -33,6 +33,7 @@ from .pipeline import Declined, QuestionPipeline
 from .errorlog import diagnose, practice_for_level
 from .reviewer import review
 from . import evolution
+from .integrity import INTEGRITY_VERSION
 from .schemas import DiagnoseRequest, GenerateRequest, JudgeRequest, JudgeResult, MapRequest, PracticeRequest, ReviewRequest, ReviewResult
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -109,6 +110,7 @@ def create_app(settings: Settings | None = None, pipeline: QuestionPipeline | No
             "version": __version__,
             "model": settings.primary.model,
             "solver_model": settings.solver.model,
+            "integrity_guard": {"version": INTEGRITY_VERSION, "enabled": True},
         }
 
     @v1.post("/judge", response_model=JudgeResult)

@@ -1,0 +1,450 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-30",
+  "review_scope": "Selected primary abstracts and documented software methods; not an exhaustive systematic review or a reproduction of every paper.",
+  "papers": [
+    {
+      "id": "nougat",
+      "title": "Nougat: Neural Optical Understanding for Academic Documents",
+      "url": "https://arxiv.org/abs/2308.13418",
+      "capabilities": [
+        "C1.1",
+        "C1.2"
+      ],
+      "claim": "Preserve semantic document structure, not OCR text alone.",
+      "limitations": "Nougat is not installed; our current repair is source inspection plus deterministic checks.",
+      "implementation_status": "design_reference",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/import_scan.py",
+        "ai/questionize/capture_audit.py"
+      ],
+      "protocols": [
+        "E4",
+        "E9"
+      ]
+    },
+    {
+      "id": "bea-difficulty",
+      "title": "BEA 2024: Automated Prediction of Difficulty and Response Time",
+      "url": "https://aclanthology.org/2024.bea-1.39/",
+      "capabilities": [
+        "C2",
+        "C4"
+      ],
+      "claim": "Evaluate difficulty predictions against observed responses.",
+      "limitations": "Medical-item results do not establish GMAT difficulty validity.",
+      "implementation_status": "planned",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "research/protocols/E3-error-log-diagnosis.md"
+      ],
+      "protocols": [
+        "E3"
+      ]
+    },
+    {
+      "id": "debate",
+      "title": "Improving Factuality and Reasoning through Multiagent Debate",
+      "url": "https://arxiv.org/abs/2305.14325",
+      "capabilities": [
+        "C3.1"
+      ],
+      "claim": "Independent answers followed by reasoned exchanges are an experimental condition.",
+      "limitations": "B2 runner exists; no completed cross-model B2 result is recorded.",
+      "implementation_status": "implemented_not_evaluated",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/eval_e1.py"
+      ],
+      "protocols": [
+        "E1"
+      ],
+      "result_conditions": [
+        "B2",
+        "B2'"
+      ]
+    },
+    {
+      "id": "expel",
+      "title": "ExpeL: LLM Agents Are Experiential Learners",
+      "url": "https://arxiv.org/abs/2308.10144",
+      "capabilities": [
+        "C3.1",
+        "C5"
+      ],
+      "claim": "Extract reusable lessons from checked experience without changing weights.",
+      "limitations": "Our adapted E1 memory produced no accuracy gain; this is not a faithful reproduction of ExpeL.",
+      "implementation_status": "adapted_evaluated",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/memory.py",
+        "ai/questionize/eval_e1.py"
+      ],
+      "protocols": [
+        "E1",
+        "E2"
+      ],
+      "result_conditions": [
+        "B0+M",
+        "B1+M"
+      ]
+    },
+    {
+      "id": "dynamic-cheatsheet",
+      "title": "Dynamic Cheatsheet: Test-Time Learning with Adaptive Memory",
+      "url": "https://arxiv.org/abs/2504.07952",
+      "capabilities": [
+        "C3.1",
+        "C5"
+      ],
+      "claim": "Store reusable experience outside model weights.",
+      "limitations": "Our static subtype rules differ from an evolving cheatsheet; generated-question improvement is unmeasured.",
+      "implementation_status": "adapted_evaluated",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/memory.py"
+      ],
+      "protocols": [
+        "E1",
+        "E2"
+      ],
+      "result_conditions": [
+        "B0+M",
+        "B1+M"
+      ]
+    },
+    {
+      "id": "self-correction",
+      "title": "Large Language Models Cannot Self-Correct Reasoning Yet",
+      "url": "https://arxiv.org/abs/2310.01798",
+      "capabilities": [
+        "C3.1",
+        "C3.4"
+      ],
+      "claim": "Measure harmful as well as helpful revisions; external evidence matters.",
+      "limitations": "Older models and tested tasks do not prove all modern self-correction fails.",
+      "implementation_status": "evaluation_design",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/eval_reliability.py",
+        "ai/questionize/operator_policy.py"
+      ],
+      "protocols": [
+        "E9",
+        "E10"
+      ]
+    },
+    {
+      "id": "process-supervision",
+      "title": "Let’s Verify Step by Step",
+      "url": "https://arxiv.org/abs/2305.20050",
+      "capabilities": [
+        "C3.2",
+        "C3.4"
+      ],
+      "claim": "Evaluate reasoning steps in addition to final answer letters.",
+      "limitations": "Mathematical process reward models are not implemented here; CR explanations remain unrated.",
+      "implementation_status": "planned",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/eval_judge.py"
+      ],
+      "protocols": [
+        "E1",
+        "E10"
+      ],
+      "result_conditions": [
+        "not_yet_run"
+      ]
+    },
+    {
+      "id": "distractors",
+      "title": "Distractor generation with predictive prompting and LLMs",
+      "url": "https://arxiv.org/abs/2307.16338",
+      "capabilities": [
+        "C5"
+      ],
+      "claim": "Retrieve suitable examples and evaluate distractors with expert judgments.",
+      "limitations": "Targeted example retrieval and E2 results are not yet implemented/completed.",
+      "implementation_status": "planned",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "research/protocols/E2-design-memory.md"
+      ],
+      "protocols": [
+        "E2"
+      ]
+    },
+    {
+      "id": "generative-students",
+      "title": "Generative Students: LLM-Simulated Student Profiles",
+      "url": "https://arxiv.org/abs/2405.11591",
+      "capabilities": [
+        "C4",
+        "C5",
+        "C6"
+      ],
+      "claim": "Simulated learners can be a preliminary item diagnostic.",
+      "limitations": "Simulation cannot replace real learner outcomes; no simulation efficacy result is recorded.",
+      "implementation_status": "planned",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "research/protocols/E3-error-log-diagnosis.md"
+      ],
+      "protocols": [
+        "E3"
+      ]
+    },
+    {
+      "id": "faithful-experience",
+      "title": "Large Language Model Agents Are Not Always Faithful Self-Evolvers",
+      "url": "https://arxiv.org/abs/2601.22436",
+      "capabilities": [
+        "C3.1",
+        "C5"
+      ],
+      "claim": "Test whether raw examples and condensed lessons causally affect decisions.",
+      "limitations": "Newly mapped; controlled raw-example versus rule ablation has not been run.",
+      "implementation_status": "planned",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "ai/questionize/memory.py"
+      ],
+      "protocols": [
+        "E1",
+        "E2"
+      ],
+      "result_conditions": [
+        "not_yet_run"
+      ]
+    },
+    {
+      "id": "knowledge-tracing",
+      "title": "Deep Knowledge Tracing",
+      "url": "https://arxiv.org/abs/1506.05908",
+      "capabilities": [
+        "C4",
+        "C6"
+      ],
+      "claim": "Validate learner-state estimates by future response prediction.",
+      "limitations": "DKT is not implemented; current service uses Elo and recommendation rules.",
+      "implementation_status": "deferred",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "api/app/services/learning/recommend.rb"
+      ],
+      "protocols": [
+        "E3",
+        "E7"
+      ]
+    },
+    {
+      "id": "reviewfast",
+      "title": "ReviewFast: decision ranking with auditable screening",
+      "url": "https://github.com/taehojo/reviewfast",
+      "capabilities": [
+        "C6"
+      ],
+      "claim": "Separate ranking criteria, model scores, final decisions and audit records.",
+      "limitations": "Literature relevance is not learning gain; Jev is not used in Questionize.",
+      "implementation_status": "design_reference",
+      "review_status": "primary_abstract_or_documentation_checked",
+      "implementation_paths": [
+        "api/app/services/learning/recommend.rb"
+      ],
+      "protocols": [
+        "E7"
+      ]
+    }
+  ],
+  "capture_audits": [
+    {
+      "id": "official-cr-v3",
+      "protocol": "E9",
+      "capabilities": [
+        "C1.1",
+        "C1.2"
+      ],
+      "total": 124,
+      "eligible": 109,
+      "held_flagged": 15,
+      "repaired_items": 28,
+      "restored_emphasis_items": 9,
+      "restored_identifiers": 17,
+      "visual_review_scope": "All 124 records checked mechanically; nine emphasis items, seventeen identifiers, five stimulus omissions, one source-rationale ending and one independently unread key inspected against rendered source; not every character visually certified",
+      "independent_human_review": false,
+      "dataset_hash": "c164092aebcea3f504a3bb428db68eac905f12d669d0e892123c9e19f0c90dc3",
+      "manifest_hash": "af90db3556e30eebdaf1f933cadfbb92cc1847e3c3903debb3db5870ed4f30f2",
+      "parent_hash": "b4640df7bbd1455705fcdb1da1ec02b59b8ff1f7b17fc493c3bbd8d60d5900f7",
+      "pdf_hash": "3544c17b987bd7fee3fe850d77006b7e9fe7ace2718369f0687f33fc200e7b74",
+      "remaining_mechanical_issues": 0,
+      "membership": "Original 70 train / 39 test preserved; 15 flagged captures remain excluded.",
+      "report_path": "research/results/E9.md",
+      "stimulus_omissions_repaired": 5,
+      "reference_explanation_repairs": 1,
+      "ocr_pages": 125,
+      "printed_keys_crosschecked": 124,
+      "ocr_engines": "Apple Vision + Tesseract",
+      "stimulus_regions_aligned": 113,
+      "unmatched_regions_for_review": 11
+    }
+  ],
+  "evaluations": [
+    {
+      "run_id": "20261030T200342Z-e9-45a237",
+      "protocol": "E9",
+      "scope": "development evaluation",
+      "limitations": "Known development set; targeted agent visual repairs, no independent human capture certification. Same-model Judge, no human explanation ratings; no 99.9% claim.",
+      "decision": "Research observation only; no new semantic-policy adoption.",
+      "report_path": "research/results/E9.md",
+      "summary": {
+        "expected": 39,
+        "completed": 39,
+        "errors": 0,
+        "calls": 99,
+        "solver": {
+          "correct": 39,
+          "n": 39,
+          "accuracy": 1.0,
+          "ci95": [
+            0.9103,
+            1.0
+          ]
+        },
+        "legacy": {
+          "correct": 38,
+          "n": 39,
+          "accuracy": 0.9744,
+          "ci95": [
+            0.8682,
+            0.9955
+          ],
+          "corrected": 0,
+          "corrupted": 1
+        },
+        "guarded": {
+          "correct": 39,
+          "n": 39,
+          "accuracy": 1.0,
+          "ci95": [
+            0.9103,
+            1.0
+          ],
+          "corrected": 0,
+          "corrupted": 0
+        },
+        "judge": {
+          "correct": 19,
+          "n": 20,
+          "accuracy": 0.95,
+          "ci95": [
+            0.7639,
+            0.9911
+          ],
+          "coverage": 0.5128
+        },
+        "unrated_explanations": 0,
+        "explanation_errors": 0
+      }
+    },
+    {
+      "run_id": "20261030T200529Z-e10-6dd8bb",
+      "protocol": "E10",
+      "scope": "development evaluation",
+      "limitations": "Constructed defects from eight shared parents, not independent population samples. Exact duplicate, wrong-key, explicit contradiction and missing-format contracts do not certify subtle ambiguity or learner benefit.",
+      "decision": "Integrity guard eligible for release under E10 contracts.",
+      "report_path": "research/results/E10.md",
+      "summary": {
+        "expected": 34,
+        "completed": 34,
+        "errors": 0,
+        "calls": 52,
+        "parents": 8,
+        "by_type": {
+          "contradictory_explanation": {
+            "n": 8,
+            "legacy_accepted": 0,
+            "guarded_accepted": 0,
+            "deterministically_blocked": 0
+          },
+          "duplicate_correct_option": {
+            "n": 8,
+            "legacy_accepted": 0,
+            "guarded_accepted": 0,
+            "deterministically_blocked": 8
+          },
+          "missing_emphasis": {
+            "n": 2,
+            "legacy_accepted": 0,
+            "guarded_accepted": 0,
+            "deterministically_blocked": 2
+          },
+          "valid_control": {
+            "n": 8,
+            "legacy_accepted": 7,
+            "guarded_accepted": 7,
+            "deterministically_blocked": 0
+          },
+          "wrong_key": {
+            "n": 8,
+            "legacy_accepted": 0,
+            "guarded_accepted": 0,
+            "deterministically_blocked": 0
+          }
+        },
+        "legacy": {
+          "n": 26,
+          "rejected": 26,
+          "false_accepts": 0
+        },
+        "guarded": {
+          "n": 26,
+          "rejected": 26,
+          "false_accepts": 0
+        }
+      }
+    }
+  ],
+  "knowledge_policy": {
+    "expert_reference": "Original publisher/teacher evidence and model-extracted derivatives stay private with source hashes and separate lineage. Model extraction is never labeled expert authorship.",
+    "user_experience": "Usage-derived observations remain in their own namespace and begin AI-estimated or unconfirmed.",
+    "promotion": "AI agreement cannot confirm a label or change a knowledge origin. Retrieval must choose an origin explicitly.",
+    "rights": "Expert-reference observations cannot fan out to the public Bank. Only separately cleared abstracts can be shared."
+  },
+  "knowledge_assets": [
+    {
+      "id": "og-reference-capture-v3",
+      "namespace": "expert_reference_original",
+      "derivation": "Publisher explanation captured from a private scan",
+      "evidence_status": "provisional capture: 109 eligible, 15 held",
+      "rights_scope": "private_research",
+      "count": 124,
+      "unit": "source items",
+      "artifact_hash": "c164092aebcea3f504a3bb428db68eac905f12d669d0e892123c9e19f0c90dc3",
+      "limitation": "Targeted agent source review; no independent human certification of every character."
+    },
+    {
+      "id": "cr-v1-reflections",
+      "namespace": "expert_reference_derived",
+      "derivation": "AI reflection and consolidation from reference keys and explanations",
+      "evidence_status": "ai_estimated; E1 found no accuracy gain",
+      "rights_scope": "private_research",
+      "count": 48,
+      "unit": "AI-extracted rules",
+      "artifact_hash": "0a11573f6e4bfdd8c047a6e7cf52784de13abe7360e93ac15f4d71b2336c93c1",
+      "limitation": "Derived from v1; not expert-authored text. Emphasis-dependent lessons require review after repair."
+    },
+    {
+      "id": "usage-memory",
+      "namespace": "user_experience_derived",
+      "derivation": "Reserved for separately confirmed usage-derived evidence",
+      "evidence_status": "No consolidated memory artifact yet",
+      "rights_scope": "private_research",
+      "count": 0,
+      "unit": "consolidated rules",
+      "artifact_hash": "",
+      "limitation": "Usage observations and AI agreement do not automatically become reference truth."
+    }
+  ]
+}

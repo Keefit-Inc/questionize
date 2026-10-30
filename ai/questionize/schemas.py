@@ -143,6 +143,7 @@ class Verification(BaseModel):
     issues: list[str] = Field(default_factory=list)
     copied_words: int = Field(0, description="Longest run of consecutive words the passage shares with the article")
     capability_policy: dict | None = None
+    integrity_version: str | None = None
 
 
 # ------------------------------------------------------------- Argument Judge

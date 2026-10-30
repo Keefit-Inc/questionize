@@ -55,6 +55,8 @@ A new subject is added as a **subject pack** in [`subjects/`](subjects/): its sk
 | E6 | C3.3 level-adapted explanations | Planned | |
 | E7 | C6 recommendations: success rate and gains, simulated students first | Planned | |
 | E8 | C3.1 GMAT CR policy proposal, recorded decision replay, acceptance/hold and verified service application | Registered (v1); engineering regression scope, not fresh model accuracy | [E8](protocols/E8-policy-evolution.md) |
+| E9 | C1 source recovery and separated C3.1 Solver/Judge evaluation | Executed v1/v2; known development data | [E9 v2](protocols/E9-repaired-input-reliability-v2.md), [results](results/E9.md) |
+| E10 | C3.4 constructed defect rejection and normal-control acceptance | Executed v1/v2; parent-clustered contracts | [E10 v2](protocols/E10-defect-rejection-v2.md), [results](results/E10.md) |
 
 Run with `ai/eval` runners; every run appends one line to [`ledger.jsonl`](ledger.jsonl) with the capability it measures, and `python -m questionize.scoreboard` turns the ledger into [`results/SCOREBOARD.md`](results/SCOREBOARD.md) (the latest result for each capability against its bar) and each capability's `HISTORY.md` (every run, what changed, the result).
 
@@ -65,6 +67,8 @@ The **Evolution** view (`/admin#evolution`) reads the live PostgreSQL cycle regi
 Terminal cycles expose aggregate E8 ledger entries at `/admin/cycles/ledger`. `python -m questionize.sync_cycles` appends new entries idempotently to the existing local ledger; `python -m questionize.scoreboard` reproduces the Markdown and JSON histories. The live console merges these cycle observations immediately, without a Git push or image deployment. Source material, private case evidence and personal records are never included in that feed. E8 stays in the separate `regression` scope rather than replacing full E1 evaluations.
 
 ## How experiments are recorded
+
+The separate `/admin#evidence` view joins [evidence-map.json](evidence-map.json) with ledger runs. It distinguishes primary-source review, design inspiration, implemented adaptations, unrun methods and measured outcomes; an unrelated protocol run is not treated as a reproduction of a paper. Capture audits show their inspection limits and private artifact hashes. Live source counts separate knowledge origins and evidence status. A cached internal health probe reports the actual running integrity guard alongside the current research-policy release; a published experiment is not proof of deployment.
 
 Every experiment follows the same four steps, so results can be trusted and repeated.
 

@@ -313,6 +313,13 @@ def check_structure(page: PageStructure, ocr: str) -> tuple[list[str], float]:
     score = agreement(copied, ocr)
     if score < AGREEMENT_FLOOR:
         flags.append("not_as_printed")
+    # One-way word agreement can be 100% after dropping a line. Never approve a
+    # dangling stimulus or an emphasis-dependent question from OCR text alone.
+    completing = re.search(r"complet\w*.*(?:passage|argument)", page.stem, re.I)
+    if page.passage and page.passage.rstrip()[-1] not in '.?!\"\u201d' and not completing:
+        flags.append("possible_truncated_passage")
+    if re.search(r"bold\s*face", page.stem, re.I) and "[BOLD_" not in page.passage and "**" not in page.passage:
+        flags.append("missing_required_emphasis")
     printed = printed_key(ocr)
     if printed and page.answer_key and printed != page.answer_key:
         flags.append("key_mismatch")

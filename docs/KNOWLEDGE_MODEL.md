@@ -4,6 +4,14 @@ The question bank's primary asset is not questions. It is the knowledge behind t
 
 This document defines that model. `ARCHITECTURE.md` covers the services that run it.
 
+## Evidence origin and private reference material
+
+`SourceObservation.knowledge_origin` separates `expert_reference`, `user_experience`, `original_authored` and `legacy_unclassified`. It is independent of `evidence_status` (`confirmed`, `ai_estimated`, `unconfirmed`) and `rights_scope` (`private_research`, `shared_abstract`). Existing records default to unclassified/unconfirmed; a book name or an AI agreement does not retroactively certify them.
+
+Expert originals and model-extracted lessons are different artifacts. A derived lesson records its source hash, extraction model and derivation; it is never presented as an expert-authored explanation. Private research datasets and memories use separate expert-reference and user-experience namespaces. `memory_candidates(origin:)` requires an explicit origin and confirmed evidence. AI diagnosis always creates usage-derived estimated evidence; it cannot change namespaces or establish a reference label. The source-triggered research batch requires confirmed evidence in addition to the recorded key and leak checks. Rated attempts remain behavioral evidence, not answer-key labels.
+
+Expert references require source provenance and private rights. They cannot fan out to the public question Bank. Source originals, scans, detailed explanations, corrections and per-item results stay outside Git; public research exports contain counts, hashes, limitations and literature/code/protocol/result links only. These technical distinctions do not grant rights to reuse a publisher's content. New usage-derived labels require a separately attributable confirmation before they become training targets.
+
 ```
             ┌─────────────────────────── evidence updates confidence ───────────────────────────┐
             ▼                                                                                   │

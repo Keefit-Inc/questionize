@@ -23,6 +23,7 @@ from typing import Any
 
 from . import levels, prompts
 from .judge import ArgumentJudge, judge_feedback
+from .integrity import INTEGRITY_VERSION, integrity_issues
 from .llm import StructuredLLM
 from .operator_policy import policy_trace, task_operator
 from .schemas import (
@@ -127,12 +128,14 @@ class QuestionPipeline:
         seed: int | None = None,
         max_copied_words: int = 12,
         judge: ArgumentJudge | None = None,
+        integrity_checks: bool = True,
     ):
         self.primary = primary
         self.solver = solver
         self.max_revisions = max_revisions
         self.max_copied_words = max_copied_words
         self.judge = judge
+        self.integrity_checks = integrity_checks
         self.rng = random.Random(seed)
 
     async def analyze(self, req: GenerateRequest) -> ArticleAnalysis:
@@ -201,6 +204,13 @@ class QuestionPipeline:
         critic: CriticResult | None = None
         judged = None
         trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
+        defects = integrity_issues(draft) if self.integrity_checks else []
+        if defects:
+            return VerifiedQuestion(id=uuid.uuid4().hex[:12], question=draft, verification=Verification(
+                verified=False, attempts=0, solver_model=self.solver.model, solver_answer="", solver_confidence=0,
+                critic_verdict="integrity_rejected", distractor_quality=0, issues=defects,
+                integrity_version=INTEGRITY_VERSION,
+                capability_policy=trace if capability_policy else None))
         while True:
             trace = policy_trace(capability_policy, subject=qtype, level=level, subtype=draft.subtype, operator=task_operator(draft.stem))
             trace.update(judge_gate_reached=False, judge_called=False)
@@ -307,6 +317,7 @@ class QuestionPipeline:
                 issues=issues,
                 copied_words=copied,
                 capability_policy=trace if capability_policy else None,
+                integrity_version=INTEGRITY_VERSION if self.integrity_checks else None,
             ),
             judge=judged,
         )

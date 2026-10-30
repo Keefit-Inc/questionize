@@ -4,9 +4,14 @@ module Research
       @release = release
     end
 
-    def sources
+    def source_scope
       Knowledge::SourceObservation.where("id > ?", @release.source_cursor).where("observed->>'family' = 'CR'")
-        .where("observed->>'level' = 'gmat'").where("observed->>'key_verdict' IN ('agrees', 'upheld', 'book')")
+        .where("observed->>'level' = 'gmat'")
+    end
+
+    def sources
+      source_scope.where(evidence_status: "confirmed").where("observed->>'key_verdict' IN ('agrees', 'upheld', 'book')")
+        .where("COALESCE(observed->>'label_source', '') NOT IN ('model_inferred', 'model_consensus')")
         .where("leak_checks->>'passed' = 'true'")
     end
 
@@ -20,6 +25,7 @@ module Research
       attempt_ids = attempts.order(:id).limit(100).pluck("attempts.id")
       {
         "trusted_sources" => sources.distinct.count(:source_ref), "new_rated_attempts" => attempts.count,
+        "unconfirmed_sources" => source_scope.where.not(id: sources.select(:id)).distinct.count(:source_ref),
         "source_observation_ids" => source_ids, "rated_attempt_ids" => attempt_ids,
         "source_from" => @release.source_cursor, "attempt_from" => @release.attempt_cursor,
         "source_cursor" => sources.maximum(:id) || @release.source_cursor, "attempt_cursor" => attempts.maximum("attempts.id") || @release.attempt_cursor

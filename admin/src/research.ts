@@ -18,6 +18,25 @@ export interface Measurement {
 export interface ResearchData {
   schema_version: number; updated_at: string | null; capabilities: Capability[];
   subjects: string[]; runs: Run[]; records: Measurement[];
+  evidence?: EvidenceRegistry;
+}
+
+export interface PaperEvidence {
+  id: string; title: string; url: string; capabilities: string[]; claim: string; limitations: string;
+  implementation_status: string; review_status: string; implementation_paths: string[]; protocols: string[];
+  runs: { run_id: string; protocol: string; scope: string; report_path: string }[];
+}
+export interface EvidenceRegistry {
+  reviewed_at: string; review_scope: string; papers: PaperEvidence[];
+  capture_audits: { id: string; total: number; eligible: number; held_flagged: number; repaired_items: number;
+    restored_emphasis_items: number; restored_identifiers: number; dataset_hash: string; visual_review_scope: string;
+    independent_human_review: boolean; membership: string; report_path: string; stimulus_omissions_repaired?: number;
+    printed_keys_crosschecked?: number; ocr_pages?: number; ocr_engines?: string; unmatched_regions_for_review?: number }[];
+  evaluations: { run_id: string; protocol: string; scope: string; decision: string; limitations: string; report_path: string;
+    summary: Record<string, any> }[];
+  knowledge_policy: Record<string, string>;
+  knowledge_assets?: { id: string; namespace: string; derivation: string; evidence_status: string; rights_scope: string;
+    count: number; unit: string; artifact_hash: string; limitation: string }[];
 }
 
 export const GROUPS = [

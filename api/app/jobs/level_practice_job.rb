@@ -26,6 +26,8 @@ class LevelPracticeJob < ApplicationJob
 
   # Every level in the fan-out list except the learner's own, for a design that passed the leak checks.
   def self.fan_out(observation, learner_level:)
+    return if observation.knowledge_origin == "expert_reference" || observation.rights_scope != "shared_abstract"
+
     design = observation.observed.slice(*DESIGN_FIELDS)
     ((Rails.configuration.x.practice_fanout_levels & Level::ALL) - [ learner_level ]).each do |level|
       perform_later(design: design, level: level, practice_trap: observation.observed["chosen_trap"], origin: "snap")

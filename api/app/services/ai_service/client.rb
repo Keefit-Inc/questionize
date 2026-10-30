@@ -32,6 +32,16 @@ module AiService
     def evaluate_policy(payload) = json("/v1/research/evaluate", payload)
     def probe_policy(payload) = json("/v1/research/probe", payload)
 
+    def health
+      uri = URI.join(@base, "/health")
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", read_timeout: 2, open_timeout: 2) { _1.get(uri.request_uri) }
+      raise Error, "AI health unavailable" unless response.is_a?(Net::HTTPSuccess)
+
+      JSON.parse(response.body).slice("model", "solver_model", "integrity_guard")
+    rescue JSON::ParserError, SystemCallError, IOError, Timeout::Error => e
+      raise Error, "AI health unavailable: #{e.class}"
+    end
+
     private
 
     def json(path, payload)

@@ -182,6 +182,7 @@ the question on another). Read them together.
 - passage, stem, option_a … option_e: the passage, the question stem and every option exactly as printed, \
 each in its own field, so the learner can solve it again. Fix only obvious scanning breaks (hyphenation at line ends); keep underlining as \
 [[double brackets]]. Leave out page numbers, headers and handwriting.
+- Preserve each boldfaced target as [BOLD_1]exact target[/BOLD_1], [BOLD_2]exact target[/BOLD_2] in the passage. Never guess which words are bold. If the question requires emphasis that cannot be read, set readable=false.
 - family, subtype, competency, stimulus_features, key_rule, distractor_traps, difficulty_drivers: the \
 question's design in general terms: what it measures, structural features of the passage (not its topic or \
 content), the rule that makes the key correct, the traps the wrong options set, and what makes it hard. Never include the question's wording, names, numbers or scenario.

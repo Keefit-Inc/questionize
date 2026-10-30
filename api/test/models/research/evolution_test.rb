@@ -40,7 +40,7 @@ class ResearchEvolutionTest < ActiveSupport::TestCase
     old = settings.enabled
     settings.enabled = true
     3.times do |i|
-      Knowledge::SourceObservation.create!(source_kind: "print_scan", source_ref: "source-#{i}", extractor: "offline",
+      Knowledge::SourceObservation.create!(knowledge_origin: "user_experience", evidence_status: "confirmed", source_kind: "print_scan", source_ref: "source-#{i}", extractor: "offline",
         observed: { family: "CR", level: "gmat", key_verdict: "unchecked" }, leak_checks: { passed: true })
     end
     assert_raises(Research::StartCycle::Unavailable) { Research::StartCycle.call(automatic: true) }
@@ -70,7 +70,7 @@ class ResearchEvolutionTest < ActiveSupport::TestCase
     old = settings.enabled
     settings.enabled = true
     assert_enqueued_jobs 1, only: Research::ScheduleJob do
-      Knowledge::SourceObservation.create!(source_kind: "print_scan", source_ref: "keyed-source", extractor: "offline",
+      Knowledge::SourceObservation.create!(knowledge_origin: "user_experience", evidence_status: "confirmed", source_kind: "print_scan", source_ref: "keyed-source", extractor: "offline",
         observed: { family: "CR", level: "gmat", key_verdict: "book" }, leak_checks: { passed: true })
     end
   ensure

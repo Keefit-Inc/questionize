@@ -82,6 +82,8 @@ class DatasetItem(BaseModel):
     subtype: str = ""
     question: DatasetQuestion
     official_explanation: str = ""
+    option_explanations: list[dict[str, str]] = Field(default_factory=list)
+    option_traps: list[dict[str, str]] = Field(default_factory=list)
     flagged: bool = False
     split: str = ""
 

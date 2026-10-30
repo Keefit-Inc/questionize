@@ -101,9 +101,15 @@ module GenerationRuns
         observed: event["observation"].merge(
           "misconception" => event.dig("diagnosis", "misconception"), "chosen_trap" => event.dig("diagnosis", "chosen_trap"),
           # Whether the key behind this design was checked against the book (the learning signal, R2).
-          "key_verdict" => event.dig("diagnosis", "key_check", "verdict"), "dataset" => @run.params["dataset"]
+          "key_verdict" => event.dig("diagnosis", "key_check", "verdict"), "dataset" => @run.params["dataset"],
+          "label_source" => @run.params["answer_key"].present? ? "user_provided_key" : "model_inferred",
+          "label_status" => @run.params["answer_key"].present? ? event.dig("diagnosis", "key_check", "verdict") : "unconfirmed"
         ).merge("level" => @run.params["level"] || Level.for(@run.user)).compact,
-        extractor: "diagnose", leak_checks: event["leak_checks"] || {}
+        extractor: "diagnose", leak_checks: event["leak_checks"] || {},
+        knowledge_origin: "user_experience", evidence_status: "ai_estimated",
+        rights_scope: event.dig("leak_checks", "passed") == true ? "shared_abstract" : "private_research",
+        provenance: { "derivation" => "model_extracted", "label_origin" => @run.params["answer_key"].present? ? "user_provided_key" : "model_inferred",
+          "verification" => "model_key_check", "namespace" => "user_experience" }
       )
     end
 

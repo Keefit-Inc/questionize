@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_195000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -339,7 +339,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_000001) do
     t.index ["benchmark_id"], name: "index_research_cycles_on_benchmark_id"
     t.index ["candidate_policy_id"], name: "index_research_cycles_on_candidate_policy_id"
     t.index ["public_id"], name: "index_research_cycles_on_public_id", unique: true
-    t.index ["release_id"], name: "index_one_running_research_cycle", unique: true, where: "((status)::text = ANY ((ARRAY['queued'::character varying, 'generating'::character varying, 'evaluating'::character varying, 'activating'::character varying])::text[]))"
+    t.index ["release_id"], name: "index_one_running_research_cycle", unique: true, where: "((status)::text = ANY (ARRAY[('queued'::character varying)::text, ('generating'::character varying)::text, ('evaluating'::character varying)::text, ('activating'::character varying)::text]))"
     t.index ["release_id"], name: "index_research_cycles_on_release_id"
     t.index ["requested_by_id"], name: "index_research_cycles_on_requested_by_id"
   end
@@ -413,6 +413,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_000001) do
     t.jsonb "leak_checks", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "knowledge_origin", default: "legacy_unclassified", null: false
+    t.string "evidence_status", default: "unconfirmed", null: false
+    t.string "rights_scope", default: "private_research", null: false
+    t.jsonb "provenance", default: {}, null: false
+    t.index ["knowledge_origin", "evidence_status"], name: "idx_on_knowledge_origin_evidence_status_ae6d1a35d0"
     t.index ["source_ref"], name: "index_source_observations_on_source_ref"
   end
 

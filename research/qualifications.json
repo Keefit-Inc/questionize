@@ -3,8 +3,11 @@
   "qualifications": [
     {
       "id": "e8-development-replay",
-      "applies_to": { "protocol": "E8", "protocol_version": 1 },
-      "summary": "Recorded policy decisions on a known development regression set. No new solver inference, untouched holdout or learner-growth measurement. Adoption is limited to a bounded EXCEPT guard.",
+      "applies_to": {
+        "protocol": "E8",
+        "protocol_version": 1
+      },
+      "summary": "Recorded decision replay on a known development regression set. No new solver inference, untouched holdout or learner-growth measurement.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/protocols/E8-policy-evolution.md"
     },
     {
@@ -32,6 +35,42 @@
       },
       "summary": "E1 v2 B1 retains the initial Solver confidence after a Judge override. Its ECE is not validated as confidence in the final decision.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E1.md"
+    },
+    {
+      "id": "e9-v1-development",
+      "applies_to": {
+        "protocol": "E9",
+        "protocol_version": 1
+      },
+      "summary": "Known development data; source repairs and fixture changes are versioned. No untouched holdout, human explanation ratings or 99.9% reliability certification.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E9.md"
+    },
+    {
+      "id": "e9-v2-development",
+      "applies_to": {
+        "protocol": "E9",
+        "protocol_version": 2
+      },
+      "summary": "Known development data; source repairs and fixture changes are versioned. No untouched holdout, human explanation ratings or 99.9% reliability certification.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E9.md"
+    },
+    {
+      "id": "e10-v1-development",
+      "applies_to": {
+        "protocol": "E10",
+        "protocol_version": 1
+      },
+      "summary": "Constructed mutations share eight parent items. Controls and capture limitations differ by protocol version. Not independent population defect samples or evidence of learner benefit.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E10.md"
+    },
+    {
+      "id": "e10-v2-development",
+      "applies_to": {
+        "protocol": "E10",
+        "protocol_version": 2
+      },
+      "summary": "Constructed mutations share eight parent items. Controls and capture limitations differ by protocol version. Not independent population defect samples or evidence of learner benefit.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E10.md"
     }
   ]
 }

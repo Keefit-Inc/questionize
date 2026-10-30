@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from . import levels, prompts
+from .integrity import integrity_issues
 from .pipeline import Declined, QuestionPipeline, longest_copied_run, normalize_question
 from .schemas import Diagnosis, DiagnoseRequest, FlatPhotoReading, KeyCheck, KeyReview, PatternObservation, PhotoReading, PracticeRequest, Question, SolverResult, SourceQuestion
 
@@ -38,6 +39,8 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
         raise Declined("not_a_question", "We couldn't find one readable practice question in that photo.")
     if reading.kind == "live_exam_suspected":
         raise Declined("live_exam", "This looks like a question from a live exam. We don't work with recalled or leaked exam content.")
+    if integrity_issues(reading.question):
+        raise Declined("capture_incomplete", "The captured choices or required emphasis are incomplete. Photograph the full question and its marked passages clearly.")
 
     key_check, key = await _check_key(pipeline, reading, req, emit)
     if key is not None and key != reading.key_guess:

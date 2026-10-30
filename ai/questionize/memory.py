@@ -1,6 +1,6 @@
 """Learn a memory of solving lessons from keyed items (the train split), without retraining the model.
 
-    python -m questionize.memory ~/private/official-cr-v1.json --out ~/questionize-research/memory/cr-v1.json
+    python -m questionize.memory ~/private/official-cr-v1.json --knowledge-origin expert_reference --out PRIVATE_OUTPUT
 
 For every train item the model first solves it blind. It then sees the book's key and explanation and
 writes, in its own words, the general lesson a test-taker should carry to other questions of the same
@@ -111,6 +111,8 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("dataset", type=Path)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--knowledge-origin", choices=["expert_reference", "user_experience"], required=True,
+                    help="Choose source lineage explicitly; an AI extraction is never expert authorship")
     ap.add_argument("--split", default="train")
     ap.add_argument("--limit", type=int, default=0, help="learn from the first N items only (a trial run)")
     args = ap.parse_args(argv)
@@ -125,6 +127,9 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(f"No usable items in split {args.split!r}; run questionize.eval_e4 first to assign splits.")
     memory, stats = asyncio.run(learn(model, items))
     out = {
+        "knowledge_origin": args.knowledge_origin, "namespace": args.knowledge_origin + "_derived",
+        "derivation": "model_extracted_and_consolidated", "evidence_status": "ai_estimated",
+        "rights_scope": "private_research", "is_expert_authored": False,
         "dataset_id": dataset_id, "dataset_hash": dataset_hash, "split": args.split, "model": settings.primary.model,
         "created_at": datetime.now(timezone.utc).isoformat(), "stats": stats, "lessons": memory,
     }

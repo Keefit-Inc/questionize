@@ -98,6 +98,16 @@ async def _noop():
     return None
 
 
+async def test_missing_required_emphasis_declines_before_key_inference_or_practice():
+    photo = reading()
+    photo.question.stem = "The two boldfaced statements have which roles?"
+    pipeline, primary = pipeline_with(photo)
+    with pytest.raises(Declined) as error:
+        await diagnose(pipeline, DiagnoseRequest(images=[IMAGE]), lambda e: _noop())
+    assert error.value.reason == "capture_incomplete"
+    assert len(primary.calls) == 1
+
+
 @pytest.mark.parametrize("kind,reason", [("live_exam_suspected", "live_exam"), ("not_a_question", "not_a_question")])
 async def test_live_exam_content_and_non_questions_are_declined(kind, reason):
     pipeline, primary = pipeline_with(reading(kind=kind))

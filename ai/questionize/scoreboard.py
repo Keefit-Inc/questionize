@@ -26,6 +26,7 @@ CAPABILITIES: list[tuple[str, str, str]] = [
     ("C3.1", "Solve", "accuracy against the key ≥ 95% (CR)"),
     ("C3.2", "Explain", "explanations rated correct ≥ 90%"),
     ("C3.3", "Explain at the learner's level", "readability in band ≥ 90%; preferred to generic"),
+    ("C3.4", "Validate candidate correctness", "reject constructed defects; report valid-control rejection and parent clustering separately"),
     ("C4", "Diagnose the learner", "misconception top-3 ≥ 70%; next-miss AUC ≥ 0.65"),
     ("C5", "Write practice", "first-draft verification rate rising with memory; two-answer rate ≤ 2%"),
     ("C6", "Choose practice", "success on recommended 60%–80%; gains over unrecommended"),
@@ -41,6 +42,7 @@ METRICS = {
     "C3.1": "accuracy",
     "C3.2": "explanation_correctness",
     "C3.3": "readability_in_band",
+    "C3.4": "defect_rejection_rate",
     "C4": "misconception_top3",
     "C5": "first_draft_pass_rate",
     "C6": "recommendation_success_rate",
@@ -161,7 +163,7 @@ def qualifications_for(run: dict, definitions: dict | None = None) -> list[dict]
                 url = urlsplit(report_url)
             except ValueError:
                 url = None
-            if url and url.scheme == "https" and url.netloc == "github.com" and url.path.startswith("/Keefit-Inc/questionize/blob/") and "/research/results/" in url.path and not url.query:
+            if url and url.scheme == "https" and url.netloc == "github.com" and url.path.startswith("/Keefit-Inc/questionize/blob/") and any(folder in url.path for folder in ("/research/results/", "/research/protocols/")) and not url.query:
                 item["report_url"] = report_url
         matches.append(item)
     # Input ordering or repeated annotations cannot change the published snapshot.
@@ -323,6 +325,10 @@ def write_all(rows: list[dict], research: Path = RESEARCH) -> list[Path]:
     qualification_path = research / "qualifications.json"
     qualifications = json.loads(qualification_path.read_text()) if qualification_path.is_file() else None
     dashboard = render_data(rows, qualifications)
+    registry = research / "evidence-map.json"
+    if registry.is_file():
+        from .research_map import project_registry
+        dashboard["evidence"] = project_registry(json.loads(registry.read_text()), rows)
     (research / "results").mkdir(parents=True, exist_ok=True)
     written = [research / "results" / "SCOREBOARD.md", research / "results" / "dashboard.json"]
     written[0].write_text(render(rows, qualifications))

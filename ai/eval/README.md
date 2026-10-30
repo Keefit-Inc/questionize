@@ -71,10 +71,10 @@ python -m questionize.eval_e4 ~/private/og-rules.json ~/private/og-model.json --
 # 3. Baseline: the model as it is, on the test split
 python -m questionize.eval_e1 ~/private/official-cr-v1.json --split test --conditions B0,B1
 # 4. Learn: lessons from the train split, checked against the key and explanation
-python -m questionize.memory ~/private/official-cr-v1.json --out ~/questionize-research/memory/cr-v1.json
+python -m questionize.memory ~/private/official-cr-v1.json --knowledge-origin expert_reference --out ~/questionize-research/memory/expert-reference/cr-v1.json
 # 5. After: the same conditions with the memory, paired with the baseline run
 python -m questionize.eval_e1 ~/private/official-cr-v1.json --split test --conditions B0,B1 \
-    --memory ~/questionize-research/memory/cr-v1.json --baseline ~/questionize-research/runs/<baseline run id>
+    --memory ~/questionize-research/memory/expert-reference/cr-v1.json --baseline ~/questionize-research/runs/<baseline run id>
 # 6. Scoreboard
 python -m questionize.scoreboard   # SCOREBOARD.md and each capability's HISTORY.md
 ```
