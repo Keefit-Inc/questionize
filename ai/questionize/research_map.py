@@ -25,8 +25,10 @@ def project_registry(registry, rows):
         entry = {k: paper[k] for k in ("id", "title", "url", "capabilities", "claim", "limitations", "implementation_status", "review_status", "protocols")}
         entry["implementation_paths"] = [p for p in paper.get("implementation_paths", []) if public_path(p)]
         conditions = paper.get("result_conditions")
+        versions = paper.get("result_protocol_versions", {})
         entry["runs"] = [{"run_id": r["run_id"], "protocol": r["protocol"], "scope": scope_of(r),
             "report_path": f"research/results/{r['protocol']}.md"} for r in rows if r.get("protocol") in entry["protocols"]
+            and (r.get("protocol") not in versions or r.get("protocol_version") in versions[r["protocol"]])
             and (conditions is None or any(c in r.get("summary", {}) for c in conditions))]
         papers.append(entry)
     capture_fields = ("id", "protocol", "capabilities", "total", "eligible", "held_flagged", "repaired_items", "restored_emphasis_items",

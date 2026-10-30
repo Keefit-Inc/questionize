@@ -14,3 +14,13 @@ def test_projection_connects_a_paper_to_real_runs_without_exporting_private_fiel
     registry["papers"][0]["url"] = "javascript:alert(1)"
     with pytest.raises(ValueError):
         project_registry(registry, [])
+
+
+def test_a_related_protocol_revision_is_not_a_reproduction_of_another_method():
+    paper = {"id":"memory", "title":"Memory method", "url":"https://arxiv.org/abs/2308.10144", "capabilities":["C5"],
+        "claim":"Claim", "limitations":"Limited", "implementation_status":"adapted", "review_status":"checked",
+        "protocols":["E2","E11"], "result_protocol_versions":{"E2":[1]}, "result_conditions":["baseline","candidate"]}
+    rows = [{"run_id":"memory", "protocol":"E11", "protocol_version":1, "summary":{"baseline":{}}},
+        {"run_id":"scaffold", "protocol":"E2", "protocol_version":2, "summary":{"baseline":{}}}]
+    projected=project_registry({"schema_version":1,"papers":[paper]},rows)
+    assert [r["run_id"] for r in projected["papers"][0]["runs"]] == ["memory"]

@@ -1371,7 +1371,7 @@
   ],
   "evidence": {
     "reviewed_at": "2026-10-30",
-    "review_scope": "Selected primary abstracts and documented software methods; not an exhaustive systematic review or a reproduction of every paper.",
+    "review_scope": "Selected primary abstracts, method/conclusion sections and attributed textbook passages; not an exhaustive systematic review or a reproduction of every method.",
     "papers": [
       {
         "id": "nougat",
@@ -1494,12 +1494,6 @@
             "protocol": "E11",
             "scope": "trial",
             "report_path": "research/results/E11.md"
-          },
-          {
-            "run_id": "20261030T225620Z-e2-2994f9",
-            "protocol": "E2",
-            "scope": "trial",
-            "report_path": "research/results/E2.md"
           }
         ]
       },
@@ -1543,12 +1537,6 @@
             "protocol": "E11",
             "scope": "trial",
             "report_path": "research/results/E11.md"
-          },
-          {
-            "run_id": "20261030T225620Z-e2-2994f9",
-            "protocol": "E2",
-            "scope": "trial",
-            "report_path": "research/results/E2.md"
           }
         ]
       },
@@ -1803,12 +1791,12 @@
         "id": "og-reference-capture-v3",
         "namespace": "expert_reference_original",
         "derivation": "Publisher explanation captured from a private scan",
-        "evidence_status": "provisional capture: 109 eligible, 15 held",
+        "evidence_status": "v4: 124 structurally eligible; fifteen completion blanks restored; 70 train / 54 reserved validation",
         "rights_scope": "private_research",
         "count": 124,
         "unit": "source items",
-        "artifact_hash": "c164092aebcea3f504a3bb428db68eac905f12d669d0e892123c9e19f0c90dc3",
-        "limitation": "Targeted agent source review; no independent human certification of every character."
+        "artifact_hash": "cf3f8706496ecf9d98103065d6c8204d4e8c359cc52b621c762dcfb254570487",
+        "limitation": "Targeted agent inspection and mechanical eligibility; not independent human certification of every character."
       },
       {
         "id": "cr-v1-reflections",
