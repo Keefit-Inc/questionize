@@ -48,6 +48,18 @@ def repair(data: dict, manifest: dict) -> tuple[dict, dict]:
             item["number"] = patch["number"]
         if "subtype" in patch:
             item["subtype"] = patch["subtype"]
+        if patch.get("resolve_flags"):
+            resolved = set(patch["resolve_flags"])
+            if not resolved <= set(item.get("flags", [])):
+                raise ValueError("Cannot resolve flags absent from the source record")
+            item["flags"] = [f for f in item["flags"] if f not in resolved]
+            item["flagged"] = bool(item["flags"])
+        if "split" in patch:
+            if item.get("split"):
+                raise ValueError("A repair must not reassign an existing split")
+            if patch["split"] != "completion_validation":
+                raise ValueError("Newly recovered items require a separate validation cohort")
+            item["split"] = patch["split"]
         if "question_patch" in patch:
             if set(patch["question_patch"]) - {"passage", "stem", "choices"}:
                 raise ValueError("Unsupported question field")

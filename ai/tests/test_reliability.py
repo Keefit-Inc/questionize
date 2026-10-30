@@ -80,3 +80,19 @@ def test_metrics_distinguish_repairs_corruptions_and_errors():
 def test_source_recall_detects_a_dropped_line_even_when_every_copied_word_is_correct():
     assert missing_segments("The cards request reports of fish they catch. Which helps?", "The cards request reports of fish Which helps?") == ["they catch"]
     assert missing_segments("First statement. Third statement. Second statement.", "First statement. Second statement. Third statement.") == []
+
+
+def test_completion_format_requires_a_visible_blank_without_rejecting_other_stems():
+    q = make_question("B").model_copy(update={"stem": "Which most logically completes the argument?", "passage": "The plan will fail, since ____."})
+    assert integrity_issues(q) == []
+    q.passage = "The plan will fail, since ."
+    assert integrity_issues(q) == ["missing_completion_blank"]
+    q.stem = "Which observation weakens the argument?"
+    assert integrity_issues(q) == []
+
+
+def test_recovered_records_do_not_rewrite_existing_train_test_membership():
+    data = {"items": [{"entry_id": 1, "split": "test", "flags": ["not_as_printed"], "page": 1}]}
+    manifest = {"patches": [{"entry_id": 1, "reviewed_against_scan": True, "resolve_flags": ["not_as_printed"], "split": "completion_validation"}]}
+    with pytest.raises(ValueError, match="existing split"):
+        repair(data, manifest)

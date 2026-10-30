@@ -6,7 +6,7 @@ from test_errorlog import IMAGE, reading
 from questionize.evolution import content_hash
 from questionize.schemas import DiagnoseRequest, FlatPhotoReading, LearningMemory, SourceQuestion, Choice
 from questionize.pipeline import QuestionPipeline
-from questionize.upload_learning import Capture, read_and_assess, solver_prompt, fingerprint, canonical_subtype
+from questionize.upload_learning import Capture, read_and_assess, solver_prompt, fingerprint, canonical_subtype, explanation_contract
 
 
 def capture(**changes):
@@ -74,3 +74,21 @@ def test_subtype_spelling_does_not_silently_break_expert_example_retrieval():
     assert canonical_subtype("Must be true") == "inference"
     assert canonical_subtype("Bold Face") == "structure"
     assert canonical_subtype("") == "unknown"
+
+
+def test_an_explanation_for_another_answer_cannot_be_silently_relabelled():
+    corrected, issue = explanation_contract(reading(), "B", "confirmed_reference")
+    assert corrected.key_guess == "B"
+    assert issue == "answer_explanation_conflict"
+    assert corrected.option_reviews == [] and corrected.misconception is None
+    assert "withheld" in corrected.explanation
+
+
+def test_unresolved_evidence_cannot_identify_a_correct_option_or_learner_misconception():
+    uncertain, issue = explanation_contract(reading(), None, "disputed")
+    assert uncertain.key_guess is None and not uncertain.option_reviews
+    assert uncertain.chosen_trap is None and uncertain.misconception is None
+    assert issue == "unresolved_reference"
+    estimated, issue = explanation_contract(reading(), "C", "ai_estimated")
+    assert estimated.explanation.startswith("AI estimate")
+    assert estimated.misconception is None and issue is None

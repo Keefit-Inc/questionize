@@ -89,8 +89,8 @@ async def diagnose(pipeline: QuestionPipeline, req: DiagnoseRequest, emit: Emit,
     diagnosis = Diagnosis(
         family=pattern.family, subtype=pattern.subtype, competency=pattern.competency, key_guess=reading.key_guess,
         chosen_label=req.chosen_label, chosen_correct=chosen_correct,
-        chosen_trap=None if chosen_correct else reading.chosen_trap,
-        misconception=None if chosen_correct else reading.misconception, explanation=explanation,
+        chosen_trap=reading.chosen_trap if chosen_correct is False else None,
+        misconception=reading.misconception if chosen_correct is False else None, explanation=explanation,
         difficulty=reading.difficulty, difficulty_drivers=[d for d in pattern.difficulty_drivers if d],
         intent=intent, learning_objectives=objectives, option_reviews=reviews, key_check=key_check,
     )
