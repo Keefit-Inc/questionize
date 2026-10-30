@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-30T20:05:29.684144+00:00",
+  "updated_at": "2026-10-30T22:17:44.876868Z",
   "capabilities": [
     {
       "id": "C1.1",
@@ -588,6 +588,45 @@
       "measured_capabilities": [
         "C3.4"
       ]
+    },
+    {
+      "run_id": "memory-cycle-524e3c74907182cd",
+      "protocol": "E11",
+      "protocol_version": 1,
+      "started_at": "2026-10-30T22:17:44.876868Z",
+      "git_sha": "d2c1afb99d8b838056824c1a00ab64dce8ee7e0b",
+      "prompts_hash": "0c1723251ef13f652a8d383a1017d48e684d46f74343edae5b225a8b57220416",
+      "dataset_id": "private-local-e11-validation",
+      "dataset_hash": "bd85c9e6adf3e25172b989485ddc0f3436a6e3a6a5e4e320e5ef14cd82aa210a",
+      "split": "private_local_validation",
+      "n_items": 16,
+      "baseline_run": null,
+      "note": "held: first-pass solving scores; the second fresh pass is a separate reproducibility gate. No improvement was reproduced on the same validation item in both passes.",
+      "subject": "CR",
+      "scope": "trial",
+      "capabilities": [
+        "C3.1"
+      ],
+      "models": {
+        "solver": "muse-spark-1.3"
+      },
+      "qualifications": [
+        {
+          "id": "e11-private-local-pilot",
+          "summary": "Fresh paired local pilot with source-keyed labels. Repeated passes are correlated; results do not establish untouched-holdout generalization, human explanation quality or learner growth.",
+          "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/protocols/E11-upload-driven-memory.md"
+        }
+      ],
+      "judge": {
+        "version": "local-fresh-paired-inference-v1"
+      },
+      "memory": {
+        "lessons": 3,
+        "hash": "bba28d36412bcf2a2f07add6130ea84d877b4e296603b22d2443f37f0cc69022"
+      },
+      "measured_capabilities": [
+        "C3.1"
+      ]
     }
   ],
   "records": [
@@ -1108,6 +1147,34 @@
       "ci95": null,
       "expected_n": 26,
       "complete": true
+    },
+    {
+      "run_id": "memory-cycle-524e3c74907182cd",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "baseline",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 16,
+      "ci95": null,
+      "expected_n": 16,
+      "complete": true,
+      "calls": 16
+    },
+    {
+      "run_id": "memory-cycle-524e3c74907182cd",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "candidate",
+      "scope": "trial",
+      "metric": "accuracy",
+      "value": 1.0,
+      "n": 16,
+      "ci95": null,
+      "expected_n": 16,
+      "complete": true,
+      "calls": 16
     }
   ],
   "evidence": {
@@ -1229,6 +1296,12 @@
             "protocol": "E1",
             "scope": "full",
             "report_path": "research/results/E1.md"
+          },
+          {
+            "run_id": "memory-cycle-524e3c74907182cd",
+            "protocol": "E11",
+            "scope": "trial",
+            "report_path": "research/results/E11.md"
           }
         ]
       },
@@ -1266,6 +1339,12 @@
             "protocol": "E1",
             "scope": "full",
             "report_path": "research/results/E1.md"
+          },
+          {
+            "run_id": "memory-cycle-524e3c74907182cd",
+            "protocol": "E11",
+            "scope": "trial",
+            "report_path": "research/results/E11.md"
           }
         ]
       },
@@ -1333,6 +1412,12 @@
             "protocol": "E10",
             "scope": "full",
             "report_path": "research/results/E10.md"
+          },
+          {
+            "run_id": "memory-cycle-524e3c74907182cd",
+            "protocol": "E11",
+            "scope": "trial",
+            "report_path": "research/results/E11.md"
           }
         ]
       },

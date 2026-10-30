@@ -12,6 +12,15 @@ from .integrity import integrity_issues
 from .schemas import Choice, FlatPhotoReading, KeyCheck, Label, LearningMemory, SourceQuestion, SolverResult, PhotoReading, PatternObservation
 
 RUNTIME_VERSION = "gmat-upload-learning-1"
+
+
+def canonical_subtype(value):
+    value = re.sub(r"[\s-]+", "_", value.strip().lower())
+    aliases = {"must_be_true": "inference", "boldface": "structure", "bold_face": "structure", "argument_role": "structure",
+        "evaluate_argument": "evaluate", "necessary_assumption": "assumption", "strengthening": "strengthen", "weakening": "weaken"}
+    value = aliases.get(value, value)
+    return value if value in {"strengthen", "weaken", "assumption", "inference", "evaluate", "flaw", "explain", "structure"} else "unknown"
+
 CAPTURE_SYSTEM = """Transcribe ONE GMAT question from the supplied photos. Do not solve it.
 Separate passage, stem and the five options from answer keys and publisher/teacher explanations.
 Copy every question word, preserve each boldface target as [BOLD_1]...[/BOLD_1] etc.
@@ -126,6 +135,7 @@ Use your own words for all explanations, not the publisher's wording. Preserve t
             explanation="The question and independent solving results were saved, but the detailed explanation could not finish. Please check the reference in your book; any AI-only answer remains an estimate.")
         raw = FlatPhotoReading.from_reading(fallback)
     reading = raw.reading.model_copy(update={"question": question, "key_guess": selected, "personal_data_present": captured.personal_data_present})
+    reading = reading.model_copy(update={"pattern": reading.pattern.model_copy(update={"subtype": canonical_subtype(reading.pattern.subtype)})})
     key_check = KeyCheck(provided=reference, first_reading=main["answer_label"], solver_answer=control["answer_label"],
         verdict="unchecked" if not reference else "agrees" if main["answer_label"] == reference else "upheld" if req.source_attested else "disputed",
         note=f"{source}; {status}. AI agreement is not a confirmed reference label.")

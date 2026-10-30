@@ -6,7 +6,7 @@ from test_errorlog import IMAGE, reading
 from questionize.evolution import content_hash
 from questionize.schemas import DiagnoseRequest, FlatPhotoReading, LearningMemory, SourceQuestion, Choice
 from questionize.pipeline import QuestionPipeline
-from questionize.upload_learning import Capture, read_and_assess, solver_prompt, fingerprint
+from questionize.upload_learning import Capture, read_and_assess, solver_prompt, fingerprint, canonical_subtype
 
 
 def capture(**changes):
@@ -67,3 +67,10 @@ def test_local_reference_is_never_serialized_into_blind_prompt_and_option_permut
     q2 = q.model_copy(deep=True)
     q2.choices = list(reversed(q2.choices))
     assert fingerprint(q) == fingerprint(q2)
+
+
+def test_subtype_spelling_does_not_silently_break_expert_example_retrieval():
+    assert canonical_subtype("Inference") == "inference"
+    assert canonical_subtype("Must be true") == "inference"
+    assert canonical_subtype("Bold Face") == "structure"
+    assert canonical_subtype("") == "unknown"
