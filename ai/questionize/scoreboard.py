@@ -313,6 +313,7 @@ def render_data(rows: list[dict], qualifications: dict | None = None) -> dict:
         run["measured_capabilities"] = sorted({r["capability"] for r in records if r["run_id"] == row["run_id"]})
         runs.append(run)
     from .budget_report import project_study
+    from .mastery_report import project as project_mastery
     return {
         "schema_version": 1,
         "updated_at": max((r.get("started_at", "") for r in runs), default=None),
@@ -321,6 +322,7 @@ def render_data(rows: list[dict], qualifications: dict | None = None) -> dict:
         "runs": runs,
         "records": records,
         "budget_studies": [study for row in rows if (study := project_study(row)) is not None],
+        "mastery_studies": [study for row in rows if (study := project_mastery(row)) is not None],
     }
 
 

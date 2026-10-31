@@ -16,7 +16,7 @@ class StudyBudget:
         if old and old['limit_usd']!=limit:raise ValueError('Do not silently change the study budget')
         # An interrupted in-flight request may have been billed: charge its full reservation.
         self.spent=old.get('charged_usd',0.)+sum(old.get('leases',{}).values())
-        self.leases={};self.unknown=old.get('unknown_usage',0);self.save()
+        self.leases={};self.unknown=old.get('unknown_usage',0)+len(old.get('leases',{}));self.save()
 
     def save(self):private_write(self.path,{'limit_usd':self.limit,'charged_usd':round(self.spent,9),'leases':self.leases,'unknown_usage':self.unknown})
 

@@ -1,8 +1,9 @@
 """Deterministic defects; these checks do not establish semantic correctness."""
 import re
 import unicodedata
+from .source_input import source_input_issues
 
-INTEGRITY_VERSION = "integrity-0.2"
+INTEGRITY_VERSION = "integrity-0.3"
 
 
 def is_completion(stem: str) -> bool:
@@ -11,7 +12,7 @@ def is_completion(stem: str) -> bool:
 
 def integrity_issues(question) -> list[str]:
     normalized = [" ".join(unicodedata.normalize("NFKC", c.text).casefold().split()) for c in question.choices]
-    found = []
+    found = source_input_issues(question)
     if len(set(normalized)) != len(normalized):
         found.append("duplicate_choice_text")
     if any(not s for s in normalized):

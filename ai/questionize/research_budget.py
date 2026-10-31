@@ -10,6 +10,7 @@ import json
 import math
 import time
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import BaseModel
@@ -50,6 +51,8 @@ class BudgetClient:
     def __init__(self, provider, *, transport=None, effort="medium", audit=None):
         if provider.name != "meta" or provider.model not in MODEL_RATES:
             raise ValueError("Research requires a registered Standard Meta model and verified rates")
+        if transport is None and urlsplit(provider.base_url).hostname != 'api.meta.ai':
+            raise ValueError('Private source inference is restricted to the registered Meta endpoint')
         self.model, self.effort = provider.model, effort
         self.rates, self.audit = MODEL_RATES[self.model], audit
         self.http = httpx.AsyncClient(base_url=provider.base_url.rstrip("/") + "/",
@@ -111,6 +114,9 @@ class BudgetClient:
         except Exception as error:
             # Provider messages may contain source text. Retain only a bounded error category here.
             status = getattr(getattr(error, "response", None), "status_code", None)
+            if self.audit and status:
+                try:self.audit({"request_hash":metrics["request_hash"],"http_error_status":status,"error_response":error.response.json()})
+                except Exception:pass
             raise BudgetFailure(f"http_{status}" if status else type(error).__name__, metrics) from None
         finally:
             metrics["elapsed_seconds"] = round(time.monotonic() - start, 3)

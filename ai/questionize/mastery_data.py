@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .eval_budget_cr import normalise, private_write, stimulus_grams
 from .research_budget import digest
+from .source_input import source_input_issues
 
 
 def prepare(library: Path, out: Path):
@@ -51,6 +52,7 @@ def prepare(library: Path, out: Path):
                 role='held';reason='source_style_review_required'
             if re.search(r'\b(?:official|correct)\s+answer\s*(?:is|:)\s*[A-E]\b',text,re.I):
                 role='held';reason='reference_not_separated'
+            if source_input_issues(q):role='held';reason='missing_referenced_stimulus'
             record={**i,'e15_role':role,'stimulus_group':group_hash}
             partitions[role].append(record)
             if reason:reasons.append({'fingerprint':i['library_fingerprint'],'reason':reason})
@@ -58,15 +60,16 @@ def prepare(library: Path, out: Path):
     roles={k:{i['stimulus_group'] for i in v} for k,v in partitions.items()}
     for name in ('official_regression','web_regression','compendium_development'):
         assert not roles[name]&roles['confirmation']
+    assert not {i.get('source_test') for i in partitions['compendium_development']}&{i.get('source_test') for i in partitions['confirmation']}
     public={'counts':{k:len(v) for k,v in partitions.items()},'groups':{k:len(roles[k]) for k in roles},
             'hashes':{k:digest([i['library_fingerprint'] for i in v]) for k,v in partitions.items()},
             'held_reasons':dict(collections.Counter(i['reason'] for i in reasons)),
             'near_stimulus_links':len(links),'confirmation_overlap':0,'total_gmat_records':len(items),
             'lsat_used':False,'compendium_reference_status':'supplied_key_only; not independently adjudicated',
             'exposed_cohorts_are_fresh':False}
-    manifest={'protocol':'E15','protocol_version':1,'created_at':datetime.now(timezone.utc).isoformat(),
+    manifest={'protocol':'E15','protocol_version':2,'created_at':datetime.now(timezone.utc).isoformat(),
               'library_hash':digest(original),'public':public,'partitions':partitions,'held':reasons,
-              'protocol_hash':digest((Path(__file__).resolve().parents[2]/'research/protocols/E15-solver-mastery.md').read_text())}
+              'protocol_hash':digest((Path(__file__).resolve().parents[2]/'research/protocols/E15-solver-mastery-v2.md').read_text())}
     private_write(out/'manifest.json',manifest)
     print(json.dumps(public))
     return manifest

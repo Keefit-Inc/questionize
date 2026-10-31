@@ -1,0 +1,9 @@
+# E15 v1 pre-confirmation operational clarification
+
+Recorded before opening the final 365-item confirmation outcomes. The initial manifest and its protocol hash remain unchanged and archived with the initial code commit. This note clarifies implementation details rather than replacing the registered source memberships or previously observed results.
+
+- The initial diagnostic phase compared four high-effort conditions (Spark direct, Spark mechanism, Wonder direct, Wonder mechanism). A separate `effort` phase supplies the registered medium-effort Spark diagnostic on the same 54-item official development cohort as `ogdev`. Its time/order difference is visible; it is not a new unseen evaluation.
+- The development data may shortlist an additional procedure arm for final confirmation. All final comparison arms must already have development results and are frozen together with a single candidate selection before confirmation. Any model-upgrade effect is kept separate from the same-model procedure contrast.
+- When a Wonder candidate is selected, a common $0.15 per-item ceiling may be used for all final arms; actual costs are reported. A higher ceiling is not identical realised spending. This is an accuracy-first study under the unchanged total $30 envelope, not a replication of E14's $0.03 ceiling.
+- The broad exposed regression pass uses the selected candidate only to maximise unique-question coverage within the total envelope. It is not reported as a fresh paired test; matched baseline/candidate evidence comes from the separate confirmation phase.
+- If resource limits prevent complete evaluation, report the exact attempted membership and unattempted count. Budget-limited completion order is not a random population sample. No unattempted case is quietly called solved, and no source key is changed for agreement.

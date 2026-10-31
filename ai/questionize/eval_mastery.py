@@ -24,6 +24,7 @@ from .mastery_solver import solve_method
 from .research_budget import BudgetClient,digest
 
 ARMS={
+    'SM':{'model':'muse-spark-1.3','effort':'medium','method':'direct','envelope':.06},
     'S':{'model':'muse-spark-1.3','effort':'high','method':'direct','envelope':.06},
     'P':{'model':'muse-spark-1.3','effort':'high','method':'mechanism','envelope':.06},
     'W':{'model':'muse-wonder-1.0','effort':'high','method':'direct','envelope':.15},
@@ -33,7 +34,7 @@ ARMS={
 
 def source_hash():
     return digest({name:Path(__file__).with_name(name+'.py').read_text() for name in
-        ('eval_mastery','mastery_data','mastery_solver','mastery_budget','research_budget')})
+        ('eval_mastery','mastery_data','mastery_solver','mastery_budget','research_budget','source_input','prompts','llm','eval_budget_cr')})
 
 
 def load_policy(path):
@@ -55,7 +56,7 @@ def pilot_items(manifest,targets):
     return [{**i,'diagnostic_repeat':repeat} for repeat in (1,2) for i in hard]+[{**i,'diagnostic_repeat':1} for i in selected]
 
 
-def select(root,policy_path,candidate):
+def select(root,policy_path,candidate,include=None):
     path=root/'selected.json'
     if path.exists() or (root/'confirm.json').exists():raise ValueError('Final configuration already frozen')
     if not (root/'ogdev.json').exists() or not (root/'docdev.json').exists():raise ValueError('Development cohorts required before final selection')
@@ -64,12 +65,13 @@ def select(root,policy_path,candidate):
     if dev['policy_hash']!=digest(policy) or candidate not in dev['arms']:raise ValueError('Selected candidate was not evaluated with this policy')
     baseline='W' if candidate=='PW' else 'S'
     envelope=max(config['envelope'],ARMS[baseline]['envelope'])
-    frozen={'candidate':candidate,'baseline':baseline,'arms':{baseline:{**ARMS[baseline],'envelope':envelope},
-            candidate:{**config,'envelope':envelope}},'policy':policy,'policy_hash':digest(policy),
+    names=list(dict.fromkeys([baseline,candidate]+(include or [])))
+    if any(name not in dev['arms'] for name in names):raise ValueError('All final comparison arms must have development results')
+    frozen={'candidate':candidate,'baseline':baseline,'arms':{name:{**ARMS[name],'envelope':envelope} for name in names},
+            'policy':policy,'policy_hash':digest(policy),
             'manifest_hash':digest(json.loads((root/'manifest.json').read_text())),
             'selected_at':datetime.now(timezone.utc).isoformat(),'source_hash':source_hash(),
             'interpretation':'model_upgrade' if candidate=='W' else 'procedure_tool_comparison' if candidate in ('P','PW') else 'baseline_retained'}
-    if candidate=='S':frozen['arms']={'S':ARMS['S']}
     private_write(path,frozen);print(json.dumps({k:v for k,v in frozen.items() if k!='policy'}))
 
 
@@ -81,11 +83,13 @@ async def run_phase(root,phase,policy_path=None,arms=None):
         if digest(manifest)!=selection['manifest_hash'] or digest(policy)!=selection['policy_hash'] or source_hash()!=selection['source_hash']:
             raise ValueError('Frozen final provenance changed')
         if phase=='confirm':items=manifest['partitions']['confirmation']
-        else:items=manifest['partitions']['official_regression']+manifest['partitions']['web_regression']
+        else:
+            items=manifest['partitions']['official_regression']+manifest['partitions']['web_regression']
+            configs={selection['candidate']:configs[selection['candidate']]}
     else:
-        policy=load_policy(policy_path);names=arms or (list(ARMS) if phase in ('pilot','ogdev') else ['S','P'])
+        policy=load_policy(policy_path);names=arms or (['SM'] if phase=='effort' else ['S','P','W','PW'] if phase in ('pilot','ogdev') else ['S','P'])
         configs={name:ARMS[name] for name in names}
-        items=pilot_items(manifest,policy['diagnostic_targets']) if phase=='pilot' else [i for i in manifest['partitions']['official_regression'] if i.get('split')!='train'] if phase=='ogdev' else manifest['partitions']['compendium_development']
+        items=pilot_items(manifest,policy['diagnostic_targets']) if phase=='pilot' else [i for i in manifest['partitions']['official_regression'] if i.get('split')!='train'] if phase in ('ogdev','effort') else manifest['partitions']['compendium_development']
     path=root/(phase+'.json')
     if path.exists():raise ValueError('Phase already recorded; no selective reruns')
     if not items:raise ValueError('No eligible items')
@@ -94,6 +98,10 @@ async def run_phase(root,phase,policy_path=None,arms=None):
          'git_sha':subprocess.run(['git','rev-parse','HEAD'],cwd=REPO,capture_output=True,text=True).stdout.strip(),
          'rows':[],'budget_limited':False}
     private_write(path,run)
+    snapshot=root/'source'/phase;snapshot.mkdir(parents=True,exist_ok=True,mode=0o700)
+    for name in ('eval_mastery','mastery_data','mastery_solver','mastery_budget','research_budget','source_input','prompts','llm','eval_budget_cr'):
+        source=Path(__file__).with_name(name+'.py');target=snapshot/source.name
+        target.write_bytes(source.read_bytes());target.chmod(0o600)
     traces=root/(phase+'-responses.jsonl');traces.touch(mode=0o600,exist_ok=True);traces.chmod(0o600)
     def audit(value):
         with traces.open('a') as handle:handle.write(json.dumps(value,ensure_ascii=False)+'\n')
@@ -128,12 +136,12 @@ async def run_phase(root,phase,policy_path=None,arms=None):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('prepare','pilot','ogdev','docdev','select','confirm','regression'))
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=('prepare','pilot','effort','ogdev','docdev','select','confirm','regression'))
     p.add_argument('--out',type=Path,required=True);p.add_argument('--library',type=Path);p.add_argument('--policy',type=Path)
-    p.add_argument('--arms');p.add_argument('--candidate',choices=ARMS);args=p.parse_args();root=args.out.expanduser().resolve()
+    p.add_argument('--arms');p.add_argument('--candidate',choices=ARMS);p.add_argument('--include-arms');args=p.parse_args();root=args.out.expanduser().resolve()
     if root.is_relative_to(REPO):raise ValueError('All private research artifacts must remain outside Git')
     if args.action=='prepare':prepare(args.library,root)
-    elif args.action=='select':select(root,args.policy,args.candidate)
+    elif args.action=='select':select(root,args.policy,args.candidate,args.include_arms.split(',') if args.include_arms else None)
     else:asyncio.run(run_phase(root,args.action,args.policy,args.arms.split(',') if args.arms else None))
 
 

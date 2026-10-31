@@ -20,6 +20,31 @@ export interface ResearchData {
   subjects: string[]; runs: Run[]; records: Measurement[];
   evidence?: EvidenceRegistry;
   budget_studies?: BudgetStudy[];
+  mastery_studies?: MasteryStudy[];
+}
+
+export interface MasteryMetric {
+  n: number; expected_n: number; correct: number; accuracy: number | null; ci95?: [number,number]; errors: number; repair_errors: number;
+  calls: number; normalised_usd: number; estimated_billed_usd: number; input_tokens: number; output_tokens: number;
+  reasoning_tokens: number; cached_tokens: number; mean_seconds: number; tool_witnesses: number; repair_rescues: number; repair_harms: number;
+  hard_trials: number; hard_correct: number; hard_unique: number; hard_closed: number; usage_complete: boolean;
+  model?: string; effort?: string; method?: string; baseline?: string; envelope?: number;
+  comparison?: {b?:number;c?:number;p?:number;difference?:number;n?:number;diff_ci95?:[number,number]};
+}
+export interface MasteryPhase {
+  registered:number; evaluated:number; unique_questions:number; budget_limited:boolean; completed:boolean;
+  conditions:Record<string,MasteryMetric>; roles:Record<string,Record<string,MasteryMetric>>;
+}
+export interface MasteryStudy {
+  schema_version:number; run_id:string; started_at:string; candidate:string; baseline:string; interpretation:string;
+  decision:string; candidate_deployed:boolean; official_closed:boolean; cost_accounting_complete:boolean;
+  confirmation_cost_accounting_complete?:boolean; blinding_passed?:boolean; audited_requests?:number;matched_requests?:number;protocol_version?:number;
+  preparation?:{restored_questions?:number;invalid_evaluated_questions?:number;invalid_phase_generation_calls?:number;invalid_phase_normalised_usd?:number;invalid_phase_estimated_billed_usd?:number;aborted_reservation_upperbound_usd?:number;keys_changed?:number;choices_changed?:number;source_test_roles_preserved?:boolean};
+  unique_evaluated:number; condition_responses:number; budget_limit_usd:number; charged_usd:number; unknown_usage:number;
+  normalised_usd:number; estimated_billed_usd:number; manifest_hash:string; policy_hash:string; source_hash:string;
+  report_path:string; protocol_path:string; clarification_path:string;
+  split:{counts:Record<string,number>;groups:Record<string,number>;hashes:Record<string,string>;confirmation_overlap:number;total_gmat_records:number};
+  phases:Record<string,MasteryPhase>;
 }
 
 export interface BudgetCondition {

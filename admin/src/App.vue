@@ -5,8 +5,9 @@ import EvolutionConsole from "./EvolutionConsole.vue";
 import EvidenceConsole from "./EvidenceConsole.vue";
 import UploadLearningConsole from "./UploadLearningConsole.vue";
 import BudgetConsole from "./BudgetConsole.vue";
+import MasteryConsole from "./MasteryConsole.vue";
 
-const view = ref<"research" | "evolution" | "evidence" | "uploads" | "budget">(window.location.hash === "#budget" ? "budget" : window.location.hash === "#uploads" ? "uploads" : window.location.hash === "#evolution" ? "evolution" : window.location.hash === "#evidence" ? "evidence" : "research");
+const view = ref<"research" | "evolution" | "evidence" | "uploads" | "budget" | "mastery">(window.location.hash === "#mastery" ? "mastery" : window.location.hash === "#budget" ? "budget" : window.location.hash === "#uploads" ? "uploads" : window.location.hash === "#evolution" ? "evolution" : window.location.hash === "#evidence" ? "evidence" : "research");
 const data = ref<ResearchData | null>(null);
 const budgetAnnotations = computed(() => data.value?.runs.find(run => run.run_id === data.value?.budget_studies?.at(-1)?.run_id)?.qualifications ?? []);
 const error = ref("");
@@ -76,6 +77,7 @@ function showEvidence() {
 }
 function showUploads() { view.value = "uploads"; window.history.replaceState(null, "", "#uploads"); }
 function showBudget() { view.value = "budget"; window.history.replaceState(null, "", "#budget"); }
+function showMastery() { view.value = "mastery"; window.history.replaceState(null, "", "#mastery"); }
 
 watchEffect(() => {
   if (capabilities.value.length && !capabilities.value.some((c) => c.id === capability.value)) capability.value = capabilities.value[0].id;
@@ -127,15 +129,17 @@ onMounted(refresh);
       <button :class="['workflow-nav', { active: view === 'evidence' }]" :aria-pressed="view === 'evidence'" @click="showEvidence"><span>▤</span><span>Evidence &amp; sources<small>Literature · reliability · provenance</small></span></button>
       <button :class="['workflow-nav', { active: view === 'uploads' }]" :aria-pressed="view === 'uploads'" @click="showUploads"><span>⇄</span><span>Upload learning<small>New evidence · local evaluation</small></span></button>
       <button :class="['workflow-nav', { active: view === 'budget' }]" :aria-pressed="view === 'budget'" @click="showBudget"><span>≋</span><span>Budget comparison<small>GMAT CR · memory · verifier</small></span></button>
+      <button :class="['workflow-nav', { active: view === 'mastery' }]" :aria-pressed="view === 'mastery'" @click="showMastery"><span>◎</span><span>Solver mastery<small>GMAT CR · broad confirmation</small></span></button>
       <div class="sidebar-bottom"><span class="ledger-icon">≡</span><strong>Evidence before claims</strong><p>Protocols, versioned runs and measured outcomes.</p><a href="https://github.com/Keefit-Inc/questionize/tree/main/research" target="_blank" rel="noreferrer">Open research record ↗</a><a href="/snap">Open learner app ↗</a></div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ view === 'budget' ? 'Budget comparison' : view === 'uploads' ? 'Upload learning' : view === 'evolution' ? 'Evolution' : view === 'evidence' ? 'Evidence & sources' : GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> {{ view === 'evolution' || view === 'uploads' ? 'Live cycle registry' : 'Published aggregates · read only' }}</span></header>
+      <header class="topbar"><span><span class="crumb">Research</span><span class="slash">/</span>{{ view === 'mastery' ? 'Solver mastery' : view === 'budget' ? 'Budget comparison' : view === 'uploads' ? 'Upload learning' : view === 'evolution' ? 'Evolution' : view === 'evidence' ? 'Evidence & sources' : GROUPS.find((item) => item.id === group)?.name }}</span><span class="readonly"><span class="status-dot" /> {{ view === 'evolution' || view === 'uploads' ? 'Live cycle registry' : 'Published aggregates · read only' }}</span></header>
       <EvolutionConsole v-if="view === 'evolution'" @completed="refresh" />
       <EvidenceConsole v-else-if="view === 'evidence'" :registry="data?.evidence" />
       <UploadLearningConsole v-else-if="view === 'uploads'" />
       <BudgetConsole v-else-if="view === 'budget'" :studies="data?.budget_studies" :annotations="budgetAnnotations" @open-uploads="showUploads" />
+      <MasteryConsole v-else-if="view === 'mastery'" :studies="data?.mastery_studies" />
       <div v-else class="content">
         <div class="page-heading"><div><p class="eyebrow">CONTINUOUS CAPABILITY EVALUATION</p><h1>Measure. Compare. Improve.</h1><p class="subtitle">A shared record of what changed, what was tested, and what the evidence supports.</p></div><button class="button" :disabled="loading" @click="refresh">↻ {{ loading ? "Refreshing…" : "Refresh" }}</button></div>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
