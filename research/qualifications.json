@@ -98,6 +98,15 @@
       },
       "summary": "Twenty matched original generation tasks. First-draft verification by same-model agents is an AI proxy, not human item quality or learner benefit; v1 memory-size study remains unexecuted.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E2.md"
+    },
+    {
+      "id": "e14-source-reference-budget-scope",
+      "applies_to": {
+        "protocol": "E14",
+        "protocol_version": 1
+      },
+      "summary": "Source-key agreement on a frozen newly acquired source set; possible model pretraining exposure and no independent human adjudication. Equal uncached token-price ceilings do not imply identical actual spending. The same-model verifier is correlated with its Solver. No production adoption, human explanation or learner-benefit claim.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E14.md"
     }
   ]
 }

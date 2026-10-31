@@ -19,6 +19,25 @@ export interface ResearchData {
   schema_version: number; updated_at: string | null; capabilities: Capability[];
   subjects: string[]; runs: Run[]; records: Measurement[];
   evidence?: EvidenceRegistry;
+  budget_studies?: BudgetStudy[];
+}
+
+export interface BudgetCondition {
+  n: number; correct: number; accuracy: number; ci95?: [number, number]; errors: number; calls: number;
+  normalised_usd: number; estimated_billed_usd: number; input_tokens: number; output_tokens: number;
+  reasoning_tokens: number; cached_tokens: number; mean_seconds: number; usage_complete: boolean; budget_violations: number;
+  vs_baseline?: { b?: number; c?: number; p?: number; difference?: number; diff_ci95?: [number, number] };
+}
+export interface BudgetStudy {
+  run_id: string; started_at: string; model: string; reasoning_effort: string; envelope_usd: number;
+  decision: "held" | "confirmation_required"; candidate_deployed: boolean; cost_comparison_valid: boolean;
+  split: { counts: Record<string, number>; groups: Record<string, number>; membership_hashes: Record<string, string>; cross_partition_group_overlap: number };
+  conditions: Record<string, BudgetCondition>; diagnostics: Record<string, number>; slices: Record<string, Record<string, number>>;
+  training_normalised_usd: number; training_estimated_billed_usd: number; training_calls: number; training_failures: number; procedure_count: number;
+  development_normalised_usd?: number; development_estimated_billed_usd?: number; development_calls?: number;
+  memory_retrieval_covered?: number;
+  memory_hash: string; manifest_hash: string; runner_hash: string; client_hash: string; report_path: string; protocol_path: string;
+  rates: Record<string, number>; price_url: string; price_reviewed: string;
 }
 
 export interface PaperEvidence {

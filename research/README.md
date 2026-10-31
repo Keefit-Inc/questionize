@@ -60,6 +60,7 @@ A new subject is added as a **subject pack** in [`subjects/`](subjects/): its sk
 | E11 | C3.1 new-upload blind observations → private local memory proposal → fresh paired validation → held/adopted release | Implemented; real outcomes recorded separately from scripted integration tests | [E11](protocols/E11-upload-driven-memory.md), [operations](../docs/UPLOAD_LEARNING.md) |
 | E12 | C1 completion-format recovery and C3.1 repeated blind solving | Executed; development cohorts, fifteen restored completion items plus previous 39 | [E12](protocols/E12-completion-readiness.md), [results](results/E12.md) |
 | E13 | Real-photo source capture and evidence-handling contracts | Executed v1/v2/v3; failures and repairs retained | [E13 v3](protocols/E13-photo-evidence-readiness-v3.md), [results](results/E13.md) |
+| E14 | C3.1 source-disjoint memory and verifier comparison under equal per-item token-price ceilings | Registered v1; private model inference, aggregate results only | [E14](protocols/E14-budget-matched-reasoning.md) |
 
 E2 v2 first tests a smaller, matched [design-procedure scaffold](protocols/E2-procedure-scaffold-v2.md). It does not substitute for the original memory-size experiment, human item ratings or learner outcomes.
 

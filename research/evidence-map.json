@@ -326,6 +326,53 @@
         "docs/RESEARCH_REFERENCES.md"
       ],
       "protocols": []
+    },
+    {
+      "id": "gepa-e14-design",
+      "title": "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning",
+      "url": "https://arxiv.org/abs/2507.19457",
+      "capabilities": [
+        "C3.1"
+      ],
+      "claim": "Natural-language feedback and explicit evaluation can guide prompt adaptation without weight updates.",
+      "limitations": "E14 does not implement GEPA evolutionary search or reproduce its benchmark gains. It tests one frozen training-derived procedure candidate under explicit budgets.",
+      "implementation_status": "method_inspired",
+      "review_status": "selected_primary_method_and_evaluation_sections_checked",
+      "implementation_paths": [
+        "ai/questionize/eval_budget_cr.py",
+        "ai/questionize/research_budget.py"
+      ],
+      "protocols": [
+        "E14"
+      ],
+      "result_protocol_versions": {
+        "E14": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "ace-e14-design",
+      "title": "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models",
+      "url": "https://arxiv.org/abs/2510.04618",
+      "capabilities": [
+        "C3.1"
+      ],
+      "claim": "Structured context can preserve domain strategies, while inaccurate feedback or over-compression can undermine adaptation.",
+      "limitations": "E14 learns fixed subtype procedures, not ACE incremental context curation. E14 results are our own CR observations, not a reproduction of ACE or proof of continual improvement.",
+      "implementation_status": "method_inspired",
+      "review_status": "selected_primary_methods_and_limitations_checked",
+      "implementation_paths": [
+        "ai/questionize/eval_budget_cr.py"
+      ],
+      "protocols": [
+        "E14"
+      ],
+      "result_protocol_versions": {
+        "E14": [
+          1
+        ]
+      }
     }
   ],
   "capture_audits": [
