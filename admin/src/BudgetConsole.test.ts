@@ -38,6 +38,8 @@ it("shows held evidence, verifier harm, separate live version and unequal actual
   expect(wrapper.text()).toContain("Research candidate deployed: No");
   expect(wrapper.text()).toContain("not human-certified correctness");
   expect(wrapper.text()).toContain("test-hash");
+  await wrapper.get('a[href="/admin#uploads"]').trigger('click');
+  expect(wrapper.emitted('open-uploads')).toHaveLength(1);
   wrapper.unmount();
 });
 

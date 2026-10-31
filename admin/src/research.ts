@@ -38,6 +38,8 @@ export interface BudgetStudy {
   memory_retrieval_covered?: number;
   memory_hash: string; manifest_hash: string; runner_hash: string; client_hash: string; report_path: string; protocol_path: string;
   rates: Record<string, number>; price_url: string; price_reviewed: string;
+  operational_errors?: Record<string, Record<string, number>>;
+  blinding_audit?: { passed: boolean; training_requests_checked?: number; training_requests_matched?: number; evaluation_requests_checked?: number; evaluation_requests_matched?: number; reference_pattern_hits?: number };
 }
 
 export interface PaperEvidence {

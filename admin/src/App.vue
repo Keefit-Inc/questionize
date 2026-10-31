@@ -8,6 +8,7 @@ import BudgetConsole from "./BudgetConsole.vue";
 
 const view = ref<"research" | "evolution" | "evidence" | "uploads" | "budget">(window.location.hash === "#budget" ? "budget" : window.location.hash === "#uploads" ? "uploads" : window.location.hash === "#evolution" ? "evolution" : window.location.hash === "#evidence" ? "evidence" : "research");
 const data = ref<ResearchData | null>(null);
+const budgetAnnotations = computed(() => data.value?.runs.find(run => run.run_id === data.value?.budget_studies?.at(-1)?.run_id)?.qualifications ?? []);
 const error = ref("");
 const loading = ref(false);
 const subject = ref("CR");
@@ -134,7 +135,7 @@ onMounted(refresh);
       <EvolutionConsole v-if="view === 'evolution'" @completed="refresh" />
       <EvidenceConsole v-else-if="view === 'evidence'" :registry="data?.evidence" />
       <UploadLearningConsole v-else-if="view === 'uploads'" />
-      <BudgetConsole v-else-if="view === 'budget'" :studies="data?.budget_studies" />
+      <BudgetConsole v-else-if="view === 'budget'" :studies="data?.budget_studies" :annotations="budgetAnnotations" @open-uploads="showUploads" />
       <div v-else class="content">
         <div class="page-heading"><div><p class="eyebrow">CONTINUOUS CAPABILITY EVALUATION</p><h1>Measure. Compare. Improve.</h1><p class="subtitle">A shared record of what changed, what was tested, and what the evidence supports.</p></div><button class="button" :disabled="loading" @click="refresh">↻ {{ loading ? "Refreshing…" : "Refresh" }}</button></div>
         <p v-if="error" class="error" role="alert">{{ error }}</p>

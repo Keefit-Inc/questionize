@@ -53,4 +53,9 @@ def project_study(row):
         result["conditions"][name] = projected
     result["diagnostics"] = fields(value.get("diagnostics", {}), ("both_correct", "rescue", "harm", "both_wrong", "operational_error", "oracle_opportunity_missed", "first_solver_wrong"))
     result["slices"] = {name: fields(obj, ("n", *ARMS)) for name, obj in value.get("slices", {}).items() if name in TYPES and isinstance(obj, dict)}
+    result["operational_errors"] = {arm: fields(value.get("operational_errors",{}).get(arm,{}),
+        ("output_budget_exhausted", "schema", "provider", "budget", "accounting", "incomplete", "other")) for arm in ARMS}
+    audit=value.get("blinding_audit",{})
+    result["blinding_audit"]={**fields(audit,("training_requests_checked","training_requests_matched","evaluation_requests_checked","evaluation_requests_matched","reference_pattern_hits")),
+                              "passed":audit.get("passed") is True}
     return result

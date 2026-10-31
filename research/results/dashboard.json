@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-10-30T23:18:36.384464+00:00",
+  "updated_at": "2026-10-31T03:01:45.773777+00:00",
   "capabilities": [
     {
       "id": "C1.1",
@@ -737,6 +737,46 @@
       "qualifications": [],
       "memory": null,
       "measured_capabilities": []
+    },
+    {
+      "run_id": "20261031T030145Z-e14-b5b672",
+      "protocol": "E14",
+      "protocol_version": 1,
+      "started_at": "2026-10-31T03:01:45.773777+00:00",
+      "git_sha": "0baa39d3e2d3e35582c7b3cb65e285f360b1c86f",
+      "prompts_hash": "1203fd203a1f9d6b3cf4fcd88697bfbec72e07d6d8c44a6276240f62d3013421",
+      "dataset_id": "private-cr-source-disjoint-e14-v1",
+      "dataset_hash": "6fd0b94a32569cfad15ee4a120604e98b05ed7ffb2e8297e59c6e0c6fc9ff33c",
+      "split": "frozen_new_source_test",
+      "n_items": 155,
+      "note": "Equal per-item uncached token-price ceilings; actual spend differs. New-source key agreement, not independently adjudicated truth or human explanation quality. Candidate is research-only; no production adoption.",
+      "subject": "CR",
+      "scope": "full",
+      "capabilities": [
+        "C3.1"
+      ],
+      "models": {
+        "primary": "muse-spark-1.3"
+      },
+      "qualifications": [
+        {
+          "id": "e14-post-run-routing-and-source-review",
+          "summary": "Post-run diagnosis: procedures were retrieved for 103/155 items; A and M both scored 98/103 there. On 52 unrouted items the inputs were identical. Targeted agent-assisted review flagged three source cases for independent expert adjudication; these are not confirmed source errors. Original scores and keys remain unchanged.",
+          "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E14-diagnostics.md"
+        },
+        {
+          "id": "e14-source-reference-budget-scope",
+          "summary": "Source-key agreement on a frozen newly acquired source set; possible model pretraining exposure and no independent human adjudication. Equal uncached token-price ceilings do not imply identical actual spending. The same-model verifier is correlated with its Solver. No production adoption, human explanation or learner-benefit claim.",
+          "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E14.md"
+        }
+      ],
+      "memory": {
+        "lessons": 8,
+        "hash": "4e2557906542d7ad271fc1a4be43d5e8cdabae64d69d01f5ddb58611aa838972"
+      },
+      "measured_capabilities": [
+        "C3.1"
+      ]
     }
   ],
   "records": [
@@ -1367,6 +1407,307 @@
       "expected_n": 20,
       "complete": true,
       "calls": 114
+    },
+    {
+      "run_id": "20261031T030145Z-e14-b5b672",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "A",
+      "scope": "full",
+      "metric": "accuracy",
+      "value": 0.9548387096774194,
+      "n": 155,
+      "ci95": [
+        0.9097,
+        0.978
+      ],
+      "expected_n": 155,
+      "complete": true,
+      "calls": 155
+    },
+    {
+      "run_id": "20261031T030145Z-e14-b5b672",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "M",
+      "scope": "full",
+      "metric": "accuracy",
+      "value": 0.9483870967741935,
+      "n": 155,
+      "ci95": [
+        0.9015,
+        0.9736
+      ],
+      "expected_n": 155,
+      "complete": true,
+      "calls": 155,
+      "vs_baseline": {
+        "b": 3,
+        "c": 4,
+        "p": 1.0,
+        "n": 155,
+        "baseline_accuracy": 0.9548387096774194,
+        "diff_ci95": [
+          -0.03871,
+          0.02581
+        ]
+      }
+    },
+    {
+      "run_id": "20261031T030145Z-e14-b5b672",
+      "capability": "C3.1",
+      "subject": "CR",
+      "condition": "MV",
+      "scope": "full",
+      "metric": "accuracy",
+      "value": 0.9290322580645162,
+      "n": 155,
+      "ci95": [
+        0.8774,
+        0.9599
+      ],
+      "expected_n": 155,
+      "complete": true,
+      "calls": 310,
+      "vs_baseline": {
+        "b": 0,
+        "c": 4,
+        "p": 0.125,
+        "n": 155,
+        "baseline_accuracy": 0.9548387096774194,
+        "diff_ci95": [
+          -0.05161,
+          -0.00645
+        ]
+      }
+    }
+  ],
+  "budget_studies": [
+    {
+      "schema_version": 1,
+      "run_id": "20261031T030145Z-e14-b5b672",
+      "started_at": "2026-10-31T03:01:45.773777+00:00",
+      "model": "muse-spark-1.3",
+      "reasoning_effort": "medium",
+      "decision": "held",
+      "candidate_deployed": false,
+      "price_url": "https://dev.meta.ai/docs/pricing-rate-limits",
+      "price_reviewed": "2026-10-30",
+      "report_path": "research/results/E14.md",
+      "protocol_path": "research/protocols/E14-budget-matched-reasoning.md",
+      "envelope_usd": 0.03,
+      "training_normalised_usd": 0.11081,
+      "training_estimated_billed_usd": 0.11081,
+      "training_calls": 8,
+      "training_failures": 0,
+      "procedure_count": 8,
+      "development_normalised_usd": 0.059273,
+      "development_estimated_billed_usd": 0.0584612,
+      "development_calls": 12,
+      "memory_retrieval_covered": 103,
+      "memory_hash": "4e2557906542d7ad271fc1a4be43d5e8cdabae64d69d01f5ddb58611aa838972",
+      "manifest_hash": "b5b6729850000797384a95b73c3f3638823d9a56048937785e178067ca8e715d",
+      "runner_hash": "1203fd203a1f9d6b3cf4fcd88697bfbec72e07d6d8c44a6276240f62d3013421",
+      "client_hash": "296045d8b2e5511847445023676b7ff9e462d251bbe4f91dd7349a619924f174",
+      "cost_comparison_valid": true,
+      "rates": {
+        "input": 1.25,
+        "cached_input": 0.15,
+        "output": 4.25
+      },
+      "split": {
+        "counts": {
+          "train": 70,
+          "development": 54,
+          "test": 155,
+          "held": 0
+        },
+        "groups": {
+          "train": 70,
+          "development": 54,
+          "test": 155,
+          "held": 0
+        },
+        "membership_hashes": {
+          "train": "4401f54897f19ef036154d7fbe61bdbba6d11b808c648bf111e311d0a1d6d5d6",
+          "development": "62e69b5d4d42addcfb1512b328e9f3ea5edcee5d77ee865a377c2ae3af201a57",
+          "test": "6fd0b94a32569cfad15ee4a120604e98b05ed7ffb2e8297e59c6e0c6fc9ff33c",
+          "held": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "overlap_links": 0,
+        "cross_partition_group_overlap": 0,
+        "key_only_compilation_used": false
+      },
+      "conditions": {
+        "A": {
+          "n": 155,
+          "expected_n": 155,
+          "correct": 148,
+          "accuracy": 0.9548387096774194,
+          "errors": 0,
+          "calls": 155,
+          "normalised_usd": 0.840656,
+          "estimated_billed_usd": 0.8187319,
+          "input_tokens": 71908,
+          "output_tokens": 176652,
+          "reasoning_tokens": 161110,
+          "cached_tokens": 19931,
+          "mean_seconds": 7.365,
+          "budget_violations": 0,
+          "usage_complete": true,
+          "ci95": [
+            0.9097,
+            0.978
+          ],
+          "vs_baseline": {}
+        },
+        "M": {
+          "n": 155,
+          "expected_n": 155,
+          "correct": 147,
+          "accuracy": 0.9483870967741935,
+          "errors": 0,
+          "calls": 155,
+          "normalised_usd": 0.932704,
+          "estimated_billed_usd": 0.8942403,
+          "input_tokens": 108075,
+          "output_tokens": 187673,
+          "reasoning_tokens": 171377,
+          "cached_tokens": 34967,
+          "mean_seconds": 7.83,
+          "budget_violations": 0,
+          "usage_complete": true,
+          "ci95": [
+            0.9015,
+            0.9736
+          ],
+          "vs_baseline": {
+            "b": 3,
+            "c": 4,
+            "p": 1.0,
+            "n": 155,
+            "difference": -0.006451612903225823,
+            "baseline_accuracy": 0.9548387096774194,
+            "diff_ci95": [
+              -0.03871,
+              0.02581
+            ]
+          }
+        },
+        "MV": {
+          "n": 155,
+          "expected_n": 155,
+          "correct": 144,
+          "accuracy": 0.9290322580645162,
+          "errors": 2,
+          "calls": 310,
+          "normalised_usd": 2.1304945,
+          "estimated_billed_usd": 2.0605521,
+          "input_tokens": 260708,
+          "output_tokens": 424614,
+          "reasoning_tokens": 390620,
+          "cached_tokens": 63584,
+          "mean_seconds": 17.861,
+          "budget_violations": 0,
+          "usage_complete": true,
+          "ci95": [
+            0.8774,
+            0.9599
+          ],
+          "vs_baseline": {
+            "b": 0,
+            "c": 4,
+            "p": 0.125,
+            "n": 155,
+            "difference": -0.02580645161290318,
+            "baseline_accuracy": 0.9548387096774194,
+            "diff_ci95": [
+              -0.05161,
+              -0.00645
+            ]
+          }
+        }
+      },
+      "diagnostics": {
+        "both_correct": 144,
+        "rescue": 0,
+        "harm": 2,
+        "both_wrong": 7,
+        "operational_error": 2,
+        "oracle_opportunity_missed": 2,
+        "first_solver_wrong": 9
+      },
+      "slices": {
+        "assumption": {
+          "n": 19,
+          "A": 18,
+          "M": 18,
+          "MV": 17
+        },
+        "evaluate": {
+          "n": 7,
+          "A": 7,
+          "M": 6,
+          "MV": 7
+        },
+        "explain": {
+          "n": 16,
+          "A": 16,
+          "M": 16,
+          "MV": 15
+        },
+        "flaw": {
+          "n": 6,
+          "A": 5,
+          "M": 5,
+          "MV": 5
+        },
+        "inference": {
+          "n": 2,
+          "A": 2,
+          "M": 2,
+          "MV": 2
+        },
+        "strengthen": {
+          "n": 25,
+          "A": 23,
+          "M": 24,
+          "MV": 23
+        },
+        "structure": {
+          "n": 7,
+          "A": 7,
+          "M": 7,
+          "MV": 7
+        },
+        "unknown": {
+          "n": 52,
+          "A": 50,
+          "M": 49,
+          "MV": 48
+        },
+        "weaken": {
+          "n": 21,
+          "A": 20,
+          "M": 20,
+          "MV": 20
+        }
+      },
+      "operational_errors": {
+        "A": {},
+        "M": {},
+        "MV": {
+          "output_budget_exhausted": 2
+        }
+      },
+      "blinding_audit": {
+        "training_requests_checked": 8,
+        "training_requests_matched": 8,
+        "evaluation_requests_checked": 620,
+        "evaluation_requests_matched": 620,
+        "reference_pattern_hits": 0,
+        "passed": true
+      }
     }
   ],
   "evidence": {
@@ -1784,6 +2125,59 @@
           "docs/RESEARCH_REFERENCES.md"
         ],
         "runs": []
+      },
+      {
+        "id": "gepa-e14-design",
+        "title": "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning",
+        "url": "https://arxiv.org/abs/2507.19457",
+        "capabilities": [
+          "C3.1"
+        ],
+        "claim": "Natural-language feedback and explicit evaluation can guide prompt adaptation without weight updates.",
+        "limitations": "E14 does not implement GEPA evolutionary search or reproduce its benchmark gains. It tests one frozen training-derived procedure candidate under explicit budgets.",
+        "implementation_status": "method_inspired",
+        "review_status": "selected_primary_method_and_evaluation_sections_checked",
+        "protocols": [
+          "E14"
+        ],
+        "implementation_paths": [
+          "ai/questionize/eval_budget_cr.py",
+          "ai/questionize/research_budget.py"
+        ],
+        "runs": [
+          {
+            "run_id": "20261031T030145Z-e14-b5b672",
+            "protocol": "E14",
+            "scope": "full",
+            "report_path": "research/results/E14.md"
+          }
+        ]
+      },
+      {
+        "id": "ace-e14-design",
+        "title": "Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models",
+        "url": "https://arxiv.org/abs/2510.04618",
+        "capabilities": [
+          "C3.1"
+        ],
+        "claim": "Structured context can preserve domain strategies, while inaccurate feedback or over-compression can undermine adaptation.",
+        "limitations": "E14 learns fixed subtype procedures, not ACE incremental context curation. E14 results are our own CR observations, not a reproduction of ACE or proof of continual improvement.",
+        "implementation_status": "method_inspired",
+        "review_status": "selected_primary_methods_and_limitations_checked",
+        "protocols": [
+          "E14"
+        ],
+        "implementation_paths": [
+          "ai/questionize/eval_budget_cr.py"
+        ],
+        "runs": [
+          {
+            "run_id": "20261031T030145Z-e14-b5b672",
+            "protocol": "E14",
+            "scope": "full",
+            "report_path": "research/results/E14.md"
+          }
+        ]
       }
     ],
     "knowledge_assets": [

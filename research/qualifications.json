@@ -107,6 +107,16 @@
       },
       "summary": "Source-key agreement on a frozen newly acquired source set; possible model pretraining exposure and no independent human adjudication. Equal uncached token-price ceilings do not imply identical actual spending. The same-model verifier is correlated with its Solver. No production adoption, human explanation or learner-benefit claim.",
       "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E14.md"
+    },
+    {
+      "id": "e14-post-run-routing-and-source-review",
+      "applies_to": {
+        "protocol": "E14",
+        "protocol_version": 1,
+        "dataset_hash": "6fd0b94a32569cfad15ee4a120604e98b05ed7ffb2e8297e59c6e0c6fc9ff33c"
+      },
+      "summary": "Post-run diagnosis: procedures were retrieved for 103/155 items; A and M both scored 98/103 there. On 52 unrouted items the inputs were identical. Targeted agent-assisted review flagged three source cases for independent expert adjudication; these are not confirmed source errors. Original scores and keys remain unchanged.",
+      "report_url": "https://github.com/Keefit-Inc/questionize/blob/main/research/results/E14-diagnostics.md"
     }
   ]
 }
