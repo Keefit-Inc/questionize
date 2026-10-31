@@ -8,8 +8,9 @@ Generated from `research/ledger.jsonl` by `python -m questionize.scoreboard`; do
 | C1.2 Capture: reconstruct |  |  | solvability equivalence ≥ 95% on items with figures | not measured yet |  |
 | C2 Understand the item |  |  | skill agreement ≥ 90%; trap tags ≥ 80%; difficulty ρ ≥ 0.4 | not measured yet |  |
 | C3.1 Solve | CR | full | accuracy against the key ≥ 95% (CR) | A 0.9548 [0.9097, 0.9780] (n=155) · M 0.9484 [0.9015, 0.9736] (n=155) · MV 0.9290 [0.8774, 0.9599] (n=155) | E14 v1 · 20261031T030145Z-e14-b5b672 · muse-spark-1.3 · provisional (see qualifications) |
-| C3.1 Solve | CR | trial | accuracy against the key ≥ 95% (CR) | completion_first 0.9333 [0.7018, 0.9881] (n=15) · completion_repeat 0.9333 [0.7018, 0.9881] (n=15) · previous_test 0.9744 [0.8682, 0.9955] (n=39) | E12 v1 · 20261030T225612Z-e12-c15459-cohorts · muse-spark-1.3 · provisional (see qualifications) |
+| C3.1 Solve | CR | trial | accuracy against the key ≥ 95% (CR) | base 0.3125 (n=16) · procedure 0.1875 (n=16) · choice 0.00 (n=16) · choice-adapter 0.3125 (n=16) | E16 v1 · 20261031-e16-og-development · Llama-3.2-1B-Instruct MLX 4bit |
 | C3.1 Solve | CR | regression | accuracy against the key ≥ 95% (CR) | baseline 1.00 [0.9011, 1.00] (n=35) · candidate 1.00 [0.9011, 1.00] (n=35) | E8 v1 · cycle-b02877966acd06b9 · muse-spark-1.3 · provisional (see qualifications) |
+| C3.1 Solve | CR-formal-logic | trial | accuracy against the key ≥ 95% (CR) | choice 0.0833 (n=24) · choice-adapter 0.1667 (n=24) | E16 v1 · 20261031-e16-logic-development · Llama-3.2-1B-Instruct MLX 4bit |
 | C3.2 Explain | CR | full | explanations rated correct ≥ 90% | not measured yet |  |
 | C3.2 Explain | CR | trial | explanations rated correct ≥ 90% | not measured yet |  |
 | C3.3 Explain at the learner's level |  |  | readability in band ≥ 90%; preferred to generic | not measured yet |  |

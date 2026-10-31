@@ -1,0 +1,165 @@
+{
+  "og_development": {
+    "n": 16,
+    "membership_hash": "3e3c5843d82ef0cb807a301072a46c9cc34d58742e1c756c029186273e67c6ed",
+    "scope": "previously_exposed_development_pilot",
+    "conditions": {
+      "base": {
+        "n": 16,
+        "source_key_matches": 5,
+        "format_errors": 0,
+        "execution_errors": 0,
+        "output_tokens": 2382,
+        "median_seconds": 0.6444,
+        "peak_memory_bytes": 1088921136,
+        "scope": "previously_exposed_development_pilot",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.3125,
+        "answer_counts": {
+          "E": 3,
+          "B": 11,
+          "D": 1,
+          "C": 1
+        },
+        "runner_sha256": "d6fd8f562411020b2537976a90f138d4b40c1f32182764fe86b4b5ec25f13d36",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": null
+      },
+      "procedure": {
+        "n": 16,
+        "source_key_matches": 3,
+        "format_errors": 3,
+        "execution_errors": 0,
+        "output_tokens": 3490,
+        "median_seconds": 0.9929,
+        "peak_memory_bytes": 1166630840,
+        "scope": "previously_exposed_development_pilot",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.1875,
+        "answer_counts": {
+          "A": 2,
+          "B": 9,
+          "missing": 3,
+          "E": 1,
+          "C": 1
+        },
+        "runner_sha256": "d6fd8f562411020b2537976a90f138d4b40c1f32182764fe86b4b5ec25f13d36",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": null
+      },
+      "choice": {
+        "n": 16,
+        "source_key_matches": 0,
+        "format_errors": 0,
+        "execution_errors": 0,
+        "output_tokens": 16,
+        "median_seconds": 0.1032,
+        "peak_memory_bytes": 1184325122,
+        "scope": "previously_exposed_development_pilot",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.0,
+        "answer_counts": {
+          "D": 3,
+          "A": 13
+        },
+        "runner_sha256": "3f3cd8d3094c01a957938c137a48a7272f7a9cf7fceba985e7613bc841f32b33",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": null
+      },
+      "choice-adapter": {
+        "n": 16,
+        "source_key_matches": 5,
+        "format_errors": 0,
+        "execution_errors": 0,
+        "output_tokens": 16,
+        "median_seconds": 0.1139,
+        "peak_memory_bytes": 1490257426,
+        "scope": "previously_exposed_development_pilot",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.3125,
+        "answer_counts": {
+          "E": 14,
+          "B": 2
+        },
+        "runner_sha256": "3f3cd8d3094c01a957938c137a48a7272f7a9cf7fceba985e7613bc841f32b33",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": "2594d875a1ee3c81017a16edf510a45122e2e2bd3e22f1df65f2e1eaf99b6335"
+      }
+    },
+    "best_constant_label_score": 5,
+    "constant_control_is_posthoc": true
+  },
+  "logic_development": {
+    "n": 24,
+    "membership_hash": "c0c102a04377b47ef8eea36d0601ce52548ab5ce7486f9cf18c93abb1a81e924",
+    "scope": "generated_formal_logic_development",
+    "conditions": {
+      "choice": {
+        "n": 24,
+        "source_key_matches": 2,
+        "format_errors": 0,
+        "execution_errors": 0,
+        "output_tokens": 24,
+        "median_seconds": 0.0702,
+        "peak_memory_bytes": 1010024526,
+        "scope": "generated_formal_logic_development",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.08333333333333333,
+        "answer_counts": {
+          "A": 24
+        },
+        "runner_sha256": "3f3cd8d3094c01a957938c137a48a7272f7a9cf7fceba985e7613bc841f32b33",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": null
+      },
+      "choice-adapter": {
+        "n": 24,
+        "source_key_matches": 4,
+        "format_errors": 0,
+        "execution_errors": 0,
+        "output_tokens": 24,
+        "median_seconds": 0.083,
+        "peak_memory_bytes": 1201897534,
+        "scope": "generated_formal_logic_development",
+        "api_usd": 0,
+        "explanation_quality_measured": false,
+        "accuracy": 0.16666666666666666,
+        "answer_counts": {
+          "E": 16,
+          "B": 8
+        },
+        "runner_sha256": "3f3cd8d3094c01a957938c137a48a7272f7a9cf7fceba985e7613bc841f32b33",
+        "model_files_hash": "ce27831dee6f6e77a12fec280c7167409cee68bba740ffffef417b64c8b596ef",
+        "adapter_files_hash": "2594d875a1ee3c81017a16edf510a45122e2e2bd3e22f1df65f2e1eaf99b6335"
+      }
+    },
+    "best_constant_label_score": 8,
+    "constant_control_is_posthoc": true
+  },
+  "training": {
+    "returncode": 0,
+    "elapsed_seconds": 38.657,
+    "api_usd": 0,
+    "paid_calls": 0,
+    "confirmation_used": false,
+    "train_instances": 128,
+    "train_structures": 4,
+    "development_instances": 24,
+    "development_structures": 3,
+    "confirmation_instances": 16,
+    "confirmation_structures": 2,
+    "confirmation_evaluated": false,
+    "steps": 80,
+    "adapter_bytes": 5642061,
+    "base_model_id": "mlx-community/Llama-3.2-1B-Instruct-4bit",
+    "base_revision": "08231374eeacb049a0eade7922910865b8fce912"
+  },
+  "decision": "held",
+  "production_changed": false,
+  "general_gmat_mastery_demonstrated": false
+}
