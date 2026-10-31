@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from .llm import parse_structured
 
 RATES = {"input": 1.25, "cached_input": .15, "output": 4.25}
+MODEL_RATES = {"muse-spark-1.3": RATES, "muse-wonder-1.0": {"input": 4.0, "cached_input": .20, "output": 20.0}}
 PRICE_URL = "https://dev.meta.ai/docs/pricing-rate-limits"
 PRICE_REVIEWED = "2026-10-30"
 
@@ -25,16 +26,18 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
-def price(input_tokens, output_tokens, cached_tokens=0):
+def price(input_tokens, output_tokens, cached_tokens=0, rates=None):
+    rates = rates or RATES
     if not 0 <= cached_tokens <= input_tokens or min(input_tokens, output_tokens) < 0:
         raise ValueError("Invalid token accounting")
-    return round(((input_tokens - cached_tokens) * RATES["input"] + cached_tokens * RATES["cached_input"]
-                  + output_tokens * RATES["output"]) / 1_000_000, 9)
+    return round(((input_tokens - cached_tokens) * rates["input"] + cached_tokens * rates["cached_input"]
+                  + output_tokens * rates["output"]) / 1_000_000, 9)
 
 
-def output_limit(allowance, context_tokens, maximum=16000):
-    available = Decimal(str(allowance)) - Decimal(context_tokens) * Decimal(str(RATES["input"])) / 1_000_000
-    return max(0, min(maximum, math.floor(available * 1_000_000 / Decimal(str(RATES["output"])))))
+def output_limit(allowance, context_tokens, maximum=16000, rates=None):
+    rates = rates or RATES
+    available = Decimal(str(allowance)) - Decimal(context_tokens) * Decimal(str(rates["input"])) / 1_000_000
+    return max(0, min(maximum, math.floor(available * 1_000_000 / Decimal(str(rates["output"])))))
 
 
 class BudgetFailure(RuntimeError):
@@ -44,10 +47,11 @@ class BudgetFailure(RuntimeError):
 
 
 class BudgetClient:
-    def __init__(self, provider, *, transport=None, effort="medium"):
-        if provider.name != "meta" or provider.model != "muse-spark-1.3":
-            raise ValueError("E14 pins the Standard Meta muse-spark-1.3 model")
+    def __init__(self, provider, *, transport=None, effort="medium", audit=None):
+        if provider.name != "meta" or provider.model not in MODEL_RATES:
+            raise ValueError("Research requires a registered Standard Meta model and verified rates")
         self.model, self.effort = provider.model, effort
+        self.rates, self.audit = MODEL_RATES[self.model], audit
         self.http = httpx.AsyncClient(base_url=provider.base_url.rstrip("/") + "/",
             headers={"Authorization": "Bearer " + provider.api_key}, timeout=180, transport=transport)
 
@@ -69,7 +73,7 @@ class BudgetClient:
             context = count.json()["input_tokens"]
             if not isinstance(context, int) or isinstance(context, bool) or context < 0:
                 raise ValueError("Invalid preflight count")
-            cap = output_limit(allowance, context, maximum)
+            cap = output_limit(allowance, context, maximum, self.rates)
             metrics.update(preflight_context_tokens=context, max_output_tokens=cap)
             if cap < 512:
                 raise BudgetFailure("insufficient_budget", metrics)
@@ -77,6 +81,10 @@ class BudgetClient:
             response = await self.http.post("responses", json={**body, "max_output_tokens": cap})
             response.raise_for_status()
             data = response.json()
+            if self.audit:
+                self.audit({"request_hash":metrics["request_hash"], "response":data})
+            metrics.update(response_id=data.get("id"), response_status=data.get("status"),
+                           incomplete_reason=(data.get("incomplete_details") or {}).get("reason"))
             usage = data.get("usage") or {}
             inp, out = usage.get("input_tokens"), usage.get("output_tokens")
             cached = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
@@ -86,7 +94,7 @@ class BudgetClient:
             if reasoning > out:
                 raise BudgetFailure("invalid_usage", metrics)
             metrics.update(input_tokens=inp, output_tokens=out, cached_tokens=cached, reasoning_tokens=reasoning,
-                           normalised_usd=price(inp, out), estimated_billed_usd=price(inp, out, cached), usage_complete=True,
+                           normalised_usd=price(inp, out, rates=self.rates), estimated_billed_usd=price(inp, out, cached, self.rates), usage_complete=True,
                            response_model=data.get("model", self.model))
             if metrics["normalised_usd"] > allowance + 0.000001:
                 raise BudgetFailure("budget_exceeded", metrics)
